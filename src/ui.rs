@@ -1,9 +1,9 @@
 //! Rendering.
 //!
-//! The UI is bottom-anchored and inline: it claims only the rows it needs at the
-//! bottom of the terminal, the way Claude Code and other Ink-based CLIs do,
-//! rather than taking over the screen. Committed choices are pushed up into
-//! scrollback by `main`, so the trail of what you picked stays visible above.
+//! The UI is bottom-anchored and inline: it claims only the rows it needs at
+//! the bottom of the terminal rather than taking over the screen, so whatever
+//! you were reading stays where it was. Committed choices are pushed up into
+//! scrollback by `main`, leaving the trail of what you picked visible above.
 
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait, lateness};
 use ratatui::{
