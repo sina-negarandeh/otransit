@@ -1,0 +1,52 @@
+# ---- secrets -------------------------------------------------------------
+# The subscription key. .env.example is committed; .env never is.
+.env
+.env.*
+!.env.example
+
+# ---- Rust ----------------------------------------------------------------
+/target/
+**/*.rs.bk
+*.pdb
+# Cargo.lock IS committed: this is a binary, not a library.
+
+# ---- feed data and caches ------------------------------------------------
+# The GTFS download (~109MB) and anything unpacked from it. Fetched with
+# `otransit update`, never committed.
+*.zip
+/gtfs/
+/gtfs-extract/
+/data/
+/samples/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Python tooling ------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---- editors and OS ------------------------------------------------------
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- assistant / local config -------------------------------------------
+.claude/settings.local.json
+
+# ---- docs ----------------------------------------------------------------
+# Local notes stay local; the ones that explain the code ship with it.
+*.md
+!/README.md
+!/RUST.md
+!/TESTING.md

@@ -1,0 +1,226 @@
+# otransit
+
+Live OC Transpo departures in the terminal.
+
+```
+     14    St-Laurent                13:31       6 min   on time
+     7     St-Laurent                13:44      18 min   7 late
+     12    Blair                     13:46      21 min   12 late
+     7     St-Laurent                13:48      23 min   sched
+     14    St-Laurent                13:51      26 min   4 late
+     18    St-Laurent                13:58      33 min   9 late
+     7     St-Laurent                14:00      35 min   sched
+──────────────────────────────────────────────────────────────────────
+ Departures   #2331 › RIDEAU / AUGUSTA             live 26s · esc · q
+```
+
+That is real output from Rideau and Augusta. The times are when each bus will
+actually arrive, not when it was timetabled: the 12 is due at 13:34 and running
+twelve minutes late, so it lands after a 7 that was scheduled after it. Rows
+marked `sched` are beyond the range of the live feed.
+
+## Why
+
+A timetable tells you the 7 leaves at 12:24. It does not tell you the 7 is
+twelve minutes late. Finding that out means picking up a phone, which is the
+thing that breaks concentration in the first place.
+
+## Install
+
+```bash
+git clone https://github.com/sina-negarandeh/otransit && cd otransit
+cargo run --release -- update
+```
+
+`update` downloads the published GTFS feed (109 MB, no key required), unpacks
+it, and builds a SQLite cache. It takes about ten seconds.
+
+```
+checking https://oct-gtfs-emasagcnfmcgeham.z01.azurefd.net/public-access/GTFSExport.zip
+  downloaded 109 MB
+  extracting...
+  routes 314
+  stops 5859
+  trips 156133
+  stop_times 6318222
+  building indexes...
+schedule updated (109 MB)
+```
+
+Run it daily. OC Transpo republishes the schedule every morning, and realtime
+trip IDs are only guaranteed to match that day's export. An unchanged feed
+costs one round trip:
+
+```
+checking https://oct-gtfs-emasagcnfmcgeham.z01.azurefd.net/public-access/GTFSExport.zip
+schedule already current (304 Not Modified)
+```
+
+The new cache is built next to the live one and swapped at the end, so a failed
+download cannot leave you without a schedule.
+
+### Live times
+
+Scheduled times work with no setup. Live predictions need a free subscription
+key from the [developer portal](https://nextrip-public-api.developer.azure-api.net/).
+
+```bash
+cp .env.example .env    # then paste your key in
+```
+
+## Use
+
+```bash
+cargo run --release
+```
+
+Browse, if you know the route:
+
+```
+ ❯ Bus                               71 routes running today
+   O-Train                           3 lines · scheduled times only
+──────────────────────────────────────────────────────────────────────
+ What are you taking?                type to find a stop · ↑↓ · ↵ · q
+```
+
+Or type a pole number, a stop name, or several words in any order. `bank
+somerset` finds `BANK / SOMERSET W`.
+
+```
+ ❯ RIDEAU / AUGUSTA          #2331   → St-Laurent      7, 12, 14, 18
+   RIDEAU / AUGUSTA          #2325   → Tunney's Past…  7, 12, 14, 18
+   RIDEAU / CHAPEL           #7591   → Tunney's Past…  7, 12, 14, 18
+   RIDEAU / CHARLOTTE        #7590   → St-Laurent      12, 14, 18
+──────────────────────────────────────────────────────────────────────
+ Transit stops   /rideau                      25 found · ↑↓ · ↵ · esc
+```
+
+The first two rows are opposite sides of the same corner. Same name, same
+routes. The destination column is the only thing separating them, which is why
+it is there.
+
+Keys: `↑↓`/`jk` move, `↵` select, `esc` back, `/` search from anywhere, `q`
+quit.
+
+## The feed
+
+Most of the work here went into the data, not the interface.
+
+### Two sources
+
+GTFS static is a 109 MB zip: 6.3 million `stop_times` rows, 156k trips, 5,859
+stops. Public, unauthenticated, republished daily.
+
+GTFS-Realtime needs a key and returns about 3 MB of JSON per poll. `otransit
+probe` reports on it:
+
+```
+transport   3034 KB in 647 ms
+payload     362 entities
+parsed      362 trips, feed built 3s ago
+predictions 352/362 first stops resolved (97%)
+static join 353/362 trip_ids in the cache (98%)
+O-Train     0 trips (expected 0; rail has no realtime)
+```
+
+That command exists because a shape change in the realtime feed is silent. The
+parser returns zero arrivals, every row falls back to `sched`, and the board
+looks like a quiet Sunday. The endpoint has `beta` in its URL, so it will move
+eventually.
+
+### Five things that will bite
+
+**Route 7 is published twice.** OC Transpo ships one `route_id` per booking
+period, `7` and `7-1`. Group by `route_id` and every route appears twice. The
+feed's 314 routes are really 184.
+
+**`arrival_time` reaches `28:45:00`.** A trip scheduled `25:10` on Friday is
+what you catch at `01:10` on Saturday. Naive `HH:MM` parsing silently drops
+154,094 rows, and late night is when you most want the answer.
+
+**`stop_code` is not unique.** Pole number 3009 covers seven platforms,
+including both O-Train directions.
+
+**`platform_code` is clean but sparse**, present on 215 of 5,859 stops. It is
+tempting to parse platforms out of stop names instead. Don't. `VANTAGE / AD.
+303` is an address and `MERIVALE H.S (STUDENTS ONLY)` is a note.
+
+**The realtime JSON is a .NET serialisation**, not the standard GTFS-RT
+mapping. PascalCase names, with a `HasX` boolean beside every optional `X`.
+Read `Time` without checking `HasTime` and you get a confidently wrong
+prediction. There is no `Delay` field at all, so lateness is computed against
+the timetable.
+
+### Inline, not fullscreen
+
+Most TUIs take the alternate screen and wipe your scrollback. This one claims
+the rows it needs at the bottom and leaves everything above alone.
+
+That is load-bearing enough to have its own test. `tests/terminal.rs` drives
+the real binary through a pty and asserts it emits zero alternate-screen
+sequences. No unit test can check that, because ratatui's `TestBackend` never
+writes an escape sequence anywhere.
+
+## Commands
+
+| Command | |
+|---|---|
+| `otransit` | the browser |
+| `otransit update` | download today's feed, rebuild the cache |
+| `otransit probe` | check the realtime feed still parses |
+| `otransit dump <route> [stop]` | headless walk of the query path |
+| `otransit screenshot [w] [h]` | render screens as text (`search=rideau`, `route=75`) |
+| `otransit ingest <dir>` | build from a feed you already unpacked |
+| `otransit logo` | the startup mark |
+| `otransit --version` | version and data attribution |
+
+The browser needs a real terminal, since the inline viewport queries cursor
+position. Piping gets a clear error rather than a hang. Use `dump` or
+`screenshot` in scripts.
+
+## Limits
+
+All of these are the feed's, not the app's.
+
+- **The O-Train has no realtime data.** Lines 1, 2 and 4 are always schedule
+  only. Checked against a live feed at 8:30pm on a Friday: 359 bus trips, zero
+  rail.
+- **No confidence bounds.** The feed carries no `uncertainty` field.
+- **Predictions reach about 45 minutes.** Past that the board shows the
+  timetable and labels it `sched`.
+- **GPS runs about two minutes stale**, not the 30 seconds advertised. Median
+  115s, occasionally eleven minutes. The status bar shows the feed's age rather
+  than hiding it.
+
+## Development
+
+```bash
+cargo fmt --check
+cargo clippy --release --all-targets
+cargo build --release
+cargo test --release
+```
+
+All four must be clean. 119 tests, about five seconds: 116 unit tests in-file
+and 3 integration tests that drive the real binary through a pty.
+
+[RUST.md](RUST.md) covers the standards: rustfmt, the API Guidelines, a curated
+clippy set, `unsafe` forbidden at the manifest level. [TESTING.md](TESTING.md)
+covers the approach, including the rule that earned its keep. After writing a
+test, break the code and watch it fail. That caught three tests which could not
+fail at all.
+
+## Attribution
+
+Transit data is published by the City of Ottawa, and using it carries an
+attribution requirement. `otransit --version` carries it:
+
+```
+otransit 0.1.0
+
+Contains information licensed under the Open Government Licence -
+City of Ottawa. https://open.ottawa.ca/pages/open-data-licence
+
+Not affiliated with, endorsed by, or sponsored by OC Transpo or the
+City of Ottawa.
+```
