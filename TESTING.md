@@ -50,7 +50,7 @@ shapes fails a test before it reaches a terminal.**
 
 ### Where it stands
 
-**118 unit tests, ~0.05s**, plus 3 that drive the real binary through a pty.
+**122 unit tests, ~0.05s**, plus 3 that drive the real binary through a pty.
 Every defect above now has a test that catches it.
 
 | Module | Tests | Covers |
@@ -61,8 +61,8 @@ Every defect above now has a test that catches it.
 | `db/search.rs` | 14 | search, ranking, platform stripping |
 | `app/clock.rs` | 14 | the service day, lateness, the wait column |
 | `ui/mod.rs` | 11 | the frame: sizing, the status bar, alignment, the cursor |
-| `ui/layout.rs` | 3 | badges and the column widths |
-| `ui/palette.rs` | 0 | exercised through the renderers above |
+| `ui/layout.rs` | 6 | badges, column widths, the gutter |
+| `ui/palette.rs` | 1 | which colours can carry a rule |
 | `rt.rs` | 11 | the realtime parser and its anomalies |
 | `app/poll.rs` | 6 | poll cadence and failure policy |
 | `fetch.rs` | 4 | 304 handling, empty bodies |

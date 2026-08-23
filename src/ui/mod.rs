@@ -11,7 +11,7 @@ mod palette;
 pub use palette::RULE_RGB;
 
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait, lateness};
-use layout::{Cols, badge_label, marker, truncate};
+use layout::{Cols, badge_label, gutter, marker, truncate};
 use palette::{ACCENT, DIM, FG, RULE, badge, hex, urgency};
 use ratatui::{
     Frame,
@@ -224,7 +224,11 @@ fn list(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row]) {
     // Every row on a screen has the same shape, so the first one settles the
     // badge column for all of them.
     let width = area.width as usize;
-    let cols = Cols::new(rows, width);
+    // The rule is measured rather than named by a constant, so the cells
+    // reserved for it cannot drift from the glyph drawn.
+    let rule = gutter(&app.screen);
+    let gutter_w = rule.as_ref().map_or(0, |s| s.content.chars().count());
+    let cols = Cols::new(rows, width, gutter_w);
     // The marker is drawn into the row rather than handed to the widget:
     // `highlight_symbol` takes a bare &str and is painted by `highlight_style`
     // along with the whole line, so colouring it there would flatten the row's
@@ -235,8 +239,13 @@ fn list(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row]) {
         .iter()
         .enumerate()
         .map(|(i, row)| {
+            // Built in the order they appear: the cursor column, the route's
+            // rule if there is one, then the row itself.
             let mut line = cols.line(row);
-            line.spans.insert(0, marker(Some(i) == selected));
+            let mut spans = vec![marker(Some(i) == selected)];
+            spans.extend(rule.clone());
+            spans.append(&mut line.spans);
+            line.spans = spans;
             ListItem::new(line)
         })
         .collect();
