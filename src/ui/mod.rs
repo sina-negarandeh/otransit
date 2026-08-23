@@ -5,7 +5,12 @@
 //! you were reading stays where it was. Committed choices are pushed up into
 //! scrollback by `main`, leaving the trail of what you picked visible above.
 
+mod layout;
+mod palette;
+
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait, lateness};
+use layout::{Cols, badge_label, marker, truncate};
+use palette::{ACCENT, DIM, FG, RULE, badge, hex, urgency};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -13,14 +18,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{List, ListItem, Paragraph},
 };
-
-const DIM: Color = Color::Rgb(0x6d, 0x6e, 0x70);
-const FG: Color = Color::Rgb(0xe6, 0xe6, 0xe6);
-/// Brand red. Marks the current choice and the active filter.
-const ACCENT: Color = Color::Rgb(0xDA, 0x38, 0x39);
-/// Dimmer than DIM — for rules and separators that should recede entirely.
-const RULE: Color = Color::Rgb(0x3a, 0x3b, 0x3d);
-const INK: Color = Color::Rgb(0x0c, 0x0c, 0x0c);
 
 /// Rows of list to show at most, before the list starts scrolling.
 ///
@@ -32,84 +29,6 @@ const MAX_ROWS: u16 = 8;
 
 /// Tallest the inline viewport ever needs to be: options + rule + status bar.
 pub const VIEWPORT_H: u16 = MAX_ROWS + 2;
-
-fn hex(s: &str) -> Option<(u8, u8, u8)> {
-    let s = s.trim().trim_start_matches('#');
-    if s.len() != 6 {
-        return None;
-    }
-    let v = u32::from_str_radix(s, 16).ok()?;
-    Some(((v >> 16) as u8, (v >> 8) as u8, v as u8))
-}
-
-/// WCAG relative luminance of an sRGB colour.
-fn luminance(r: u8, g: u8, b: u8) -> f32 {
-    let lin = |c: u8| {
-        let c = c as f32 / 255.0;
-        if c <= 0.03928 {
-            c / 12.92
-        } else {
-            ((c + 0.055) / 1.055).powf(2.4)
-        }
-    };
-    0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
-}
-
-/// Route badge colours: GTFS route_color as background, with black or white
-/// text — whichever has the higher WCAG contrast ratio against it.
-pub fn badge(bg_hex: &str) -> (Color, Color) {
-    let Some((r, g, b)) = hex(bg_hex) else {
-        return (ACCENT, INK);
-    };
-    let l = luminance(r, g, b);
-    let fg = if (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) {
-        INK
-    } else {
-        Color::Rgb(255, 255, 255)
-    };
-    (Color::Rgb(r, g, b), fg)
-}
-
-/// Colour by urgency: the board should be readable in peripheral vision.
-fn urgency(mins: i32) -> Style {
-    match mins {
-        m if m < 0 => Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT),
-        m if m <= 2 => Style::default()
-            .fg(Color::Rgb(0xff, 0x6b, 0x6b))
-            .add_modifier(Modifier::BOLD),
-        m if m <= 6 => Style::default()
-            .fg(Color::Rgb(0xff, 0xc1, 0x07))
-            .add_modifier(Modifier::BOLD),
-        m if m <= 15 => Style::default().fg(Color::Rgb(0x5c, 0xd6, 0x8a)),
-        _ => Style::default().fg(DIM),
-    }
-}
-
-/// Width of a route badge, in cells. OC Transpo route names are 1-3 characters,
-/// so 5 leaves one space on each side of the longest.
-const BADGE_W: usize = 5;
-
-/// Centre `name` in a fixed-width badge. When the padding can't split evenly
-/// the spare cell goes on the left, so a two-digit number sits a hair right of
-/// centre rather than left of it — the direction that reads as centred.
-fn badge_label(name: &str) -> String {
-    let pad = BADGE_W.saturating_sub(name.chars().count());
-    let right = pad / 2;
-    let left = pad - right;
-    format!("{}{}{}", " ".repeat(left), name, " ".repeat(right))
-}
-
-/// Cut a string to `max` display cells, with an ellipsis if it had to give.
-fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        return s.to_string();
-    }
-    match max {
-        0 => String::new(),
-        1 => "…".into(),
-        _ => s.chars().take(max - 1).collect::<String>() + "…",
-    }
-}
 
 /// How many rows this screen wants. `draw` computes the row list itself and
 /// calls `height_for` directly; this exists so tests can ask the question
@@ -285,170 +204,6 @@ fn status_bar(f: &mut Frame, area: Rect, app: &App, rows: &[Row]) {
     f.render_widget(Paragraph::new(Line::from(left)), area);
 }
 
-/// Two columns: a label and one dim detail at a fixed place. Every screen but
-/// the search results.
-///
-/// The marker (" ❯ ") is three cells wide on every row, so both widths here are
-/// measured after it.
-struct Plain {
-    /// The label: a stop name, or the badge and the gap that follows it.
-    label: usize,
-    detail: usize,
-}
-
-/// Four columns, for search results, which have to stay put whatever any
-/// individual name or destination is.
-struct Wide {
-    name: usize,
-    code: usize,
-    toward: usize,
-    routes: usize,
-}
-
-const MARKER_W: usize = 3;
-
-/// The cursor, in the brand red, or the blank column that keeps every other
-/// row aligned with it.
-fn marker(selected: bool) -> Span<'static> {
-    Span::styled(
-        if selected { " ❯ " } else { "   " },
-        Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
-    )
-}
-/// The badge, plus the gap that puts the detail column at a fixed place.
-const BADGE_COL: usize = BADGE_W + 3;
-/// Label column on the plain screens, chosen so stop names rarely truncate.
-const LABEL_COL: usize = 34;
-
-/// Both column sets for one frame.
-///
-/// Two usizes and four: cheaper to compute both than to thread the choice
-/// through the row loop, and it means neither type ever carries a field that
-/// does not apply to it.
-struct Cols {
-    plain: Plain,
-    wide: Wide,
-}
-
-impl Cols {
-    fn new(rows: &[Row], width: usize) -> Self {
-        Self {
-            plain: Plain::new(width, rows.first().is_some_and(|r| r.badge().is_some())),
-            wide: Wide::new(width),
-        }
-    }
-}
-
-impl Plain {
-    fn new(width: usize, badges: bool) -> Self {
-        let label = if badges { BADGE_COL } else { LABEL_COL };
-        Self {
-            label,
-            detail: width.saturating_sub(MARKER_W + label),
-        }
-    }
-}
-
-impl Wide {
-    /// Shares out what is left after the fixed columns, rather than using a
-    /// fixed label width as the plain layout does.
-    fn new(width: usize) -> Self {
-        let code = 6;
-        let toward = ((width * 24) / 100).clamp(10, 22);
-        let routes = ((width * 22) / 100).clamp(8, 26);
-        let gaps = 2 * 3; // between name, code, toward and routes
-        let name = width
-            .saturating_sub(MARKER_W + gaps + code + toward + routes)
-            .clamp(12, 36);
-        Self {
-            name,
-            code,
-            toward,
-            routes,
-        }
-    }
-}
-
-/// A stop search result: name, platform, pole number, destination, routes.
-fn hit_line(h: &crate::db::StopHit, c: &Wide) -> Line<'static> {
-    // The platform sits right after the name, and the pair is padded as one
-    // field so everything to the right still lines up.
-    let plat = &h.platform;
-    // Cells, not bytes: every other width here counts chars, and an accented
-    // platform code measured in bytes over-reserves and drags the rest right.
-    let plat_w = if plat.is_empty() {
-        0
-    } else {
-        plat.chars().count() + 1 // the space before it
-    };
-    let shown = truncate(
-        &crate::db::strip_platform(&h.name, plat),
-        c.name.saturating_sub(plat_w),
-    );
-    let used = shown.chars().count() + plat_w;
-    let toward = if h.toward.is_empty() {
-        String::new()
-    } else {
-        format!("→ {}", truncate(&h.toward, c.toward.saturating_sub(2)))
-    };
-
-    Line::from(vec![
-        Span::styled(shown, Style::default().fg(FG)),
-        Span::styled(
-            if plat.is_empty() {
-                String::new()
-            } else {
-                format!(" {plat}")
-            },
-            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
-        ),
-        Span::raw(" ".repeat(c.name.saturating_sub(used) + 2)),
-        Span::styled(
-            format!("{:<width$}", format!("#{}", h.code), width = c.code),
-            Style::default().fg(RULE),
-        ),
-        Span::raw("  "),
-        Span::styled(
-            format!("{toward:<width$}", width = c.toward),
-            Style::default().fg(DIM),
-        ),
-        Span::raw("  "),
-        Span::styled(
-            truncate(&h.routes.join(", "), c.routes),
-            Style::default().fg(DIM),
-        ),
-    ])
-}
-
-/// Every other screen: a label and one dim detail at a fixed column.
-fn plain_line(row: &Row, c: &Plain) -> Line<'static> {
-    // Route numbers get a filled badge in the official route colour.
-    let (label, style) = match row.badge() {
-        Some(colour) => {
-            let (bg, fg) = badge(colour);
-            (
-                badge_label(&row.primary()),
-                Style::default().bg(bg).fg(fg).add_modifier(Modifier::BOLD),
-            )
-        }
-        // Truncate rather than letting a long label shove the detail column right.
-        None => (
-            truncate(&row.primary(), c.label.saturating_sub(2)),
-            Style::default().fg(FG),
-        ),
-    };
-
-    let gap = c.label.saturating_sub(label.chars().count()).max(1);
-    Line::from(vec![
-        Span::styled(label, style),
-        Span::raw(" ".repeat(gap)),
-        Span::styled(
-            truncate(&row.secondary(), c.detail),
-            Style::default().fg(DIM),
-        ),
-    ])
-}
-
 /// One list renderer. The row decides its own shape; the screen is not consulted.
 fn list(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row]) {
     if rows.is_empty() {
@@ -478,10 +233,7 @@ fn list(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row]) {
         .iter()
         .enumerate()
         .map(|(i, row)| {
-            let mut line = match row {
-                Row::Hit(h) => hit_line(h, &cols.wide),
-                other => plain_line(other, &cols.plain),
-            };
+            let mut line = cols.line(row);
             line.spans.insert(0, marker(Some(i) == selected));
             ListItem::new(line)
         })
@@ -932,31 +684,5 @@ mod tests {
             cols.windows(2).all(|w| w[0] == w[1]),
             "the code column drifts: {cols:?}"
         );
-    }
-
-    #[test]
-    fn badges_are_all_the_same_width() {
-        for name in ["1", "5", "10", "99", "105", "221"] {
-            assert_eq!(
-                badge_label(name).chars().count(),
-                BADGE_W,
-                "badge for {name:?} is not {BADGE_W} cells"
-            );
-        }
-    }
-
-    #[test]
-    fn badges_centre_the_number() {
-        // Odd padding splits with the spare cell on the left.
-        assert_eq!(badge_label("5"), "  5  ");
-        assert_eq!(badge_label("10"), "  10 ");
-        assert_eq!(badge_label("105"), " 105 ");
-    }
-
-    #[test]
-    fn badge_never_loses_the_number() {
-        // Longer than the badge: degrade to the bare name, don't truncate it.
-        assert_eq!(badge_label("SHOP"), " SHOP");
-        assert_eq!(badge_label("TOOLONG"), "TOOLONG");
     }
 }
