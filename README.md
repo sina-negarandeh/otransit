@@ -10,12 +10,6 @@ The colour is the interface. How long you have is red under two minutes, amber
 under six, green under fifteen, and dim past that, so the board answers "do I
 need to leave now" before you have read a single number.
 
-## Why
-
-A timetable tells you the 7 leaves at 12:24. It does not tell you the 7 is
-twelve minutes late. Finding that out means picking up a phone, which is the
-thing that breaks concentration in the first place.
-
 ```
      14    St-Laurent                13:31       6 min   on time
      7     St-Laurent                13:44      18 min   7 late
@@ -32,6 +26,15 @@ The times are when each bus will actually arrive, not when it was timetabled:
 the 12 is due at 13:34 and running twelve minutes late, so it lands after a 7
 that was scheduled after it. Rows marked `sched` are beyond the range of the
 live feed.
+
+## Why
+
+I noticed that the last thing I usually do before closing my laptop is check
+for transit updates to see if I should leave or squeeze in a few more minutes
+of work. This always breaks my flow, forcing me to either open maps on my
+laptop or pick up my phone. Since I've been living in the terminal lately, I
+thought this would be a great opportunity to solve that pain point while
+improving my skills in Rust, TUIs, and GTFS. Also, this was fun!
 
 ## Install
 
