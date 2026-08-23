@@ -290,16 +290,13 @@ pub fn probe(app: &App) -> Result<()> {
         if let Some(stus) = e
             .pointer("/TripUpdate/StopTimeUpdate")
             .and_then(|s| s.as_array())
-        {
-            if let Some(stop) = stus
+            && let Some(stop) = stus
                 .first()
                 .and_then(|s| s.get("StopId"))
                 .and_then(|s| s.as_str())
-            {
-                if rt.arrival(trip, stop).is_some() {
-                    with_time += 1;
-                }
-            }
+            && rt.arrival(trip, stop).is_some()
+        {
+            with_time += 1;
         }
         // One lookup answers both questions: the route_type is None when the
         // trip is absent from the cache, and 0 when it is rail.

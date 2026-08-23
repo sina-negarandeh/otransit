@@ -91,14 +91,15 @@ pub fn download(url: &str, dest: &Path, prev_etag: Option<&str>) -> Result<Optio
         }
         out.write_all(&buf[..n])?;
         done += n as u64;
-        if let Some(pct) = (done * 100).checked_div(total) {
-            if pct != last_pct && pct.is_multiple_of(10) {
-                eprint!(
-                    "\r  downloading {pct}% ({:.0} MB)",
-                    done as f64 / 1_048_576.0
-                );
-                last_pct = pct;
-            }
+        if let Some(pct) = (done * 100).checked_div(total)
+            && pct != last_pct
+            && pct.is_multiple_of(10)
+        {
+            eprint!(
+                "\r  downloading {pct}% ({:.0} MB)",
+                done as f64 / 1_048_576.0
+            );
+            last_pct = pct;
         }
     }
     out.flush()?;

@@ -14,15 +14,25 @@ use chrono::{DateTime, Duration, Local, NaiveDate, TimeZone};
 /// jump. Treating the origin as plain midnight shifts every trip after 02:00
 /// by an hour on those days.
 fn service_day_start(date: NaiveDate) -> DateTime<Local> {
+    service_day_start_in(&Local, date)
+}
+
+/// The same, in a named zone.
+///
+/// The app always wants the machine's, but the behaviour this exists for only
+/// happens in a zone that changes its clocks. A test that reads `Local` is
+/// really asserting something about the machine it runs on: this one passed in
+/// Ottawa for a session and failed the first time CI ran it in UTC.
+fn service_day_start_in<Tz: TimeZone>(tz: &Tz, date: NaiveDate) -> DateTime<Tz> {
     let noon = date
         .and_hms_opt(12, 0, 0)
         .expect("noon is a valid time on every date");
     // Noon is never skipped or repeated by a DST transition, so this is
     // unambiguous even on changeover days.
-    let noon = Local
+    let noon = tz
         .from_local_datetime(&noon)
         .single()
-        .unwrap_or_else(|| Local.from_local_datetime(&noon).earliest().expect("noon"));
+        .unwrap_or_else(|| tz.from_local_datetime(&noon).earliest().expect("noon"));
     noon - Duration::hours(12)
 }
 
@@ -133,8 +143,13 @@ mod tests {
         // midnight on all but two days a year. Ottawa springs forward on
         // 2026-03-08 and falls back on 2026-11-01; on those days midnight and
         // noon are 11 and 13 real hours apart, so the origin moves.
-        let spring = service_day_start(d(2026, 3, 8));
-        let fall = service_day_start(d(2026, 11, 1));
+        //
+        // The zone is named rather than inherited. Reading the machine's would
+        // make this assert something about where the suite runs: it passed here
+        // and failed on a UTC runner, which has no transition on these dates.
+        let tz = chrono_tz::America::Toronto;
+        let spring = service_day_start_in(&tz, d(2026, 3, 8));
+        let fall = service_day_start_in(&tz, d(2026, 11, 1));
         assert_ne!(
             spring.time(),
             chrono::NaiveTime::MIN,

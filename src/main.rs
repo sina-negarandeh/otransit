@@ -200,14 +200,14 @@ fn browse(db: &PathBuf) -> Result<()> {
     if !app.has_service_today() {
         eprintln!("warning: no services active for today. Try: otransit update");
     }
-    if let Some(days) = stale_days(db) {
-        if days > 0 {
-            eprintln!(
-                "note: schedule is {days} day{} old. OC Transpo republishes daily; \
-                 Run `otransit update`.",
-                if days == 1 { "" } else { "s" }
-            );
-        }
+    if let Some(days) = stale_days(db)
+        && days > 0
+    {
+        eprintln!(
+            "note: schedule is {days} day{} old. OC Transpo republishes daily; \
+             Run `otransit update`.",
+            if days == 1 { "" } else { "s" }
+        );
     }
 
     // The inline viewport asks the terminal where the cursor is (ESC[6n) and
