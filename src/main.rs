@@ -20,7 +20,17 @@ use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::time::Duration;
 
+/// Where the cache lives.
+///
+/// `OTRANSIT_DB` overrides it. That exists so `tests/terminal.rs` can drive the
+/// real binary against a cache it built itself: without it those tests read
+/// whatever happens to be in the developer's cache directory, which is the
+/// dependency on live data the project forbids, and they fail on any machine
+/// that has never run `otransit update`.
 fn db_path() -> PathBuf {
+    if let Some(p) = std::env::var_os("OTRANSIT_DB") {
+        return PathBuf::from(p);
+    }
     directories::BaseDirs::new()
         .map(|b| b.cache_dir().join("otransit").join("gtfs.db"))
         .unwrap_or_else(|| PathBuf::from(".otransit.db"))
@@ -196,6 +206,16 @@ fn update(db: &PathBuf) -> Result<()> {
 }
 
 fn browse(db: &PathBuf) -> Result<()> {
+    // Before the cache: a pipe cannot be fixed by running `otransit update`,
+    // and the inline viewport asks the terminal where the cursor is (ESC[6n)
+    // and waits for the reply, so it needs a real tty on both ends.
+    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+        bail!(
+            "otransit needs an interactive terminal.\n\
+             For non-interactive use try:  otransit dump <route>"
+        );
+    }
+
     let mut app = open_app(db)?;
     if !app.has_service_today() {
         eprintln!("warning: no services active for today. Try: otransit update");
@@ -207,15 +227,6 @@ fn browse(db: &PathBuf) -> Result<()> {
             "note: schedule is {days} day{} old. OC Transpo republishes daily; \
              Run `otransit update`.",
             if days == 1 { "" } else { "s" }
-        );
-    }
-
-    // The inline viewport asks the terminal where the cursor is (ESC[6n) and
-    // waits for the reply, so it needs a real tty on both ends.
-    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
-        bail!(
-            "otransit needs an interactive terminal.\n\
-             For non-interactive use try:  otransit dump <route>"
         );
     }
 
