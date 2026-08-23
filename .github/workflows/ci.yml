@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes the run in flight pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # rusqlite is built with `bundled`, which compiles SQLite from C source.
+      # Uncached, that is most of the run, every run.
+      - uses: Swatinem/rust-cache@v2
+
+      # The four commands CLAUDE.md calls the gate, in that order and in
+      # release, so "clean" means the same thing here as it does locally.
+      # Anything less would leave two definitions of a passing build.
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --release --all-targets -- -D warnings
+
+      - name: Build
+        run: cargo build --release
+
+      # Includes tests/terminal.rs, which drives the real binary through a pty
+      # to assert it never takes over the terminal. No test touches the
+      # network, the system clock or the live feed, so this needs no key.
+      - name: Test
+        run: cargo test --release
+
+  msrv:
+    name: minimum supported Rust (1.87)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.87
+      - uses: Swatinem/rust-cache@v2
+      # Cargo.toml declares this floor; without a job that holds it, the
+      # declaration is a claim nothing checks.
+      - name: Check
+        run: cargo check --all-targets
