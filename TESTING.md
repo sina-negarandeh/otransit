@@ -50,7 +50,7 @@ shapes fails a test before it reaches a terminal.**
 
 ### Where it stands
 
-**122 unit tests, ~0.05s**, plus 3 that drive the real binary through a pty.
+**122 unit tests**, plus 3 that drive the real binary through a pty.
 Every defect above now has a test that catches it.
 
 | Module | Tests | Covers |
@@ -199,8 +199,9 @@ only the one it is about.
 
 The rules they exist to keep:
 
-- **In memory or a temp dir.** The whole suite runs in ~0.03s, so it keeps
-  getting run.
+- **In memory or a temp dir.** The unit suite finishes in a fraction of a
+  second, which is the whole point: a suite that keeps up with editing is a
+  suite that gets run.
 - **Same schema as production.** Never hand-copied.
 - **Declarative and minimal.** A test about after-midnight times declares one
   trip, not a synthetic city.

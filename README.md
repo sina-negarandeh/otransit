@@ -201,8 +201,9 @@ cargo build --release
 cargo test --release
 ```
 
-All four must be clean. 125 tests, about five seconds: 122 unit tests in-file
-and 3 integration tests that drive the real binary through a pty.
+All four must be clean, and CI runs the same four on every push and pull
+request. 122 unit tests in-file, and 3 integration tests that drive the real
+binary through a pty.
 
 [RUST.md](RUST.md) covers the standards: rustfmt, the API Guidelines, a curated
 clippy set, `unsafe` forbidden at the manifest level. [TESTING.md](TESTING.md)
