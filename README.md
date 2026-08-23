@@ -4,6 +4,18 @@
 
 Live OC Transpo departures in the terminal.
 
+![A departures board at Rideau and Augusta: coloured route badges, destination, scheduled time, and the wait coloured by urgency. Two minutes is red, eight is green, later departures are dim, and lateness sits in amber beside them.](docs/images/departures-board.png)
+
+The colour is the interface. How long you have is red under two minutes, amber
+under six, green under fifteen, and dim past that, so the board answers "do I
+need to leave now" before you have read a single number.
+
+## Why
+
+A timetable tells you the 7 leaves at 12:24. It does not tell you the 7 is
+twelve minutes late. Finding that out means picking up a phone, which is the
+thing that breaks concentration in the first place.
+
 ```
      14    St-Laurent                13:31       6 min   on time
      7     St-Laurent                13:44      18 min   7 late
@@ -16,16 +28,10 @@ Live OC Transpo departures in the terminal.
  Departures   #2331 › RIDEAU / AUGUSTA             live 26s · esc · q
 ```
 
-That is real output from Rideau and Augusta. The times are when each bus will
-actually arrive, not when it was timetabled: the 12 is due at 13:34 and running
-twelve minutes late, so it lands after a 7 that was scheduled after it. Rows
-marked `sched` are beyond the range of the live feed.
-
-## Why
-
-A timetable tells you the 7 leaves at 12:24. It does not tell you the 7 is
-twelve minutes late. Finding that out means picking up a phone, which is the
-thing that breaks concentration in the first place.
+The times are when each bus will actually arrive, not when it was timetabled:
+the 12 is due at 13:34 and running twelve minutes late, so it lands after a 7
+that was scheduled after it. Rows marked `sched` are beyond the range of the
+live feed.
 
 ## Install
 
@@ -88,18 +94,17 @@ Browse, if you know the route:
 Or type a pole number, a stop name, or several words in any order. `bank
 somerset` finds `BANK / SOMERSET W`.
 
-```
- ❯ RIDEAU / AUGUSTA          #2331   → St-Laurent      7, 12, 14, 18
-   RIDEAU / AUGUSTA          #2325   → Tunney's Past…  7, 12, 14, 18
-   RIDEAU / CHAPEL           #7591   → Tunney's Past…  7, 12, 14, 18
-   RIDEAU / CHARLOTTE        #7590   → St-Laurent      12, 14, 18
-──────────────────────────────────────────────────────────────────────
- Transit stops   /rideau                      25 found · ↑↓ · ↵ · esc
-```
+![Search results for "rideau": stop name, pole number, destination, and the routes serving it. Two pairs share a name and differ only in destination, two rows share pole number 3009, and the platform letters A and B are picked out in red.](docs/images/stop-search.png)
 
-The first two rows are opposite sides of the same corner. Same name, same
-routes. The destination column is the only thing separating them, which is why
-it is there.
+Two pairs there share a name and their routes, and the destination column is
+the only thing separating them. The last two share something worse: pole number
+`#3009` covers both, because `stop_code` is not unique in this feed. What tells
+them apart is the platform letter, in red beside the name.
+
+Either path ends at a list of stops in travel order. The rule down the left is
+the route's own colour, so the O-Train's lines carry theirs:
+
+![The stations of O-Train Line 1 toward Tunney's Pasture, in travel order, with pole numbers beside them. A red rule runs down the left in Line 1's own colour, and the trail at the bottom shows the line badge in the same red.](docs/images/otrain-stations.png)
 
 Keys: `↑↓`/`jk` move, `↵` select, `esc` back, `/` search from anywhere, `q`
 quit.
@@ -141,7 +146,8 @@ what you catch at `01:10` on Saturday. Naive `HH:MM` parsing silently drops
 154,094 rows, and late night is when you most want the answer.
 
 **`stop_code` is not unique.** Pole number 3009 covers seven platforms,
-including both O-Train directions.
+including both O-Train directions. That is the pair in the search shot above:
+same code, different platform.
 
 **`platform_code` is clean but sparse**, present on 215 of 5,859 stops. It is
 tempting to parse platforms out of stop names instead. Don't. `VANTAGE / AD.
