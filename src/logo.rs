@@ -23,6 +23,9 @@ type Rgb = (u8, u8, u8);
 const RED: Rgb = (0xDA, 0x38, 0x39);
 const POLE: Rgb = (0x6d, 0x6e, 0x70);
 const MUTED: Rgb = (0x6d, 0x6e, 0x70);
+/// The ground the pole stands on: the same rule that sits above the status
+/// bar, taken from there rather than restated, so the two cannot drift apart.
+const GROUND: Rgb = crate::ui::RULE_RGB;
 const NAME: &str = "otransit";
 const TAGLINE: &str = "OC Transpo schedules in your terminal";
 /// What the one-line mark says. Shorter on purpose: that path exists because
@@ -115,9 +118,21 @@ pub fn selftest() {
     println!("  If C is broken but B is fine, it is the font's block glyph.\n");
 }
 
-/// Blank lines printed under the mark, so the viewport that opens directly
-/// below it does not sit flush against the logo.
-const CLEARANCE: usize = 2;
+/// The ground line the pole stands on, full width.
+///
+/// A pylon needs something to stand on, and the app that opens below gets a
+/// top edge to match the rule above its status bar — the pair bracket it
+/// without enclosing it. Nothing separates it from the app: the line is the
+/// separator, and a blank row under it would break the bracket.
+///
+/// Costs one line of scrollback, printed once: it is not part of the viewport,
+/// so it takes no rows away from the board.
+fn ground(width: u16) -> String {
+    if width == 0 {
+        return String::new();
+    }
+    format!("{}{}\x1b[0m\n", fg(GROUND), "─".repeat(width as usize))
+}
 
 /// The circle-and-pole mark. Falls back to one line on narrow terminals.
 pub fn print(term_width: u16) {
@@ -133,13 +148,13 @@ fn render(term_width: u16) -> String {
     let mark_w = grid[0].len();
     let gutter = 3;
     let needed = mark_w + gutter + TAGLINE.chars().count() + 4;
-    let tail = "\n".repeat(CLEARANCE);
 
     if (term_width as usize) < needed {
         return format!(
-            "\n{}\x1b[1m{NAME}\x1b[0m  {}{TAGLINE_SHORT}\x1b[0m\n{tail}",
+            "\n{}\x1b[1m{NAME}\x1b[0m  {}{TAGLINE_SHORT}\x1b[0m\n{}",
             fg(RED),
-            fg(MUTED)
+            fg(MUTED),
+            ground(term_width)
         );
     }
 
@@ -176,7 +191,7 @@ fn render(term_width: u16) -> String {
         out.push_str(&line);
         out.push('\n');
     }
-    out.push_str(&tail);
+    out.push_str(&ground(term_width));
     out
 }
 
@@ -185,20 +200,56 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_mark_leaves_two_clear_lines_for_the_viewport_below_it() {
-        // The inline viewport opens at the cursor, immediately under this, so
-        // with no clearance a full departures board sits flush against the
-        // logo. The count is written out rather than taken from CLEARANCE:
-        // asserting a constant against itself cannot fail.
+    fn the_pole_touches_the_ground_line_with_nothing_between() {
+        // The point of the line is that the pylon stands on it. Both other
+        // tests pass with a blank row inserted between the two, so without
+        // this one the feature's whole premise is unasserted.
+        // Checked on the raw string: the ring is background colour painted on
+        // spaces, so a view with the escapes stripped cannot tell a mark row
+        // from a blank one.
+        for width in [40u16, 200] {
+            let out = render(width);
+            let starts_the_rule = format!("\n{}", fg(GROUND));
+            assert!(
+                out.contains(&starts_the_rule),
+                "width {width}: no ground line at the start of a row"
+            );
+            assert!(
+                !out.contains(&format!("\n{starts_the_rule}")),
+                "width {width}: a blank row sits between the mark and its ground line"
+            );
+        }
+    }
+
+    #[test]
+    fn the_app_opens_directly_against_the_ground_line() {
+        // The inline viewport opens at the cursor. The ground line is the
+        // separator, so a blank row under it would put a gap between the mark
+        // and the app and break the bracket the two rules make.
         for width in [40u16, 200] {
             let out = render(width);
             assert!(
-                out.ends_with("\n\n\n"),
-                "width {width}: fewer than two clear lines under the mark"
+                out.ends_with("─\x1b[0m\n"),
+                "width {width}: something sits between the ground line and the app"
+            );
+        }
+    }
+
+    #[test]
+    fn the_pole_stands_on_a_ground_line_the_width_of_the_terminal() {
+        // The app's own rule sits above its status bar at the same width, so
+        // the two bracket it. A ground line of the wrong width breaks that,
+        // and a missing one leaves the pylon floating.
+        for width in [40u16, 70, 100] {
+            let rule = "─".repeat(width as usize);
+            let out = render(width);
+            assert!(
+                out.contains(&rule),
+                "width {width}: no ground line the width of the terminal"
             );
             assert!(
-                !out.ends_with("\n\n\n\n"),
-                "width {width}: more than two clear lines under the mark"
+                !out.contains(&format!("{rule}─")),
+                "width {width}: the ground line overruns the terminal"
             );
         }
     }

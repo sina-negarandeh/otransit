@@ -8,6 +8,8 @@
 mod layout;
 mod palette;
 
+pub use palette::RULE_RGB;
+
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait, lateness};
 use layout::{Cols, badge_label, marker, truncate};
 use palette::{ACCENT, DIM, FG, RULE, badge, hex, urgency};
