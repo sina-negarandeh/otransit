@@ -50,25 +50,25 @@ shapes fails a test before it reaches a terminal.**
 
 ### Where it stands
 
-**122 unit tests**, plus 3 that drive the real binary through a pty.
-Every defect above now has a test that catches it.
+Every defect above now has a test that catches it. What each module holds,
+in the order the app moves through them:
 
-| Module | Tests | Covers |
-|---|---:|---|
-| `app/mod.rs` | 17 | navigation, typing, board scope and refresh |
-| `db/browse.rs` | 15 | routes, directions, boards, ordering |
-| `gtfs.rs` | 14 | ingest, `parse_hms`, CSV handling |
-| `db/search.rs` | 14 | search, ranking, platform stripping |
-| `app/clock.rs` | 14 | the service day, lateness, the wait column |
-| `ui/mod.rs` | 11 | the frame: sizing, the status bar, alignment, the cursor |
-| `ui/layout.rs` | 6 | badges, column widths, the gutter |
-| `ui/palette.rs` | 1 | which colours can carry a rule |
-| `rt.rs` | 11 | the realtime parser and its anomalies |
-| `app/poll.rs` | 6 | poll cadence and failure policy |
-| `fetch.rs` | 4 | 304 handling, empty bodies |
-| `logo.rs` | 6 | the mark, both fallbacks, its ground line |
-| `db/calendar.rs` | 3 | service days and their exceptions |
-| `tests/terminal.rs` | 3 | inline viewport, clean exit, no tty |
+| Module | Covers |
+|---|---|
+| `app/mod.rs` | navigation, typing, board scope and refresh |
+| `app/clock.rs` | the service day, lateness, the wait column |
+| `app/poll.rs` | poll cadence and failure policy |
+| `db/browse.rs` | routes, directions, boards, ordering |
+| `db/search.rs` | search, ranking, platform stripping |
+| `db/calendar.rs` | service days and their exceptions |
+| `gtfs.rs` | ingest, `parse_hms`, CSV handling |
+| `fetch.rs` | 304 handling, empty bodies |
+| `rt.rs` | the realtime parser and its anomalies |
+| `ui/mod.rs` | the frame: sizing, the status bar, alignment, the cursor |
+| `ui/layout.rs` | badges, column widths, the gutter |
+| `ui/palette.rs` | which colours can carry a rule |
+| `logo.rs` | the mark, both fallbacks, its ground line |
+| `tests/terminal.rs` | inline viewport, clean exit, no tty |
 
 Four fixes here carry no test, and say so rather than carrying a fake one:
 deriving the board's fixed width from `WAIT_W`, capping the drawn rows at
