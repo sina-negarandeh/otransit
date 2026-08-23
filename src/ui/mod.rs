@@ -191,11 +191,11 @@ fn status_bar(f: &mut Frame, area: Rect, app: &App, rows: &[Row]) {
 
     // A single crumb can still be too wide to drop; shorten it instead.
     let over = (len(&left) + hints.chars().count() + 1).saturating_sub(width);
-    if over > 0 {
-        if let Some(last) = left.last_mut() {
-            let keep = last.content.chars().count().saturating_sub(over);
-            last.content = truncate(&last.content, keep).into();
-        }
+    if over > 0
+        && let Some(last) = left.last_mut()
+    {
+        let keep = last.content.chars().count().saturating_sub(over);
+        last.content = truncate(&last.content, keep).into();
     }
 
     let pad = width

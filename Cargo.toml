@@ -7,9 +7,11 @@ repository = "https://github.com/sina-negarandeh/otransit"
 # Personal project, not for crates.io. This also stops `cargo publish` working
 # by accident, and means no `license` field is expected.
 publish = false
-# Floor implied by what we use: edition 2024 needs 1.85, and `is_multiple_of`
-# on unsigned integers landed in 1.87. Not verified against older toolchains.
-rust-version = "1.87"
+# What we use needs 1.87 (edition 2024 wants 1.85; `is_multiple_of` on unsigned
+# integers landed in 1.87), but the floor is set by the dependency tree, not by
+# our own code: darling and the icu crates require 1.88. CI holds this against a
+# real toolchain, which is how the earlier 1.87 claim was found to be wrong.
+rust-version = "1.88"
 
 [dependencies]
 anyhow = "1"
@@ -18,7 +20,6 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 ratatui = "0.29"
 crossterm = "0.28"
 chrono = "0.4"
-chrono-tz = "0.10"
 directories = "5"
 serde_json = "1"
 ureq = "2"
@@ -30,6 +31,10 @@ tempfile = "3"
 # The terminal integration test drives the real binary through a pty: that is
 # the only way to observe what we emit to a terminal, which TestBackend cannot.
 portable-pty = "0.8"
+# The service day is defined against a zone that changes its clocks. Tests name
+# the zone instead of inheriting the machine's, which made one of them pass in
+# Ottawa and fail on a UTC runner.
+chrono-tz = "0.10"
 
 # Standards enforced by the compiler rather than by convention. See RUST.md.
 [lints.rust]

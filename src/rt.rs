@@ -220,12 +220,11 @@ pub fn load(cache_dir: &Path, key: &str) -> Result<Realtime> {
             .and_then(|m| m.elapsed().ok())
             .map(|d| d.as_secs() as i64)
             .unwrap_or(i64::MAX);
-        if age <= TTL_SECS {
-            if let Ok(bytes) = std::fs::read(&path) {
-                if let Ok(rt) = parse(&bytes) {
-                    return Ok(rt);
-                }
-            }
+        if age <= TTL_SECS
+            && let Ok(bytes) = std::fs::read(&path)
+            && let Ok(rt) = parse(&bytes)
+        {
+            return Ok(rt);
         }
     }
     refresh(cache_dir, key)

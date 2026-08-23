@@ -498,10 +498,10 @@ impl App {
     pub fn block_on_realtime(&self, secs: u64) {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
         loop {
-            if let Ok(g) = self.rt.lock() {
-                if !matches!(*g, RtState::Loading) {
-                    return;
-                }
+            if let Ok(g) = self.rt.lock()
+                && !matches!(*g, RtState::Loading)
+            {
+                return;
             }
             if std::time::Instant::now() >= deadline {
                 return;

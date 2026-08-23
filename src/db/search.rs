@@ -58,12 +58,12 @@ pub fn strip_platform(name: &str, platform: &str) -> String {
     // Require whitespace before the designator. Without it a platform code
     // that happens to end a word is eaten from inside the name: "...AVENUE"
     // with platform "E" would render "...AVENU".
-    if let Some(base) = name.strip_suffix(platform) {
-        if base.ends_with(char::is_whitespace) {
-            let base = base.trim_end();
-            if !base.is_empty() {
-                return base.to_string();
-            }
+    if let Some(base) = name.strip_suffix(platform)
+        && base.ends_with(char::is_whitespace)
+    {
+        let base = base.trim_end();
+        if !base.is_empty() {
+            return base.to_string();
         }
     }
     // O-Train platforms are coded "1"/"2" but named "... O-TRAIN EAST / EST".
