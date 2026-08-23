@@ -8,7 +8,10 @@ use ratatui::style::{Color, Modifier, Style};
 
 pub(super) const DIM: Color = Color::Rgb(0x6d, 0x6e, 0x70);
 
-pub(super) const FG: Color = Color::Rgb(0xe6, 0xe6, 0xe6);
+/// The body text, as channels: the gutter has to weigh a route's colour
+/// against it, and that needs numbers rather than a `Color`.
+const FG_RGB: (u8, u8, u8) = (0xe6, 0xe6, 0xe6);
+pub(super) const FG: Color = Color::Rgb(FG_RGB.0, FG_RGB.1, FG_RGB.2);
 
 /// Brand red. Marks the current choice and the active filter.
 pub(super) const ACCENT: Color = Color::Rgb(0xDA, 0x38, 0x39);
@@ -71,5 +74,43 @@ pub(super) fn urgency(mins: i32) -> Style {
             .add_modifier(Modifier::BOLD),
         m if m <= 15 => Style::default().fg(Color::Rgb(0x5c, 0xd6, 0x8a)),
         _ => Style::default().fg(DIM),
+    }
+}
+
+/// Whether a colour can carry a rule beside this palette's text.
+///
+/// The two it rejects are rejected for colliding with the text next to them,
+/// not for being dull: white outshines the stop names, and the dim grey is
+/// exactly what the pole numbers use. Brightness alone is the wrong test —
+/// an O-Train line's red is darker than that grey and is the colour most
+/// worth having.
+pub(super) fn reads_as_a_rule(colour: (u8, u8, u8)) -> bool {
+    let (r, g, b) = colour;
+    let (fr, fg, fb) = FG_RGB;
+    luminance(r, g, b) < luminance(fr, fg, fb) && Color::Rgb(r, g, b) != DIM
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn brightness_is_not_the_test_for_a_gutter_colour() {
+        // Line 1's red is *darker* than the dim grey it is preferred over, so
+        // a luminance threshold would reject the one colour most worth having.
+        assert!(luminance(0xD3, 0x0F, 0x1D) < luminance(0x6D, 0x6E, 0x70));
+        assert!(reads_as_a_rule((0xD3, 0x0F, 0x1D)), "an O-Train line's red");
+        assert!(
+            reads_as_a_rule((0x00, 0x57, 0xB8)),
+            "the blue many buses use"
+        );
+        assert!(
+            !reads_as_a_rule((0xFF, 0xFF, 0xFF)),
+            "white outshines the names"
+        );
+        assert!(!reads_as_a_rule((0x6D, 0x6E, 0x70)), "the dim text colour");
+        // The bound is "as bright as", not "brighter than": a rule the exact
+        // colour of the stop names beside it is not a rule either.
+        assert!(!reads_as_a_rule(FG_RGB), "the body-text colour itself");
     }
 }

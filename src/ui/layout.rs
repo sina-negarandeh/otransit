@@ -1,12 +1,13 @@
 //! One row, turned into a line: the column widths, and the spans that fill them.
 //!
-//! Nothing here draws a frame or consults a screen. A row is handed a set of
-//! widths and reports what it looks like.
+//! Nothing here draws a frame. A row is handed a set of widths and reports what
+//! it looks like; the one thing that asks the screen a question is the gutter,
+//! whose whole subject is which route the rows below it belong to.
 
-use super::palette::{ACCENT, DIM, FG, RULE, badge};
-use crate::app::Row;
+use super::palette::{ACCENT, DIM, FG, RULE, badge, hex, reads_as_a_rule};
+use crate::app::{Row, Screen};
 use ratatui::{
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
 };
 
@@ -37,6 +38,29 @@ pub(super) fn truncate(s: &str, max: usize) -> String {
 }
 
 pub(super) const MARKER_W: usize = 3;
+
+/// A rule down the left, in the route's own colour.
+///
+/// The stop list is in travel order and nothing else on screen says so, and
+/// neither list says which route it belongs to. Two cells, no rows, and it
+/// holds at any length — unlike a route diagram, whose termini are off screen
+/// for most of the directions in this feed and which degrades to decoration
+/// once they are.
+///
+/// Both screens below a route belong to it: the ways it runs, and the stops
+/// along one of them. The rule says so once, down the side, instead of a badge
+/// repeating the same number on every row.
+pub(super) fn gutter(screen: &Screen) -> Option<Span<'static>> {
+    if !matches!(screen, Screen::Stops { .. } | Screen::Directions { .. }) {
+        return None;
+    }
+    let colour = screen
+        .route()
+        .and_then(|r| hex(&r.color))
+        .filter(|&c| reads_as_a_rule(c))
+        .map_or(RULE, |(r, g, b)| Color::Rgb(r, g, b));
+    Some(Span::styled("│ ", Style::default().fg(colour)))
+}
 
 /// The cursor, in the brand red, or the blank column that keeps every other
 /// row aligned with it.
@@ -93,9 +117,16 @@ impl Cols {
         }
     }
 
-    pub(super) fn new(rows: &[Row], width: usize) -> Self {
+    /// `gutter_w` is measured from the gutter span rather than named as a
+    /// constant, so the cells reserved cannot drift from the glyph drawn.
+    pub(super) fn new(rows: &[Row], width: usize, gutter_w: usize) -> Self {
         Self {
-            plain: Plain::new(width, rows.first().is_some_and(|r| r.badge().is_some())),
+            // Only the plain layout pays for the gutter. Wide draws search
+            // results, which are never under a route.
+            plain: Plain::new(
+                width.saturating_sub(gutter_w),
+                rows.first().is_some_and(|r| r.badge().is_some()),
+            ),
             wide: Wide::new(width),
         }
     }
@@ -214,6 +245,88 @@ pub(super) fn plain_line(row: &Row, c: &Plain) -> Line<'static> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::Mode;
+    use crate::db::{Direction, Route};
+
+    fn route(colour: &str) -> Route {
+        Route {
+            short_name: "75".into(),
+            long_name: "x".into(),
+            color: colour.into(),
+            route_ids: vec!["75".into()],
+        }
+    }
+
+    fn directions(route: Route) -> Screen {
+        Screen::Directions {
+            mode: Mode::Bus,
+            route,
+            filter: String::new(),
+        }
+    }
+
+    #[test]
+    fn only_the_screens_below_a_route_carry_a_gutter() {
+        // It says "these belong to the route you picked". The first screens
+        // are above any route, and a board draws its own per-row badges.
+        let r = route("0057B8");
+        assert!(gutter(&Screen::Mode).is_none(), "mode");
+        assert!(
+            gutter(&Screen::Routes {
+                mode: Mode::Bus,
+                filter: String::new(),
+            })
+            .is_none(),
+            "routes"
+        );
+        assert!(gutter(&directions(r.clone())).is_some(), "directions");
+        assert!(
+            gutter(&Screen::Stops {
+                mode: Mode::Bus,
+                route: r,
+                dir: Direction {
+                    headsign: "Elmvale".into(),
+                    trips: 7,
+                },
+                filter: String::new(),
+            })
+            .is_some(),
+            "stops"
+        );
+    }
+
+    #[test]
+    fn the_gutter_takes_the_line_colour_only_when_it_reads_as_a_rule() {
+        for (colour, want) in [
+            ("0057B8", Color::Rgb(0x00, 0x57, 0xB8)),
+            ("6D6E70", RULE), // the exact grey the pole numbers use
+            ("FFFFFF", RULE), // outshines the stop names
+            ("nonsense", RULE),
+        ] {
+            let screen = directions(route(colour));
+            let span = gutter(&screen).expect("directions carries a gutter");
+            assert_eq!(span.style.fg, Some(want), "route colour {colour}");
+        }
+    }
+
+    #[test]
+    fn the_layout_gives_the_gutter_its_own_cells() {
+        // The gutter is drawn before the label, so the detail column has to be
+        // told it has that much less room. Asserted on the arithmetic: every
+        // secondary on these screens ("#1902", "70 trips today") is far shorter
+        // than the cap, so a rendered row cannot show the miscalculation.
+        let rows = [Row::Direction(Direction {
+            headsign: "Elmvale".into(),
+            trips: 70,
+        })];
+        let without = Cols::new(&rows, 74, 0);
+        let with = Cols::new(&rows, 74, 2);
+        assert_eq!(
+            without.plain.detail - with.plain.detail,
+            2,
+            "the detail column did not give up the gutter's cells"
+        );
+    }
 
     #[test]
     fn badges_are_all_the_same_width() {
