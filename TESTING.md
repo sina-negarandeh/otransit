@@ -30,15 +30,15 @@ self-verified work is the weakest kind.
 | Board sorted by scheduled time, displayed by live time | `db/browse.rs` | no |
 | Multi-token search unreachable behind the SQL prefilter | `db/search.rs` | no |
 | ~340ms of blocking per keystroke | `db/search.rs` | no |
-| `desired_height` unclamped for departures | `ui.rs` | partly |
+| `desired_height` unclamped for departures | `ui/mod.rs` | partly |
 | Breadcrumb lost the platform designator | `db/search.rs` | no |
 | A board froze its clock the moment it opened | `app/mod.rs` | no |
 | The wait column staggered its "h" on single-digit minutes | `app/clock.rs` | partly |
 | The same column overflowed the board entirely past 10 hours | `app/clock.rs` | partly |
 | A board left open drained instead of refilling | `app/mod.rs` | no |
 | Typing on a board silently disabled `q` and `esc` | `app/mod.rs` | no |
-| A capped search reported its limit as a match count | `ui.rs` | no |
-| A platform code was measured in bytes, not cells | `ui.rs` | partly |
+| A capped search reported its limit as a match count | `ui/mod.rs` | no |
+| A platform code was measured in bytes, not cells | `ui/layout.rs` | partly |
 
 The first ten were each in a file with no coverage; the four tests that existed
 were on string formatting, the part least likely to break. The last five were
@@ -60,7 +60,9 @@ Every defect above now has a test that catches it.
 | `gtfs.rs` | 14 | ingest, `parse_hms`, CSV handling |
 | `db/search.rs` | 14 | search, ranking, platform stripping |
 | `app/clock.rs` | 14 | the service day, lateness, the wait column |
-| `ui.rs` | 14 | badges, layout, truncation, alignment, the cursor |
+| `ui/mod.rs` | 11 | the frame: sizing, the status bar, alignment, the cursor |
+| `ui/layout.rs` | 3 | badges and the column widths |
+| `ui/palette.rs` | 0 | exercised through the renderers above |
 | `rt.rs` | 11 | the realtime parser and its anomalies |
 | `app/poll.rs` | 6 | poll cadence and failure policy |
 | `fetch.rs` | 4 | 304 handling, empty bodies |
