@@ -50,7 +50,7 @@ shapes fails a test before it reaches a terminal.**
 
 ### Where it stands
 
-**116 unit tests, ~0.05s**, plus 3 that drive the real binary through a pty.
+**118 unit tests, ~0.05s**, plus 3 that drive the real binary through a pty.
 Every defect above now has a test that catches it.
 
 | Module | Tests | Covers |
@@ -66,7 +66,7 @@ Every defect above now has a test that catches it.
 | `rt.rs` | 11 | the realtime parser and its anomalies |
 | `app/poll.rs` | 6 | poll cadence and failure policy |
 | `fetch.rs` | 4 | 304 handling, empty bodies |
-| `logo.rs` | 4 | the mark, both fallbacks, its clearance |
+| `logo.rs` | 6 | the mark, both fallbacks, its ground line |
 | `db/calendar.rs` | 3 | service days and their exceptions |
 | `tests/terminal.rs` | 3 | inline viewport, clean exit, no tty |
 

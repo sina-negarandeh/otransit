@@ -14,7 +14,11 @@ pub(super) const FG: Color = Color::Rgb(0xe6, 0xe6, 0xe6);
 pub(super) const ACCENT: Color = Color::Rgb(0xDA, 0x38, 0x39);
 
 /// Dimmer than DIM — for rules and separators that should recede entirely.
-pub(super) const RULE: Color = Color::Rgb(0x3a, 0x3b, 0x3d);
+/// Exposed as channels because `logo.rs` paints its ground line with it: the
+/// two rules bracketing the app have to match, and a second literal could not
+/// be made to.
+pub const RULE_RGB: (u8, u8, u8) = (0x3a, 0x3b, 0x3d);
+pub(super) const RULE: Color = Color::Rgb(RULE_RGB.0, RULE_RGB.1, RULE_RGB.2);
 
 pub(super) const INK: Color = Color::Rgb(0x0c, 0x0c, 0x0c);
 
