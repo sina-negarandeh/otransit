@@ -17,10 +17,12 @@ changing code that has one.
 
 ## Why this document exists
 
-Fifteen real defects were found by hand during development. The last five came
-from reviewing the fixes for the first ten, which is its own lesson: a
-behaviour-preserving refactor is exactly where a regression hides, and
-self-verified work is the weakest kind.
+Seventeen real defects were found during development. Five came from reviewing the
+fixes for the first ten, which is its own lesson: a behaviour-preserving
+refactor is exactly where a regression hides, and self-verified work is the
+weakest kind. The last two came from CI's first run, and are a sharper version
+of the same lesson: both were tests that passed for months on one machine
+because they read something the machine happened to provide.
 
 | Defect | File | Had tests? |
 |---|---|---|
@@ -39,6 +41,8 @@ self-verified work is the weakest kind.
 | Typing on a board silently disabled `q` and `esc` | `app/mod.rs` | no |
 | A capped search reported its limit as a match count | `ui/mod.rs` | no |
 | A platform code was measured in bytes, not cells | `ui/layout.rs` | partly |
+| The service day was asserted against the machine's timezone | `app/clock.rs` | yes, wrongly |
+| The pty tests ran against whatever cache the machine had | `tests/terminal.rs` | yes, wrongly |
 
 The first ten were each in a file with no coverage; the four tests that existed
 were on string formatting, the part least likely to break. The last five were

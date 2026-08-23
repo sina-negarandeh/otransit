@@ -9,8 +9,71 @@
 
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use std::io::{Read, Write};
-use std::sync::mpsc;
+use std::path::{Path, PathBuf};
+use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
+
+/// A cache built by this test, from a feed written by this test.
+///
+/// The binary refuses to start without one, so these tests used to depend on
+/// whatever `otransit update` had left in the developer's cache directory:
+/// live data, changing daily, absent on any machine that had never run it. They
+/// passed here for months and failed the first time CI ran them.
+///
+/// One service, one route, one stop, departures across the day. Nothing here
+/// asserts on the schedule; it exists so the app has something to draw.
+fn cache() -> &'static Path {
+    static CACHE: OnceLock<PathBuf> = OnceLock::new();
+    CACHE.get_or_init(|| {
+        let dir = std::env::temp_dir().join(format!("otransit-pty-{}", std::process::id()));
+        let feed = dir.join("feed");
+        std::fs::create_dir_all(&feed).expect("create feed dir");
+        for (name, body) in [
+            ("agency.txt", "agency_id,agency_name\n1,Test\n"),
+            (
+                "routes.txt",
+                "route_id,route_short_name,route_long_name,route_type,route_color\n\
+                 7,7,Blair <> Kanata,3,0057B8\n",
+            ),
+            (
+                "stops.txt",
+                "stop_id,stop_code,stop_name,stop_lat,stop_lon\n\
+                 S1,3009,RIDEAU A,45.0,-75.0\n",
+            ),
+            (
+                "trips.txt",
+                "route_id,service_id,trip_id,trip_headsign,direction_id\n\
+                 7,EVERY,t1,Blair,0\n7,EVERY,t2,Blair,0\n",
+            ),
+            (
+                "calendar.txt",
+                "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,\
+                 start_date,end_date\nEVERY,1,1,1,1,1,1,1,20200101,20991231\n",
+            ),
+            ("calendar_dates.txt", "service_id,date,exception_type\n"),
+            (
+                "stop_times.txt",
+                "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n\
+                 t1,06:00:00,06:00:00,S1,1\nt2,23:30:00,23:30:00,S1,1\n",
+            ),
+        ] {
+            std::fs::write(feed.join(name), body).expect("write feed file");
+        }
+
+        let db = dir.join("gtfs.db");
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_otransit"))
+            .args(["ingest", feed.to_str().expect("utf-8 path")])
+            .env("OTRANSIT_DB", &db)
+            .output()
+            .expect("run otransit ingest");
+        assert!(
+            out.status.success(),
+            "ingest failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        db
+    })
+}
 
 /// Switching to the alternate screen. Emitting this would wipe the user's
 /// scrollback — the exact regression the inline design exists to prevent.
@@ -42,10 +105,9 @@ impl Session {
             })
             .expect("open pty");
 
-        let child = pair
-            .slave
-            .spawn_command(CommandBuilder::new(env!("CARGO_BIN_EXE_otransit")))
-            .expect("spawn otransit");
+        let mut cmd = CommandBuilder::new(env!("CARGO_BIN_EXE_otransit"));
+        cmd.env("OTRANSIT_DB", cache());
+        let child = pair.slave.spawn_command(cmd).expect("spawn otransit");
         drop(pair.slave);
 
         let mut reader = pair.master.try_clone_reader().expect("reader");
@@ -157,6 +219,7 @@ fn refuses_to_run_without_a_terminal() {
     // must say so plainly instead of hanging or dying on a cryptic timeout.
     let out = std::process::Command::new(env!("CARGO_BIN_EXE_otransit"))
         .stdin(std::process::Stdio::null())
+        .env("OTRANSIT_DB", cache())
         .output()
         .expect("run otransit");
     let msg = String::from_utf8_lossy(&out.stderr);
@@ -165,4 +228,18 @@ fn refuses_to_run_without_a_terminal() {
         "expected a clear error, got: {msg}"
     );
     assert!(!out.status.success(), "should exit non-zero");
+
+    // The same, with no cache at all: a pipe cannot be fixed by running
+    // `otransit update`, so the terminal check has to come first. It did not,
+    // and on a machine with no cache this reported the wrong problem.
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_otransit"))
+        .stdin(std::process::Stdio::null())
+        .env("OTRANSIT_DB", cache().with_file_name("absent.db"))
+        .output()
+        .expect("run otransit");
+    let msg = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        msg.contains("interactive terminal"),
+        "with no cache, expected the terminal error first, got: {msg}"
+    );
 }
