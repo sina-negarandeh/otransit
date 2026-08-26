@@ -58,9 +58,11 @@ checking https://oct-gtfs-emasagcnfmcgeham.z01.azurefd.net/public-access/GTFSExp
 schedule updated (109 MB)
 ```
 
-Run it daily. OC Transpo republishes the schedule every morning, and realtime
-trip IDs are only guaranteed to match that day's export. An unchanged feed
-costs one round trip:
+Run it when the browser tells you to. OC Transpo republishes on its own
+schedule rather than on a fixed cadence, and realtime trip IDs are only
+guaranteed to match the export they were issued against, so the browser asks
+the server on startup and says so only when a newer export exists. Asking
+costs one round trip and no body, and so does an unchanged feed here:
 
 ```
 checking https://oct-gtfs-emasagcnfmcgeham.z01.azurefd.net/public-access/GTFSExport.zip

@@ -178,6 +178,12 @@ fn update(db: &PathBuf) -> Result<()> {
 
     eprintln!("checking {}", fetch::FEED_URL);
     let Some(dl) = fetch::download(fetch::FEED_URL, &zip, prev_etag.as_deref())? else {
+        // The feed has not moved, so the cache is current and there is nothing
+        // to rebuild. Record the confirmation: without it the cache keeps the
+        // date it was last *built* and the browser calls it stale tomorrow.
+        if let Ok(conn) = Connection::open(db) {
+            let _ = gtfs::set_meta(&conn, "checked_on", &Local::now().date_naive().to_string());
+        }
         println!("schedule already current (304 Not Modified)");
         return Ok(());
     };
@@ -195,7 +201,9 @@ fn update(db: &PathBuf) -> Result<()> {
         if let Some(tag) = &dl.etag {
             gtfs::set_meta(&conn, "etag", tag)?;
         }
-        gtfs::set_meta(&conn, "ingested_on", &Local::now().date_naive().to_string())?;
+        let today = Local::now().date_naive().to_string();
+        gtfs::set_meta(&conn, "ingested_on", &today)?;
+        gtfs::set_meta(&conn, "checked_on", &today)?;
     }
     std::fs::rename(&tmp, db)?;
 
@@ -220,15 +228,11 @@ fn browse(db: &PathBuf) -> Result<()> {
     if !app.has_service_today() {
         eprintln!("warning: no services active for today. Try: otransit update");
     }
-    if let Some(days) = stale_days(db)
-        && days > 0
-    {
-        eprintln!(
-            "note: schedule is {days} day{} old. OC Transpo republishes daily; \
-             Run `otransit update`.",
-            if days == 1 { "" } else { "s" }
-        );
-    }
+    // Ask the server whether the feed has moved, off the main thread, so a
+    // slow or absent network costs the browser nothing. The answer is read
+    // after the viewport closes: it is advice for next time, not something to
+    // act on mid-board, and it does not belong competing for the status bar.
+    let freshness = spawn_freshness_check(db);
 
     // Banner goes to stdout before the viewport exists, so it lands in
     // scrollback instead of being repainted every frame.
@@ -249,18 +253,35 @@ fn browse(db: &PathBuf) -> Result<()> {
     disable_raw_mode()?;
     terminal.clear()?;
     terminal.show_cursor()?;
+
+    // Only when there is something to do about it. Silence covers both "your
+    // copy is current" and "we could not reach the server", and the second is
+    // not worth a warning: you cannot update what you cannot download.
+    if let Ok(fetch::Freshness::Moved) = freshness.try_recv() {
+        eprintln!("note: a newer schedule is published. Run `otransit update`.");
+    }
     res
 }
 
-type Term = Terminal<CrosstermBackend<std::io::Stdout>>;
-
-/// How many days ago the cache was built, if we recorded it.
-fn stale_days(db: &PathBuf) -> Option<i64> {
-    let conn = Connection::open(db).ok()?;
-    let on = gtfs::get_meta(&conn, "ingested_on").ok()??;
-    let then = on.parse::<chrono::NaiveDate>().ok()?;
-    Some((Local::now().date_naive() - then).num_days())
+/// Ask, in the background, whether the published feed still matches our copy.
+///
+/// This replaced a warning computed from how many days ago the cache was
+/// built. That number answered the wrong question: it moved every morning
+/// whether or not OC Transpo published anything, so a cache `update` had just
+/// confirmed was current still got called stale. The etag answers the question
+/// actually being asked, and costs one round trip with no body.
+fn spawn_freshness_check(db: &PathBuf) -> std::sync::mpsc::Receiver<fetch::Freshness> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let etag = Connection::open(db)
+        .ok()
+        .and_then(|c| gtfs::get_meta(&c, "etag").ok().flatten());
+    std::thread::spawn(move || {
+        let _ = tx.send(fetch::freshness(fetch::FEED_URL, etag.as_deref()));
+    });
+    rx
 }
+
+type Term = Terminal<CrosstermBackend<std::io::Stdout>>;
 
 fn run(terminal: &mut Term, app: &mut App) -> Result<()> {
     while !app.quit {

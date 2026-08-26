@@ -50,6 +50,60 @@ pub fn check_body_len(bytes: u64) -> Result<()> {
     Ok(())
 }
 
+/// Whether the published feed still matches the copy we hold.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Freshness {
+    /// The server holds the same bytes we do.
+    Current,
+    /// A newer export is published.
+    Moved,
+    /// No answer: offline, timed out, or we hold no etag to ask about.
+    Unknown,
+}
+
+/// Compare what the server publishes against the etag we stored, by asking
+/// rather than by guessing from a date.
+///
+/// The etag is computed from the file, so a match means identical bytes. A date
+/// only records when we last did something, which is a different question and
+/// the reason this exists.
+///
+/// `HEAD`, so a moved feed costs nothing either: the answer is in the headers
+/// and the 109MB body is never requested.
+pub fn freshness(url: &str, etag: Option<&str>) -> Freshness {
+    let Some(tag) = etag else {
+        return Freshness::Unknown;
+    };
+    // Short: this runs while someone is trying to read a departure board, and
+    // an answer that arrives after they quit is worth nothing.
+    let resp = ureq::head(url)
+        .timeout(std::time::Duration::from_secs(5))
+        .set("If-None-Match", tag)
+        .call();
+    match resp {
+        Ok(r) => judge(r.status(), r.header("etag"), tag),
+        // Offline, timed out, or the server refused. We cannot tell.
+        Err(_) => Freshness::Unknown,
+    }
+}
+
+/// What a conditional response means for the copy we hold.
+///
+/// Split from the request so the decision can be tested without a network: no
+/// test may reach the live feed, and this is the part that can be wrong.
+fn judge(status: u16, served: Option<&str>, held: &str) -> Freshness {
+    if classify(status) == Outcome::NotModified {
+        return Freshness::Current;
+    }
+    match served {
+        Some(now) if now == held => Freshness::Current,
+        Some(_) => Freshness::Moved,
+        // A 200 with no etag tells us nothing about which bytes those are, and
+        // guessing "moved" here would nag on every launch.
+        None => Freshness::Unknown,
+    }
+}
+
 /// Fetch the feed to `dest`. Returns None when the server says 304 Not Modified.
 pub fn download(url: &str, dest: &Path, prev_etag: Option<&str>) -> Result<Option<Download>> {
     let mut req = ureq::get(url).timeout(std::time::Duration::from_secs(600));
@@ -151,6 +205,32 @@ pub fn extract(zip_path: &Path, dir: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_304_means_the_copy_we_hold_is_current() {
+        // The whole point: the server says "still that version" and sends no
+        // body, so there is nothing to download and nothing to warn about.
+        assert_eq!(judge(304, None, "0xABC"), Freshness::Current);
+    }
+
+    #[test]
+    fn a_different_etag_means_a_newer_export_is_published() {
+        assert_eq!(judge(200, Some("0xDEF"), "0xABC"), Freshness::Moved);
+    }
+
+    #[test]
+    fn the_same_etag_on_a_200_still_means_current() {
+        // Some caches answer 200 with the same etag rather than 304. That is
+        // the same news, and treating it as "moved" would nag every launch.
+        assert_eq!(judge(200, Some("0xABC"), "0xABC"), Freshness::Current);
+    }
+
+    #[test]
+    fn no_etag_at_all_is_unknown_rather_than_a_guess() {
+        // Without one we cannot tell which bytes were served. Silence beats a
+        // warning invented from a missing header.
+        assert_eq!(judge(200, None, "0xABC"), Freshness::Unknown);
+    }
 
     #[test]
     fn a_304_is_not_a_download() {
