@@ -57,8 +57,33 @@ pub enum Freshness {
     Current,
     /// A newer export is published.
     Moved,
-    /// No answer: offline, timed out, or we hold no etag to ask about.
+    /// The feed answered, with an error. The URL we hold is wrong or the
+    /// service is broken, and either way it needs a person.
+    Broken(u16),
+    /// No answer at all: offline, DNS, timed out, or we hold no etag to ask
+    /// about. Nothing to act on.
     Unknown,
+}
+
+/// What to tell the user about the feed, if anything.
+///
+/// Separate from the check so the mapping from answer to message is testable:
+/// the answer being right does not help if the wiring prints it for the wrong
+/// one, and that is the shape of the defect this whole change exists to fix.
+pub fn notice(freshness: Freshness) -> Option<String> {
+    match freshness {
+        Freshness::Moved => {
+            Some("a newer schedule is published. Run `otransit update`.".to_string())
+        }
+        // Offline is not worth a warning; a feed that answers with an error is.
+        // FEED_URL is compiled in, so this is the app's problem, not the
+        // network's, and silence would hide it forever.
+        Freshness::Broken(code) => Some(format!(
+            "the schedule feed returned HTTP {code}. It may have moved; \
+             otransit needs a new URL."
+        )),
+        Freshness::Current | Freshness::Unknown => None,
+    }
 }
 
 /// Compare what the server publishes against the etag we stored, by asking
@@ -70,20 +95,26 @@ pub enum Freshness {
 ///
 /// `HEAD`, so a moved feed costs nothing either: the answer is in the headers
 /// and the 109MB body is never requested.
+///
+/// With no stored etag there is no question to ask, so this returns without
+/// touching the network. Caches built before etags were recorded take that
+/// path, which is why it is asserted on rather than assumed.
 pub fn freshness(url: &str, etag: Option<&str>) -> Freshness {
     let Some(tag) = etag else {
         return Freshness::Unknown;
     };
-    // Short: this runs while someone is trying to read a departure board, and
-    // an answer that arrives after they quit is worth nothing.
+    // Bounded so the thread cannot outlive any use for its answer; the caller
+    // waits only briefly for it and never blocks the browser on it.
     let resp = ureq::head(url)
         .timeout(std::time::Duration::from_secs(5))
         .set("If-None-Match", tag)
         .call();
+    // Every decision is `judge`'s; this only reshapes what ureq returns. A
+    // status of None means the request never got an answer at all.
     match resp {
-        Ok(r) => judge(r.status(), r.header("etag"), tag),
-        // Offline, timed out, or the server refused. We cannot tell.
-        Err(_) => Freshness::Unknown,
+        Ok(r) => judge(Some(r.status()), r.header("etag"), tag),
+        Err(ureq::Error::Status(code, _)) => judge(Some(code), None, tag),
+        Err(_) => judge(None, None, tag),
     }
 }
 
@@ -91,9 +122,19 @@ pub fn freshness(url: &str, etag: Option<&str>) -> Freshness {
 ///
 /// Split from the request so the decision can be tested without a network: no
 /// test may reach the live feed, and this is the part that can be wrong.
-fn judge(status: u16, served: Option<&str>, held: &str) -> Freshness {
+fn judge(status: Option<u16>, served: Option<&str>, held: &str) -> Freshness {
+    // No status at all: offline, DNS, timeout. Nothing was learned.
+    let Some(status) = status else {
+        return Freshness::Unknown;
+    };
     if classify(status) == Outcome::NotModified {
         return Freshness::Current;
+    }
+    // The feed answered and said no. `FEED_URL` is compiled in, so this is the
+    // app's problem rather than the network's, and it must not be silenced
+    // alongside being offline.
+    if status >= 400 {
+        return Freshness::Broken(status);
     }
     match served {
         Some(now) if now == held => Freshness::Current,
@@ -210,26 +251,64 @@ mod tests {
     fn a_304_means_the_copy_we_hold_is_current() {
         // The whole point: the server says "still that version" and sends no
         // body, so there is nothing to download and nothing to warn about.
-        assert_eq!(judge(304, None, "0xABC"), Freshness::Current);
+        assert_eq!(judge(Some(304), None, "0xABC"), Freshness::Current);
     }
 
     #[test]
     fn a_different_etag_means_a_newer_export_is_published() {
-        assert_eq!(judge(200, Some("0xDEF"), "0xABC"), Freshness::Moved);
+        assert_eq!(judge(Some(200), Some("0xDEF"), "0xABC"), Freshness::Moved);
     }
 
     #[test]
     fn the_same_etag_on_a_200_still_means_current() {
         // Some caches answer 200 with the same etag rather than 304. That is
         // the same news, and treating it as "moved" would nag every launch.
-        assert_eq!(judge(200, Some("0xABC"), "0xABC"), Freshness::Current);
+        assert_eq!(judge(Some(200), Some("0xABC"), "0xABC"), Freshness::Current);
     }
 
     #[test]
     fn no_etag_at_all_is_unknown_rather_than_a_guess() {
         // Without one we cannot tell which bytes were served. Silence beats a
         // warning invented from a missing header.
-        assert_eq!(judge(200, None, "0xABC"), Freshness::Unknown);
+        assert_eq!(judge(Some(200), None, "0xABC"), Freshness::Unknown);
+    }
+
+    #[test]
+    fn a_feed_that_answers_with_an_error_is_not_the_same_as_being_offline() {
+        // Offline is nothing to act on. A feed URL returning 404 is: it is
+        // compiled into the binary, so only a person can fix it.
+        assert_eq!(judge(Some(404), None, "0xABC"), Freshness::Broken(404));
+        assert_eq!(judge(Some(503), None, "0xABC"), Freshness::Broken(503));
+        assert_eq!(judge(None, None, "0xABC"), Freshness::Unknown);
+    }
+
+    #[test]
+    fn a_cache_with_no_etag_asks_nothing_and_reports_unknown() {
+        // No stored etag, no question to ask, so this returns before touching
+        // the network -- which is why a test may call it at all: no test here
+        // reaches the live feed. Caches built before etags were recorded take
+        // this path on every launch.
+        assert_eq!(
+            freshness("http://0.0.0.0:1/never", None),
+            Freshness::Unknown
+        );
+    }
+
+    #[test]
+    fn only_a_moved_or_broken_feed_is_worth_saying_anything_about() {
+        // The wiring, not the decision: a correct answer printed for the wrong
+        // case is the same defect in a different place.
+        assert!(notice(Freshness::Moved).is_some(), "moved");
+        assert!(notice(Freshness::Broken(404)).is_some(), "broken");
+        assert_eq!(notice(Freshness::Current), None, "current");
+        assert_eq!(notice(Freshness::Unknown), None, "offline");
+    }
+
+    #[test]
+    fn a_broken_feed_names_the_status_so_it_can_be_diagnosed() {
+        // "something went wrong" would send someone to the source; the code
+        // says whether the URL is gone, forbidden, or the service is down.
+        assert!(notice(Freshness::Broken(404)).unwrap().contains("404"));
     }
 
     #[test]

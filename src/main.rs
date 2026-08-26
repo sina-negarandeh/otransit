@@ -160,7 +160,7 @@ fn update(db: &PathBuf) -> Result<()> {
             .and_then(|c| gtfs::get_meta(c, "schema_version").ok().flatten())
             .unwrap_or_default();
         if current == gtfs::SCHEMA_VERSION {
-            conn.and_then(|c| gtfs::get_meta(&c, "etag").ok().flatten())
+            conn.and_then(|c| gtfs::stored_etag(&c))
         } else {
             eprintln!("  cache schema is out of date, rebuilding");
             None
@@ -178,12 +178,6 @@ fn update(db: &PathBuf) -> Result<()> {
 
     eprintln!("checking {}", fetch::FEED_URL);
     let Some(dl) = fetch::download(fetch::FEED_URL, &zip, prev_etag.as_deref())? else {
-        // The feed has not moved, so the cache is current and there is nothing
-        // to rebuild. Record the confirmation: without it the cache keeps the
-        // date it was last *built* and the browser calls it stale tomorrow.
-        if let Ok(conn) = Connection::open(db) {
-            let _ = gtfs::set_meta(&conn, "checked_on", &Local::now().date_naive().to_string());
-        }
         println!("schedule already current (304 Not Modified)");
         return Ok(());
     };
@@ -201,9 +195,10 @@ fn update(db: &PathBuf) -> Result<()> {
         if let Some(tag) = &dl.etag {
             gtfs::set_meta(&conn, "etag", tag)?;
         }
-        let today = Local::now().date_naive().to_string();
-        gtfs::set_meta(&conn, "ingested_on", &today)?;
-        gtfs::set_meta(&conn, "checked_on", &today)?;
+        // Provenance, beside `ingested_from`: what this cache was built from
+        // and when. Nothing branches on it, so a local date is what a person
+        // reading it would want.
+        gtfs::set_meta(&conn, "ingested_on", &Local::now().date_naive().to_string())?;
     }
     std::fs::rename(&tmp, db)?;
 
@@ -232,7 +227,7 @@ fn browse(db: &PathBuf) -> Result<()> {
     // slow or absent network costs the browser nothing. The answer is read
     // after the viewport closes: it is advice for next time, not something to
     // act on mid-board, and it does not belong competing for the status bar.
-    let freshness = spawn_freshness_check(db);
+    let freshness = spawn_freshness_check(app.feed_etag());
 
     // Banner goes to stdout before the viewport exists, so it lands in
     // scrollback instead of being repainted every frame.
@@ -257,11 +252,23 @@ fn browse(db: &PathBuf) -> Result<()> {
     // Only when there is something to do about it. Silence covers both "your
     // copy is current" and "we could not reach the server", and the second is
     // not worth a warning: you cannot update what you cannot download.
-    if let Ok(fetch::Freshness::Moved) = freshness.try_recv() {
-        eprintln!("note: a newer schedule is published. Run `otransit update`.");
+    if let Some(note) = freshness
+        .recv_timeout(FRESHNESS_GRACE)
+        .ok()
+        .and_then(fetch::notice)
+    {
+        eprintln!("note: {note}");
     }
     res
 }
+
+/// How long the exit waits for the feed check, if it has not landed already.
+///
+/// The check measures 50-140ms. Without a grace period, quitting straight
+/// after a glance -- which is what this app is for -- read an empty channel and
+/// dropped the answer, so the notice appeared only for someone who lingered.
+/// Long enough to cover that, short enough to be imperceptible on exit.
+const FRESHNESS_GRACE: std::time::Duration = std::time::Duration::from_millis(300);
 
 /// Ask, in the background, whether the published feed still matches our copy.
 ///
@@ -270,11 +277,8 @@ fn browse(db: &PathBuf) -> Result<()> {
 /// whether or not OC Transpo published anything, so a cache `update` had just
 /// confirmed was current still got called stale. The etag answers the question
 /// actually being asked, and costs one round trip with no body.
-fn spawn_freshness_check(db: &PathBuf) -> std::sync::mpsc::Receiver<fetch::Freshness> {
+fn spawn_freshness_check(etag: Option<String>) -> std::sync::mpsc::Receiver<fetch::Freshness> {
     let (tx, rx) = std::sync::mpsc::channel();
-    let etag = Connection::open(db)
-        .ok()
-        .and_then(|c| gtfs::get_meta(&c, "etag").ok().flatten());
     std::thread::spawn(move || {
         let _ = tx.send(fetch::freshness(fetch::FEED_URL, etag.as_deref()));
     });
