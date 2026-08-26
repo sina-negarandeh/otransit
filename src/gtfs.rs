@@ -152,6 +152,14 @@ pub fn parse_hms(s: &str) -> Option<i32> {
 }
 
 /// Small key/value store in the cache: ETag, ingest date, feed dates.
+/// The etag of the export a cache was built from, if one was recorded.
+///
+/// Named here so the key appears once: `update` reads it to make a conditional
+/// request, and the browser reads it to ask whether the feed has moved.
+pub fn stored_etag(conn: &Connection) -> Option<String> {
+    get_meta(conn, "etag").ok().flatten()
+}
+
 pub fn get_meta(conn: &Connection, key: &str) -> Result<Option<String>> {
     let mut st = conn.prepare("SELECT value FROM meta WHERE key = ?1")?;
     let mut rows = st.query([key])?;

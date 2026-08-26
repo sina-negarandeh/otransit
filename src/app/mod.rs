@@ -233,6 +233,15 @@ impl App {
             .optional()?)
     }
 
+    /// The etag of the export this cache was built from.
+    ///
+    /// Asked of the app rather than by reopening the database: `browse` has
+    /// one open already, and the freshness check runs on the path the app
+    /// exists to keep instant.
+    pub fn feed_etag(&self) -> Option<String> {
+        crate::gtfs::stored_etag(&self.conn)
+    }
+
     /// Which service days are live, and what time it is now.
     pub fn service_day(&self) -> ServiceDay<'_> {
         ServiceDay {

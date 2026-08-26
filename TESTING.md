@@ -17,12 +17,14 @@ changing code that has one.
 
 ## Why this document exists
 
-Seventeen real defects were found during development. Five came from reviewing the
-fixes for the first ten, which is its own lesson: a behaviour-preserving
+Eighteen real defects were found during development. Five came from reviewing
+the fixes for the first ten, which is its own lesson: a behaviour-preserving
 refactor is exactly where a regression hides, and self-verified work is the
-weakest kind. The last two came from CI's first run, and are a sharper version
-of the same lesson: both were tests that passed for months on one machine
-because they read something the machine happened to provide.
+weakest kind. Two came from CI's first run, a sharper version of the same
+lesson: both were tests that passed for months on one machine because they read
+something the machine happened to provide. The last was found by using the app,
+which no amount of reviewing would have surfaced: two commands read the same
+cache and reported opposite things about it.
 
 | Defect | File | Had tests? |
 |---|---|---|
@@ -43,11 +45,13 @@ because they read something the machine happened to provide.
 | A platform code was measured in bytes, not cells | `ui/layout.rs` | partly |
 | The service day was asserted against the machine's timezone | `app/clock.rs` | yes, wrongly |
 | The pty tests ran against whatever cache the machine had | `tests/terminal.rs` | yes, wrongly |
+| `update` called the cache current while the browser called it stale | `main.rs` | no |
 
 The first ten were each in a file with no coverage; the four tests that existed
-were on string formatting, the part least likely to break. The last five were
-in files that by then had plenty — which is why "the tests pass" is never the
-question. The question is whether a test fails when the code is wrong.
+were on string formatting, the part least likely to break. The eight that
+followed were in files that by then had plenty — which is why "the tests pass"
+is never the question. The question is whether a test fails when the code is
+wrong.
 
 The goal is not a coverage percentage. It is that **the next bug of these
 shapes fails a test before it reaches a terminal.**
@@ -66,7 +70,7 @@ in the order the app moves through them:
 | `db/search.rs` | search, ranking, platform stripping |
 | `db/calendar.rs` | service days and their exceptions |
 | `gtfs.rs` | ingest, `parse_hms`, CSV handling |
-| `fetch.rs` | 304 handling, empty bodies |
+| `fetch.rs` | 304 handling, empty bodies, feed freshness |
 | `rt.rs` | the realtime parser and its anomalies |
 | `ui/mod.rs` | the frame: sizing, the status bar, alignment, the cursor |
 | `ui/layout.rs` | badges, column widths, the gutter |
