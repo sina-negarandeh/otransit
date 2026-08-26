@@ -235,10 +235,13 @@ impl App {
 
     /// The etag of the export this cache was built from.
     ///
-    /// Asked of the app rather than by reopening the database: `browse` has
-    /// one open already, and the freshness check runs on the path the app
-    /// exists to keep instant.
-    pub fn feed_etag(&self) -> Option<String> {
+    /// App owns the open connection on the browse path, so questions about the
+    /// cache go through it rather than opening the file a second time on the
+    /// path the app exists to keep instant. That is the whole licence: this
+    /// answers about the cache App holds, not about anything else, and a second
+    /// accessor of this shape means the connection should be shared explicitly
+    /// instead.
+    pub fn cache_etag(&self) -> Option<String> {
         crate::gtfs::stored_etag(&self.conn)
     }
 
