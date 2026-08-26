@@ -227,14 +227,28 @@ fn browse(db: &PathBuf) -> Result<()> {
     // slow or absent network costs the browser nothing. The answer is read
     // after the viewport closes: it is advice for next time, not something to
     // act on mid-board, and it does not belong competing for the status bar.
-    let freshness = spawn_freshness_check(app.feed_etag());
+    let check = FeedCheck::start(app.cache_etag());
 
     // Banner goes to stdout before the viewport exists, so it lands in
     // scrollback instead of being repainted every frame.
     logo::print(crossterm::terminal::size().map(|(w, _)| w).unwrap_or(80));
 
-    // Inline viewport, not the alternate screen: we claim a fixed block at the
-    // bottom of the terminal and leave everything above it alone.
+    let res = in_viewport(&mut app);
+
+    // After the terminal is its own again, so the note lands in scrollback
+    // rather than under a viewport that is about to be cleared.
+    if let Some(note) = check.note() {
+        eprintln!("note: {note}");
+    }
+    res
+}
+
+/// Run the browser inside an inline viewport, restoring the terminal after.
+///
+/// Not the alternate screen: we claim a fixed block at the bottom and leave
+/// everything above it alone. Paired here so the setup cannot outlive the
+/// teardown, and so `browse` reads as the sequence it is.
+fn in_viewport(app: &mut App) -> Result<()> {
     enable_raw_mode()?;
     let mut terminal = Terminal::with_options(
         CrosstermBackend::new(std::io::stdout()),
@@ -243,46 +257,72 @@ fn browse(db: &PathBuf) -> Result<()> {
         },
     )?;
 
-    let res = run(&mut terminal, &mut app);
+    let res = run(&mut terminal, app);
 
     disable_raw_mode()?;
     terminal.clear()?;
     terminal.show_cursor()?;
-
-    // Only when there is something to do about it. Silence covers both "your
-    // copy is current" and "we could not reach the server", and the second is
-    // not worth a warning: you cannot update what you cannot download.
-    if let Some(note) = freshness
-        .recv_timeout(FRESHNESS_GRACE)
-        .ok()
-        .and_then(fetch::notice)
-    {
-        eprintln!("note: {note}");
-    }
     res
 }
 
-/// How long the exit waits for the feed check, if it has not landed already.
+/// A feed check running in the background, and what to say when it lands.
 ///
-/// The check measures 50-140ms. Without a grace period, quitting straight
-/// after a glance -- which is what this app is for -- read an empty channel and
-/// dropped the answer, so the notice appeared only for someone who lingered.
-/// Long enough to cover that, short enough to be imperceptible on exit.
-const FRESHNESS_GRACE: std::time::Duration = std::time::Duration::from_millis(300);
+/// One type rather than a spawner, a constant and a mapping in three places:
+/// starting the check, waiting for it and turning the answer into English are
+/// the same feature, and a reader should find them together.
+///
+/// The message lives here rather than in `fetch` because it names the binary
+/// and one of its subcommands. `fetch` speaks HTTP; what to tell someone about
+/// the result is the CLI's business.
+struct FeedCheck(std::sync::mpsc::Receiver<fetch::Freshness>);
 
-/// Ask, in the background, whether the published feed still matches our copy.
-///
-/// This replaced a warning computed from how many days ago the cache was
-/// built. That number answered the wrong question: it moved every morning
-/// whether or not OC Transpo published anything, so a cache `update` had just
-/// confirmed was current still got called stale. The etag answers the question
-/// actually being asked, and costs one round trip with no body.
-fn spawn_freshness_check(etag: Option<String>) -> std::sync::mpsc::Receiver<fetch::Freshness> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = tx.send(fetch::freshness(fetch::FEED_URL, etag.as_deref()));
-    });
-    rx
+impl FeedCheck {
+    /// Ask whether the published feed still matches our copy, off the main
+    /// thread, so a slow or absent network costs the browser nothing.
+    ///
+    /// This replaced a warning computed from how many days ago the cache was
+    /// built. That number answered the wrong question: it moved every morning
+    /// whether or not OC Transpo published anything, so a cache `update` had
+    /// just confirmed was current still got called stale. The etag answers the
+    /// question actually being asked, and costs one round trip with no body.
+    fn start(etag: Option<String>) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(fetch::freshness(fetch::FEED_URL, etag.as_deref()));
+        });
+        Self(rx)
+    }
+
+    /// What to tell the user, waiting briefly if the answer has not arrived.
+    ///
+    /// A conditional HEAD returns in well under the time it takes to notice a
+    /// pause, but it is not instant, and quitting straight after a glance is
+    /// what this app is for. Reading without waiting at all found an empty
+    /// channel and dropped the answer, so the notice reached only someone who
+    /// lingered. The wait is bounded so a slow network cannot hold the exit.
+    fn note(self) -> Option<String> {
+        self.0.recv_timeout(Self::GRACE).ok().and_then(Self::say)
+    }
+
+    const GRACE: std::time::Duration = std::time::Duration::from_millis(300);
+
+    /// Only when there is something to do about it. Silence covers both "your
+    /// copy is current" and "we could not reach the server", and the second is
+    /// not worth a warning: you cannot update what you cannot download.
+    fn say(freshness: fetch::Freshness) -> Option<String> {
+        match freshness {
+            fetch::Freshness::Moved => {
+                Some("a newer schedule is published. Run `otransit update`.".to_string())
+            }
+            // FEED_URL is compiled in, so a feed answering with an error is
+            // this program's problem, and silence would hide it forever.
+            fetch::Freshness::Broken(code) => Some(format!(
+                "the schedule feed returned HTTP {code}. It may have moved; \
+                 otransit needs a new URL."
+            )),
+            fetch::Freshness::Current | fetch::Freshness::Unknown => None,
+        }
+    }
 }
 
 type Term = Terminal<CrosstermBackend<std::io::Stdout>>;
@@ -338,4 +378,32 @@ fn handle_key(app: &mut App, k: KeyEvent) -> Result<()> {
         _ => {}
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fetch::Freshness;
+
+    #[test]
+    fn only_a_moved_or_broken_feed_is_worth_saying_anything_about() {
+        // The wiring, not the decision: an answer that is right and printed for
+        // the wrong case is the defect this whole change exists to fix, in a
+        // different place.
+        assert!(FeedCheck::say(Freshness::Moved).is_some(), "moved");
+        assert!(FeedCheck::say(Freshness::Broken(404)).is_some(), "broken");
+        assert_eq!(FeedCheck::say(Freshness::Current), None, "current");
+        assert_eq!(FeedCheck::say(Freshness::Unknown), None, "offline");
+    }
+
+    #[test]
+    fn a_broken_feed_names_the_status_so_it_can_be_diagnosed() {
+        // "something went wrong" sends someone to the source; the code says
+        // whether the URL is gone, forbidden, or the service is down.
+        assert!(
+            FeedCheck::say(Freshness::Broken(404))
+                .unwrap()
+                .contains("404")
+        );
+    }
 }

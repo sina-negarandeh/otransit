@@ -34,9 +34,14 @@ pub enum Outcome {
 /// **304 Not Modified arrives as a perfectly good `Ok` response with an empty
 /// body**. Treating it as a download writes a zero-byte file, which then fails
 /// much later with "invalid Zip archive: Could not find EOCD".
+/// The status that means "you already have this". Named once: `download` asks
+/// whether a body follows, the freshness check asks whether our copy is
+/// current, and they are different questions about the same number.
+const NOT_MODIFIED: u16 = 304;
+
 pub fn classify(status: u16) -> Outcome {
     match status {
-        304 => Outcome::NotModified,
+        NOT_MODIFIED => Outcome::NotModified,
         _ => Outcome::Body,
     }
 }
@@ -65,24 +70,45 @@ pub enum Freshness {
     Unknown,
 }
 
-/// What to tell the user about the feed, if anything.
+/// What a conditional request came back with.
 ///
-/// Separate from the check so the mapping from answer to message is testable:
-/// the answer being right does not help if the wiring prints it for the wrong
-/// one, and that is the shape of the defect this whole change exists to fix.
-pub fn notice(freshness: Freshness) -> Option<String> {
-    match freshness {
-        Freshness::Moved => {
-            Some("a newer schedule is published. Run `otransit update`.".to_string())
+/// Each variant carries exactly what that outcome has to say, so no caller
+/// passes an argument the callee ignores, and "no etag on an error" cannot be
+/// confused with "a 200 that carried no etag" -- they are different variants
+/// now rather than the same `None`.
+#[derive(Clone, PartialEq, Eq, Debug)]
+enum Answer {
+    /// No response at all: offline, DNS, timed out.
+    Silent,
+    /// The server answered with a status it treats as an error.
+    Refused(u16),
+    /// A response, and whatever etag it carried.
+    Served { status: u16, etag: Option<String> },
+}
+
+impl Answer {
+    /// What this answer means for the copy we hold.
+    ///
+    /// Every decision is here, including which outcomes are worth telling
+    /// anyone about, because the request itself cannot be tested: no test may
+    /// reach the live feed.
+    fn against(self, held: &str) -> Freshness {
+        match self {
+            // Nothing was learned. Not the same as being told no.
+            Answer::Silent => Freshness::Unknown,
+            // `FEED_URL` is compiled in, so a feed that answers with an error
+            // is the app's problem rather than the network's, and it must not
+            // be silenced alongside being offline.
+            Answer::Refused(status) => Freshness::Broken(status),
+            Answer::Served { status, .. } if status == NOT_MODIFIED => Freshness::Current,
+            Answer::Served { etag, .. } => match etag.as_deref() {
+                Some(now) if now == held => Freshness::Current,
+                Some(_) => Freshness::Moved,
+                // A 200 with no etag tells us nothing about which bytes those
+                // are, and guessing "moved" would nag on every launch.
+                None => Freshness::Unknown,
+            },
         }
-        // Offline is not worth a warning; a feed that answers with an error is.
-        // FEED_URL is compiled in, so this is the app's problem, not the
-        // network's, and silence would hide it forever.
-        Freshness::Broken(code) => Some(format!(
-            "the schedule feed returned HTTP {code}. It may have moved; \
-             otransit needs a new URL."
-        )),
-        Freshness::Current | Freshness::Unknown => None,
     }
 }
 
@@ -109,40 +135,16 @@ pub fn freshness(url: &str, etag: Option<&str>) -> Freshness {
         .timeout(std::time::Duration::from_secs(5))
         .set("If-None-Match", tag)
         .call();
-    // Every decision is `judge`'s; this only reshapes what ureq returns. A
-    // status of None means the request never got an answer at all.
+    // Reshaping only. What any of it means is `Answer::against`'s business.
     match resp {
-        Ok(r) => judge(Some(r.status()), r.header("etag"), tag),
-        Err(ureq::Error::Status(code, _)) => judge(Some(code), None, tag),
-        Err(_) => judge(None, None, tag),
+        Ok(r) => Answer::Served {
+            status: r.status(),
+            etag: r.header("etag").map(str::to_string),
+        },
+        Err(ureq::Error::Status(code, _)) => Answer::Refused(code),
+        Err(_) => Answer::Silent,
     }
-}
-
-/// What a conditional response means for the copy we hold.
-///
-/// Split from the request so the decision can be tested without a network: no
-/// test may reach the live feed, and this is the part that can be wrong.
-fn judge(status: Option<u16>, served: Option<&str>, held: &str) -> Freshness {
-    // No status at all: offline, DNS, timeout. Nothing was learned.
-    let Some(status) = status else {
-        return Freshness::Unknown;
-    };
-    if classify(status) == Outcome::NotModified {
-        return Freshness::Current;
-    }
-    // The feed answered and said no. `FEED_URL` is compiled in, so this is the
-    // app's problem rather than the network's, and it must not be silenced
-    // alongside being offline.
-    if status >= 400 {
-        return Freshness::Broken(status);
-    }
-    match served {
-        Some(now) if now == held => Freshness::Current,
-        Some(_) => Freshness::Moved,
-        // A 200 with no etag tells us nothing about which bytes those are, and
-        // guessing "moved" here would nag on every launch.
-        None => Freshness::Unknown,
-    }
+    .against(tag)
 }
 
 /// Fetch the feed to `dest`. Returns None when the server says 304 Not Modified.
@@ -251,35 +253,69 @@ mod tests {
     fn a_304_means_the_copy_we_hold_is_current() {
         // The whole point: the server says "still that version" and sends no
         // body, so there is nothing to download and nothing to warn about.
-        assert_eq!(judge(Some(304), None, "0xABC"), Freshness::Current);
+        assert_eq!(
+            Answer::Served {
+                status: 304,
+                etag: None
+            }
+            .against("0xABC"),
+            Freshness::Current
+        );
     }
 
     #[test]
     fn a_different_etag_means_a_newer_export_is_published() {
-        assert_eq!(judge(Some(200), Some("0xDEF"), "0xABC"), Freshness::Moved);
+        assert_eq!(
+            Answer::Served {
+                status: 200,
+                etag: Some("0xDEF".into())
+            }
+            .against("0xABC"),
+            Freshness::Moved
+        );
     }
 
     #[test]
     fn the_same_etag_on_a_200_still_means_current() {
         // Some caches answer 200 with the same etag rather than 304. That is
         // the same news, and treating it as "moved" would nag every launch.
-        assert_eq!(judge(Some(200), Some("0xABC"), "0xABC"), Freshness::Current);
+        assert_eq!(
+            Answer::Served {
+                status: 200,
+                etag: Some("0xABC".into())
+            }
+            .against("0xABC"),
+            Freshness::Current
+        );
     }
 
     #[test]
     fn no_etag_at_all_is_unknown_rather_than_a_guess() {
         // Without one we cannot tell which bytes were served. Silence beats a
         // warning invented from a missing header.
-        assert_eq!(judge(Some(200), None, "0xABC"), Freshness::Unknown);
+        assert_eq!(
+            Answer::Served {
+                status: 200,
+                etag: None
+            }
+            .against("0xABC"),
+            Freshness::Unknown
+        );
     }
 
     #[test]
     fn a_feed_that_answers_with_an_error_is_not_the_same_as_being_offline() {
         // Offline is nothing to act on. A feed URL returning 404 is: it is
         // compiled into the binary, so only a person can fix it.
-        assert_eq!(judge(Some(404), None, "0xABC"), Freshness::Broken(404));
-        assert_eq!(judge(Some(503), None, "0xABC"), Freshness::Broken(503));
-        assert_eq!(judge(None, None, "0xABC"), Freshness::Unknown);
+        assert_eq!(
+            Answer::Refused(404).against("0xABC"),
+            Freshness::Broken(404)
+        );
+        assert_eq!(
+            Answer::Refused(503).against("0xABC"),
+            Freshness::Broken(503)
+        );
+        assert_eq!(Answer::Silent.against("0xABC"), Freshness::Unknown);
     }
 
     #[test]
@@ -292,23 +328,6 @@ mod tests {
             freshness("http://0.0.0.0:1/never", None),
             Freshness::Unknown
         );
-    }
-
-    #[test]
-    fn only_a_moved_or_broken_feed_is_worth_saying_anything_about() {
-        // The wiring, not the decision: a correct answer printed for the wrong
-        // case is the same defect in a different place.
-        assert!(notice(Freshness::Moved).is_some(), "moved");
-        assert!(notice(Freshness::Broken(404)).is_some(), "broken");
-        assert_eq!(notice(Freshness::Current), None, "current");
-        assert_eq!(notice(Freshness::Unknown), None, "offline");
-    }
-
-    #[test]
-    fn a_broken_feed_names_the_status_so_it_can_be_diagnosed() {
-        // "something went wrong" would send someone to the source; the code
-        // says whether the URL is gone, forbidden, or the service is down.
-        assert!(notice(Freshness::Broken(404)).unwrap().contains("404"));
     }
 
     #[test]
