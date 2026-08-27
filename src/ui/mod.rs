@@ -63,7 +63,12 @@ pub const PIN_FETCH: usize = 8;
 /// Derived rather than chosen. A pin list you have to scroll has lost the
 /// property that makes it worth having -- that the cursor is already on the
 /// answer -- so the layout decides the cap.
-pub const MAX_PINS: usize = MAX_ROWS as usize - 2;
+///
+/// Three rows go to the modes and to the gap between the two groups. The gap
+/// is what says they are different kinds of thing, so the cap has to leave
+/// room for it: at `MAX_ROWS - 2` the pins and the modes met and the
+/// separation disappeared exactly when the feature was fully used.
+pub const MAX_PINS: usize = MAX_ROWS as usize - 3;
 
 /// Stop search results to fetch. Also the point past which the count in the
 /// status bar stops being a total and becomes "at least this many".

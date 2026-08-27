@@ -85,6 +85,14 @@ pub struct App {
 
     /// Stops pinned to the first screen, in the order they were pinned.
     pins: Vec<crate::pins::Pin>,
+    /// The pins the cache can still resolve, in the order they were pinned.
+    ///
+    /// Separate from the file because the two answer different questions: the
+    /// file remembers what was pinned, so a stop that vanishes in one export
+    /// and returns in the next brings its pin back; `live` is what can be drawn
+    /// and is what the cap counts. Resolved once at startup, because the cache
+    /// does not change while the app runs.
+    live: Vec<StopRow>,
     /// Where they are written back. `None` means this app does not persist
     /// them: tests, and platforms with no config directory.
     pins_path: Option<std::path::PathBuf>,
@@ -159,12 +167,15 @@ impl App {
             quit: false,
             n_bus,
             n_rail,
+            live: vec![],
             pins: pins_path
                 .as_deref()
                 .map(crate::pins::load)
                 .unwrap_or_default(),
             pins_path,
         };
+        let ids: Vec<String> = app.pins.iter().map(|p| p.stop_id.clone()).collect();
+        app.live = db::stops_by_id(&app.conn, &ids)?;
         app.contents = app.load(&Screen::Mode)?;
         Ok(app)
     }
@@ -180,9 +191,8 @@ impl App {
                 // the cache are left out: a row that cannot be opened is worse
                 // than no row, and the stored line survives to come back with
                 // the stop.
-                let ids: Vec<String> = self.pins.iter().map(|p| p.stop_id.clone()).collect();
                 let mut rows = Vec::new();
-                for stop in db::stops_by_id(&self.conn, &ids)? {
+                for stop in self.live.iter().cloned() {
                     // One row each, so the answer is on screen before anything
                     // is pressed. Six of these measure ~12ms against the real
                     // cache, which is what makes showing them affordable at all.
@@ -429,14 +439,23 @@ impl App {
 
     /// Whether the board on screen is pinned. `None` when this is not a board.
     pub fn board_pin(&self) -> Option<PinState> {
-        let stop = &self.screen.board()?.stop().stop_id;
-        Some(if self.pins.iter().any(|p| &p.stop_id == stop) {
+        Some(self.pin_state(&self.screen.board()?.stop().stop_id))
+    }
+
+    /// Whether this stop is pinned, and whether another would fit.
+    ///
+    /// Counted against `live` rather than the file. The cap bounds the rows
+    /// drawn, and pins whose stop the cache no longer resolves are not drawn --
+    /// counting them would report "pins full" over a list with room in it and
+    /// no way to see why.
+    fn pin_state(&self, stop_id: &str) -> PinState {
+        if self.live.iter().any(|s| s.stop_id == stop_id) {
             PinState::Pinned
-        } else if self.pins.len() >= crate::ui::MAX_PINS {
+        } else if self.live.len() >= crate::ui::MAX_PINS {
             PinState::Full
         } else {
             PinState::Unpinned
-        })
+        }
     }
 
     /// Pin the stop on screen, or unpin it if it is already pinned.
@@ -449,31 +468,37 @@ impl App {
     /// the stop: it is the durable half, and "everything calling here" is the
     /// better answer to whether to leave now. The status bar names what is
     /// pinned so that is visible at the moment of pressing.
-    pub fn toggle_pin(&mut self) -> Result<()> {
-        let Some(state) = self.board_pin() else {
-            return Ok(());
+    pub fn toggle_pin(&mut self) {
+        // Taken once, so there is no invariant to assert between two lookups.
+        let Some(board) = self.screen.board() else {
+            return;
         };
-        let stop = self
-            .screen
-            .board()
-            .expect("board_pin said so")
-            .stop()
-            .clone();
-        match state {
-            PinState::Pinned => self.pins.retain(|p| p.stop_id != stop.stop_id),
+        let stop = board.stop().clone();
+        match self.pin_state(&stop.stop_id) {
+            PinState::Pinned => {
+                self.pins.retain(|p| p.stop_id != stop.stop_id);
+                self.live.retain(|s| s.stop_id != stop.stop_id);
+            }
             // Silently refusing would look like a broken key, so the status bar
             // says "pins full" instead of offering "pin".
-            PinState::Full => return Ok(()),
-            PinState::Unpinned => self.pins.push(crate::pins::Pin {
-                stop_id: stop.stop_id,
-                code: stop.code,
-                name: stop.name,
-            }),
+            PinState::Full => return,
+            PinState::Unpinned => {
+                self.pins.push(crate::pins::Pin {
+                    stop_id: stop.stop_id.clone(),
+                    code: stop.code.clone(),
+                    name: stop.name.clone(),
+                });
+                // Pinnable means on screen, which means the cache resolves it.
+                self.live.push(stop);
+            }
         }
+        // A pin that cannot be written still works for this session, and a
+        // read-only config directory is not worth ending one over. Everything
+        // else here treats an unusable side channel the same way: the feed
+        // check says nothing when offline, a missing pins file is no pins.
         if let Some(path) = &self.pins_path {
-            crate::pins::save(path, &self.pins)?;
+            let _ = crate::pins::save(path, &self.pins);
         }
-        Ok(())
     }
 
     /// Re-read the wall clock, so a board left open keeps counting down.
@@ -502,11 +527,17 @@ impl App {
     /// ones still to come sit below the fold. Guarded on the front row rather
     /// than run every frame: it costs a query per departure, not four a second.
     pub fn refresh_board(&mut self) -> Result<()> {
-        let gone = self
-            .contents
-            .board()
-            .and_then(<[Departure]>::first)
-            .is_some_and(|d| d.when() < self.now);
+        // Pins carry departures too, so they go stale exactly as a board does.
+        // Asking only the board left the first screen filling with buses that
+        // had already gone, which is the defect the board itself has an entry
+        // for in TESTING.md.
+        let gone = match &self.contents {
+            Contents::Board(deps) => deps.first().is_some_and(|d| d.when() < self.now),
+            Contents::List(rows) => rows.iter().any(|r| match r {
+                Row::Pin(p) => p.next().is_some_and(|d| d.when() < self.now),
+                _ => false,
+            }),
+        };
         if !gone {
             return Ok(());
         }
@@ -622,7 +653,9 @@ impl App {
                 // to. Without this a late trip sorts ahead of one on time.
                 db::sort_by_actual_arrival(deps);
             }
-            Contents::List(rows) => {
+            // Pins live on the first screen and nowhere else, so no other
+            // list is worth walking four times a second.
+            Contents::List(rows) if matches!(self.screen, Screen::Mode) => {
                 for row in rows {
                     let Row::Pin(p) = row else { continue };
                     for d in &mut p.upcoming {
@@ -636,6 +669,7 @@ impl App {
                     db::sort_by_actual_arrival(&mut p.upcoming);
                 }
             }
+            Contents::List(_) => {}
         }
     }
 
@@ -812,7 +846,7 @@ mod tests {
         let dir = tmp("restart");
         let mut app = app_with_pins(&dir);
         open_stop(&mut app, "s2", "0002", "BANK / GLADSTONE");
-        app.toggle_pin().unwrap();
+        app.toggle_pin();
 
         let fresh = app_with_pins(&dir);
         let first = fresh.rows().first().cloned();
@@ -828,7 +862,7 @@ mod tests {
         let dir = tmp("above");
         let mut app = app_with_pins(&dir);
         open_stop(&mut app, "s2", "0002", "BANK / GLADSTONE");
-        app.toggle_pin().unwrap();
+        app.toggle_pin();
         app.goto(Screen::Mode).unwrap();
 
         let kinds: Vec<&str> = app
@@ -849,9 +883,9 @@ mod tests {
         let dir = tmp("toggle");
         let mut app = app_with_pins(&dir);
         open_stop(&mut app, "s2", "0002", "BANK / GLADSTONE");
-        app.toggle_pin().unwrap();
+        app.toggle_pin();
         assert_eq!(app.board_pin(), Some(PinState::Pinned));
-        app.toggle_pin().unwrap();
+        app.toggle_pin();
         assert_eq!(app.board_pin(), Some(PinState::Unpinned));
         assert!(
             app_with_pins(&dir)
@@ -890,6 +924,83 @@ s2	0002	BANK / GLADSTONE
                 .unwrap()
                 .contains("gone"),
             "the line was deleted rather than hidden"
+        );
+    }
+
+    #[test]
+    fn a_first_screen_left_open_refills_instead_of_draining() {
+        // The same defect the board has an entry for. `refresh_board` asked
+        // only the board, so pins kept a departure fetched at launch and the
+        // screen slowly filled with buses that had already gone.
+        let dir = tmp("drain");
+        let g = TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("first", "5", "A", "Elmvale")
+            .trip("second", "5", "A", "Elmvale")
+            .stop("s1", "0001", "BANK / SOMERSET W")
+            .stop_time("first", "s1", 1, "10:00:00")
+            .stop_time("second", "s1", 1, "11:00:00");
+        std::fs::write(dir.join("pins"), "s1\t0001\tBANK / SOMERSET W\n").unwrap();
+        let mut app = App::offline_with_pins(
+            g.into_conn(),
+            NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            dir.join("pins"),
+        )
+        .unwrap();
+
+        let front = |a: &App| match a.rows().first() {
+            Some(Row::Pin(p)) => p.next().map(|d| d.trip_id.clone()),
+            _ => None,
+        };
+        assert_eq!(front(&app).as_deref(), Some("first"));
+
+        // Ten past ten: the first bus has gone.
+        app.now = 10 * 3600 + 10 * 60;
+        app.refresh_board().unwrap();
+        assert_eq!(
+            front(&app).as_deref(),
+            Some("second"),
+            "the pin is still showing a bus that left"
+        );
+    }
+
+    #[test]
+    fn a_pin_the_cache_cannot_resolve_does_not_use_up_a_slot() {
+        // Dangling pins are hidden but kept, so counting the file would report
+        // "pins full" over a list with room in it and no way to see why.
+        let dir = tmp("cap-vs-dangling");
+        let g = TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t5", "5", "A", "Elmvale")
+            .stop("s1", "0001", "BANK / SOMERSET W")
+            .stop_time("t5", "s1", 1, "10:00:00");
+        let mut file = String::new();
+        for i in 0..crate::ui::MAX_PINS {
+            file.push_str(&format!("gone{i}\t0000\tRETIRED STOP\n"));
+        }
+        std::fs::write(dir.join("pins"), file).unwrap();
+        let mut app = App::offline_with_pins(
+            g.into_conn(),
+            NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            dir.join("pins"),
+        )
+        .unwrap();
+
+        assert!(
+            app.rows().iter().all(|r| !matches!(r, Row::Pin(_))),
+            "a dangling pin was drawn"
+        );
+        for _ in 0..4 {
+            app.enter().unwrap();
+        }
+        assert_eq!(
+            app.board_pin(),
+            Some(PinState::Unpinned),
+            "a full file of unresolvable pins blocked a real one"
         );
     }
 
@@ -985,7 +1096,7 @@ s2	0002	BANK / GLADSTONE
         let mut app = app_with_pins(&dir);
         for (id, name) in [("s3", "BANK / LAURIER"), ("s1", "BANK / SOMERSET W")] {
             open_stop(&mut app, id, "0000", name);
-            app.toggle_pin().unwrap();
+            app.toggle_pin();
         }
         app.goto(Screen::Mode).unwrap();
 
@@ -1011,7 +1122,7 @@ s2	0002	BANK / GLADSTONE
             .enumerate()
         {
             open_stop(&mut app, id, "0000", "X");
-            app.toggle_pin().unwrap();
+            app.toggle_pin();
             assert!(
                 app.pins.len() <= crate::ui::MAX_PINS,
                 "pin {i} pushed the list past the cap"
@@ -1040,7 +1151,7 @@ s2	0002	BANK / GLADSTONE
             app.screen,
             Screen::Departures(Board::Route { .. })
         ));
-        app.toggle_pin().unwrap();
+        app.toggle_pin();
 
         app.goto(Screen::Mode).unwrap();
         assert!(
@@ -1057,7 +1168,7 @@ s2	0002	BANK / GLADSTONE
         let mut app = app_with_pins(&dir);
         for step in ["mode", "routes", "directions", "stops"] {
             assert_eq!(app.board_pin(), None, "{step}");
-            app.toggle_pin().unwrap();
+            app.toggle_pin();
             assert!(app.pins.is_empty(), "{step} recorded a pin");
             app.enter().unwrap();
         }

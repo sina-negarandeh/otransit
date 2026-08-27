@@ -62,7 +62,16 @@ fn render(pins: &[Pin]) -> String {
 /// Lines that do not have three fields are skipped rather than failing the
 /// read: a hand-edited file with a typo should cost one pin, not all of them.
 fn parse(text: &str) -> Vec<Pin> {
+    let mut seen = std::collections::HashSet::new();
     text.lines()
+        .filter(|line| {
+            // Hand-edited files repeat themselves. Two rows for one stop would
+            // both draw, and one `p` would remove both, since unpinning matches
+            // on the id.
+            line.split('\t')
+                .next()
+                .is_some_and(|id| seen.insert(id.to_string()))
+        })
         .filter_map(|line| {
             let mut cols = line.split('\t');
             let (id, code, name) = (cols.next()?, cols.next()?, cols.next()?);
@@ -119,6 +128,15 @@ mod tests {
     fn no_file_is_no_pins_rather_than_an_error() {
         // The first run has no file, and must not fail because of it.
         assert!(load(Path::new("/nonexistent/otransit/pins")).is_empty());
+    }
+
+    #[test]
+    fn one_stop_cannot_be_pinned_twice_by_a_hand_edited_file() {
+        // Two rows for one stop would both draw, and a single `p` would remove
+        // both, since unpinning matches on the id.
+        let text = "1000\t3009\tRIDEAU A\n1000\t3009\tRIDEAU A\n7591\t7591\tCHAPEL\n";
+        let ids: Vec<String> = parse(text).into_iter().map(|p| p.stop_id).collect();
+        assert_eq!(ids, ["1000", "7591"]);
     }
 
     #[test]
