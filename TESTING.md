@@ -67,7 +67,6 @@ in the order the app moves through them:
 | Module | Covers |
 |---|---|
 | `app/tests.rs` | navigation, typing, pins, board scope and refresh |
-| `pins.rs` | the pin file, and what the cache can still resolve |
 | `app/clock.rs` | the service day, lateness, the wait column |
 | `app/poll.rs` | poll cadence and failure policy |
 | `db/browse.rs` | routes, directions, boards, ordering |
@@ -80,7 +79,8 @@ in the order the app moves through them:
 | `ui/layout.rs` | badges, column widths, the gutter |
 | `ui/palette.rs` | which colours can carry a rule |
 | `logo.rs` | the mark, both fallbacks, its ground line |
-| `pins.rs` | the file: round trips, odd names, a hand-edited typo |
+| `pins.rs` | the pin file: round trips, odd names, a hand-edited typo |
+| `main.rs` | which keys reach the filter and which act |
 | `tests/terminal.rs` | inline viewport, clean exit, no tty |
 
 Four fixes here carry no test, and say so rather than carrying a fake one:
