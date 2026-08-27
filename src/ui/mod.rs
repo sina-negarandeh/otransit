@@ -50,6 +50,13 @@ fn height_for(rows: usize) -> u16 {
     u16::try_from(rows).unwrap_or(MAX_ROWS).clamp(1, MAX_ROWS) + 2 // rule + status
 }
 
+/// Departures fetched per pin, of which one is drawn.
+///
+/// Headroom for the re-sort, for the same reason the board has it: a late trip
+/// can be overtaken by one scheduled after it, and with a single row fetched
+/// there is nothing to promote.
+pub const PIN_FETCH: usize = 8;
+
 /// Pins the first screen can hold: whatever fits above the two modes without
 /// the list starting to scroll.
 ///
@@ -257,7 +264,7 @@ fn list(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row]) {
         .map(|(i, row)| {
             // Built in the order they appear: the cursor column, the route's
             // rule if there is one, then the row itself.
-            let mut line = cols.line(row);
+            let mut line = cols.line(row, app.now());
             let mut spans = vec![marker(Some(i) == selected)];
             spans.extend(rule.clone());
             spans.append(&mut line.spans);

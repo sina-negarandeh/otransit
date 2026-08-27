@@ -20,7 +20,7 @@ mod poll;
 
 use clock::now_secs;
 pub use clock::{WAIT_W, epoch_to_service_secs, fmt_hm, fmt_wait, lateness, mins_until};
-pub use model::{Board, Crumb, Mode, Row, Screen};
+pub use model::{Board, Crumb, Mode, Pinned, Row, Screen};
 pub use poll::RtState;
 
 /// What the current screen is showing.
@@ -42,13 +42,6 @@ impl Contents {
     }
 
     pub fn board(&self) -> Option<&[Departure]> {
-        match self {
-            Contents::Board(deps) => Some(deps),
-            Contents::List(_) => None,
-        }
-    }
-
-    fn board_mut(&mut self) -> Option<&mut Vec<Departure>> {
         match self {
             Contents::Board(deps) => Some(deps),
             Contents::List(_) => None,
@@ -188,14 +181,25 @@ impl App {
                 // than no row, and the stored line survives to come back with
                 // the stop.
                 let ids: Vec<String> = self.pins.iter().map(|p| p.stop_id.clone()).collect();
-                db::stops_by_id(&self.conn, &ids)?
-                    .into_iter()
-                    .map(Row::Pin)
-                    .chain([
-                        Row::Mode(Mode::Bus, self.n_bus),
-                        Row::Mode(Mode::Train, self.n_rail),
-                    ])
-                    .collect()
+                let mut rows = Vec::new();
+                for stop in db::stops_by_id(&self.conn, &ids)? {
+                    // One row each, so the answer is on screen before anything
+                    // is pressed. Six of these measure ~12ms against the real
+                    // cache, which is what makes showing them affordable at all.
+                    let upcoming = db::departures(
+                        &self.conn,
+                        &stop.stop_id,
+                        db::Narrow::Everything,
+                        &self.service_day(),
+                        crate::ui::PIN_FETCH,
+                    )?;
+                    rows.push(Row::Pin(Pinned { stop, upcoming }));
+                }
+                rows.extend([
+                    Row::Mode(Mode::Bus, self.n_bus),
+                    Row::Mode(Mode::Train, self.n_rail),
+                ]);
+                rows
             }
             Screen::Search { query } => {
                 db::search_stops(&self.conn, query, &self.today, crate::ui::SEARCH_LIMIT)?
@@ -390,7 +394,7 @@ impl App {
             Row::Hit(hit) => self.goto(Screen::Departures(Board::Stop { stop: hit.into() }))?,
             // A pin is the same destination as a search result, reached
             // without the search.
-            Row::Pin(stop) => self.goto(Screen::Departures(Board::Stop { stop }))?,
+            Row::Pin(p) => self.goto(Screen::Departures(Board::Stop { stop: p.stop }))?,
             Row::Mode(mode, _) => self.goto(Screen::routes(mode))?,
             Row::Route(route) => {
                 let Some(mode) = self.screen.mode() else {
@@ -594,27 +598,45 @@ impl App {
     /// Attach live predictions to the current board. Cheap, so it runs on every
     /// tick — that way the board fills in the moment the fetch lands.
     pub fn apply_realtime(&mut self) {
-        let Some(stop_id) = self.screen.board().map(|b| b.stop().stop_id.clone()) else {
-            return;
-        };
         let date = self.service_date;
         // Clone the handle so the guard does not borrow `self`, which the
-        // board below needs mutably.
+        // contents below need mutably.
         let slot = Arc::clone(&self.rt);
         let Ok(guard) = slot.lock() else { return };
         let RtState::Ready(rt) = &*guard else { return };
-        let Some(deps) = self.contents.board_mut() else {
-            return;
-        };
-        for d in deps.iter_mut() {
-            d.canceled = rt.is_canceled(&d.trip_id);
-            d.live = rt
-                .arrival(&d.trip_id, &stop_id)
-                .and_then(|e| epoch_to_service_secs(e, date));
+
+        // A pin shows the same number the board would, so it goes live the
+        // moment the fetch lands rather than sitting on the timetable while
+        // the board beside it is current.
+        let board_stop = self.screen.board().map(|b| b.stop().stop_id.clone());
+        match &mut self.contents {
+            Contents::Board(deps) => {
+                let Some(stop_id) = board_stop else { return };
+                for d in deps.iter_mut() {
+                    d.canceled = rt.is_canceled(&d.trip_id);
+                    d.live = rt
+                        .arrival(&d.trip_id, &stop_id)
+                        .and_then(|e| epoch_to_service_secs(e, date));
+                }
+                // Ordered by when a bus actually arrives, not when it was meant
+                // to. Without this a late trip sorts ahead of one on time.
+                db::sort_by_actual_arrival(deps);
+            }
+            Contents::List(rows) => {
+                for row in rows {
+                    let Row::Pin(p) = row else { continue };
+                    for d in &mut p.upcoming {
+                        d.canceled = rt.is_canceled(&d.trip_id);
+                        d.live = rt
+                            .arrival(&d.trip_id, &p.stop.stop_id)
+                            .and_then(|e| epoch_to_service_secs(e, date));
+                    }
+                    // Same reason as the board: without this the pin shows the
+                    // scheduled-earliest bus, not the one that arrives first.
+                    db::sort_by_actual_arrival(&mut p.upcoming);
+                }
+            }
         }
-        // The board is ordered by when a bus actually arrives, not when it was
-        // meant to. Without this a trip running late sorts ahead of one on time.
-        db::sort_by_actual_arrival(deps);
     }
 
     /// Block until the background fetch settles, or `secs` elapse.
@@ -795,7 +817,7 @@ mod tests {
         let fresh = app_with_pins(&dir);
         let first = fresh.rows().first().cloned();
         assert!(
-            matches!(&first, Some(Row::Pin(s)) if s.stop_id == "s2"),
+            matches!(&first, Some(Row::Pin(p)) if p.stop.stop_id == "s2"),
             "the pin is not the first row after a restart: {first:?}"
         );
     }
@@ -858,7 +880,7 @@ s2	0002	BANK / GLADSTONE
             .rows()
             .iter()
             .filter_map(|r| match r {
-                Row::Pin(s) => Some(s.stop_id.clone()),
+                Row::Pin(p) => Some(p.stop.stop_id.clone()),
                 _ => None,
             })
             .collect();
@@ -868,6 +890,89 @@ s2	0002	BANK / GLADSTONE
                 .unwrap()
                 .contains("gone"),
             "the line was deleted rather than hidden"
+        );
+    }
+
+    #[test]
+    fn a_pin_goes_live_when_the_fetch_lands() {
+        // A pin shows the same number the board would. Without this it sits on
+        // the timetable while the board beside it is current, which is the
+        // silent-wrong-answer failure this app is most prone to.
+        let dir = tmp("live");
+        let g = TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t5", "5", "A", "Elmvale")
+            .stop("s1", "0001", "BANK / SOMERSET W")
+            .stop_time("t5", "s1", 1, "10:00:00");
+        std::fs::write(dir.join("pins"), "s1\t0001\tBANK / SOMERSET W\n").unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 8, 21).unwrap();
+        let mut app =
+            App::offline_with_pins(g.into_conn(), date, 9 * 3600, dir.join("pins")).unwrap();
+
+        // Scheduled 10:00, predicted 10:07.
+        let late = clock::service_day_start(date).timestamp() + 10 * 3600 + 7 * 60;
+        let payload = crate::testing::TestRt::new(0)
+            .arrival("t5", "s1", late)
+            .build();
+        *app.rt.lock().unwrap() = RtState::Ready(crate::rt::parse(&payload).unwrap());
+        app.apply_realtime();
+
+        let Some(Row::Pin(p)) = app.rows().first().cloned() else {
+            panic!("no pin row")
+        };
+        assert_eq!(
+            p.next().and_then(|d| d.live),
+            Some(10 * 3600 + 7 * 60),
+            "the pin is still showing the timetable"
+        );
+    }
+
+    #[test]
+    fn a_pin_shows_the_bus_that_arrives_first_not_the_one_scheduled_first() {
+        // Built wrong first: the pin fetched LIMIT 1, which is earliest by
+        // timetable, and showed a bus the board did not have at the top. The
+        // board carries a test for this exact defect already; a pin is a
+        // one-row board and needs the same headroom and the same re-sort.
+        //
+        // Driven through `apply_realtime` rather than sorting by hand, because
+        // sorting by hand tests a copy of the path instead of the path.
+        let dir = tmp("overtake");
+        let g = TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .route("7", "7", 3, "6D6E70")
+            .always("A")
+            .trip("early", "5", "A", "Elmvale")
+            .trip("later", "7", "A", "St-Laurent")
+            .stop("s1", "0001", "BANK / SOMERSET W")
+            .stop_time("early", "s1", 1, "10:00:00")
+            .stop_time("later", "s1", 1, "10:10:00");
+        std::fs::write(dir.join("pins"), "s1\t0001\tBANK / SOMERSET W\n").unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 8, 21).unwrap();
+        let mut app =
+            App::offline_with_pins(g.into_conn(), date, 9 * 3600, dir.join("pins")).unwrap();
+
+        // The 5 is scheduled first but running half an hour late, so the 7
+        // scheduled ten minutes after it is what actually arrives first.
+        let origin = clock::service_day_start(date).timestamp();
+        let payload = crate::testing::TestRt::new(0)
+            .arrival("early", "s1", origin + 10 * 3600 + 30 * 60)
+            .arrival("later", "s1", origin + 10 * 3600 + 10 * 60)
+            .build();
+        *app.rt.lock().unwrap() = RtState::Ready(crate::rt::parse(&payload).unwrap());
+        app.apply_realtime();
+
+        let Some(Row::Pin(p)) = app.rows().first().cloned() else {
+            panic!("no pin row")
+        };
+        assert_eq!(
+            p.next().map(|d| d.route_short.clone()),
+            Some("7".to_string()),
+            "the pin showed the scheduled-earliest bus, not the next one: {:?}",
+            p.upcoming
+                .iter()
+                .map(|d| (&d.route_short, d.live))
+                .collect::<Vec<_>>()
         );
     }
 
@@ -888,7 +993,7 @@ s2	0002	BANK / GLADSTONE
             .rows()
             .iter()
             .filter_map(|r| match r {
-                Row::Pin(s) => Some(s.stop_id.clone()),
+                Row::Pin(p) => Some(p.stop.stop_id.clone()),
                 _ => None,
             })
             .collect();
