@@ -10,9 +10,9 @@ mod palette;
 
 pub use palette::RULE_RGB;
 
-use crate::app::{App, Board, Crumb, PinState, Row, Screen, WAIT_W, fmt_hm, fmt_wait, lateness};
+use crate::app::{App, Board, Crumb, PinState, Row, Screen, WAIT_W, fmt_hm, fmt_wait};
 use layout::{Cols, badge_label, gutter, marker, truncate};
-use palette::{ACCENT, DIM, FG, RULE, badge, hex, urgency};
+use palette::{ACCENT, DIM, FG, RULE, badge, hex, status, urgency};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -356,9 +356,6 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
-    let green = Color::Rgb(0x5c, 0xd6, 0x8a);
-    let amber = Color::Rgb(0xff, 0xc1, 0x07);
-    let red = Color::Rgb(0xff, 0x6b, 0x6b);
     // A board reached by search mixes routes, so each row names its direction.
     let multi = matches!(app.screen, Screen::Departures(Board::Stop { .. }));
     // Everything except the headsign: marker, badge, time, wait, note and the
@@ -373,20 +370,7 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
             let when = d.when();
             let m = crate::app::mins_until(when, app.now());
 
-            let (note, note_style) = if d.canceled {
-                (
-                    "cancelled".to_string(),
-                    Style::default().fg(red).add_modifier(Modifier::BOLD),
-                )
-            } else if let Some(live) = d.live {
-                match lateness(live, d.secs) {
-                    -1..=1 => ("on time".into(), Style::default().fg(green)),
-                    l if l > 0 => (format!("{l} late"), Style::default().fg(amber)),
-                    l => (format!("{} early", -l), Style::default().fg(DIM)),
-                }
-            } else {
-                ("sched".into(), Style::default().fg(RULE))
-            };
+            let (note, note_style) = status(d);
 
             let time_style = if d.canceled {
                 Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT)
@@ -621,6 +605,71 @@ mod tests {
             shown[first + 1..modes].iter().all(|r| r.trim().is_empty()),
             "no gap between the two groups: {shown:#?}"
         );
+    }
+
+    #[test]
+    fn a_pin_says_which_way_its_bus_is_going() {
+        // Two platforms of one station share a pole number and a route number
+        // and go opposite ways. Without the direction the rows read the same
+        // and one of them sends you backwards.
+        let dir = std::env::temp_dir().join("otransit-ui-toward");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("pins"), "A\t3021\tUOTTAWA A\nB\t3021\tUOTTAWA B\n").unwrap();
+        let g = TestGtfs::new()
+            .route("56", "56", 3, "0057B8")
+            .always("S")
+            .trip("out", "56", "S", "Tunney's Pasture")
+            .trip("back", "56", "S", "King Edward")
+            .stop("A", "3021", "UOTTAWA A")
+            .stop("B", "3021", "UOTTAWA B")
+            .stop_time("out", "A", 1, "10:00:00")
+            .stop_time("back", "B", 1, "10:05:00");
+        let mut app = App::offline_with_pins(
+            g.into_conn(),
+            NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            dir.join("pins"),
+        )
+        .unwrap();
+
+        let shown = frame(&mut app, 80, VIEWPORT_H);
+        let pins: Vec<&String> = shown.iter().filter(|r| r.contains("UOTTAWA")).collect();
+        assert_eq!(pins.len(), 2, "{shown:#?}");
+        assert!(
+            pins[0].contains("Tunney"),
+            "no direction on the first: {}",
+            pins[0]
+        );
+        assert!(
+            pins[1].contains("King Edward"),
+            "no direction on the second: {}",
+            pins[1]
+        );
+        assert_ne!(
+            pins[0].trim_start_matches([' ', '❯']),
+            pins[1].trim_start_matches([' ', '❯']),
+            "two opposite directions render identically"
+        );
+    }
+
+    #[test]
+    fn a_pin_row_stays_inside_a_narrow_terminal() {
+        // Six columns is as many as fit. The proposal this replaced carried the
+        // mode, the word "toward" and a clock time as well, and ran 96 cells.
+        let dir = std::env::temp_dir().join("otransit-ui-width");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("pins"), "S1\t1902\tBANK / SOMERSET W\n").unwrap();
+        let mut app = pinned_app(&dir);
+        for w in [60u16, 74, 80, 120] {
+            for row in frame(&mut app, w, VIEWPORT_H) {
+                assert!(
+                    row.chars().count() <= w as usize,
+                    "width {w}: row runs past the terminal: {row:?}"
+                );
+            }
+        }
     }
 
     #[test]

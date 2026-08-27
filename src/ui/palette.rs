@@ -62,6 +62,35 @@ pub fn badge(bg_hex: &str) -> (Color, Color) {
     (Color::Rgb(r, g, b), fg)
 }
 
+/// Width of the status column: the longest word it holds is "cancelled".
+pub(super) const NOTE_W: usize = 9;
+
+/// Whether anything is tracking this bus, and how it is doing.
+///
+/// Shared by the board and by a pinned stop, which is a board one row long.
+/// Written once because the distinction it draws is load-bearing: `sched` means
+/// nothing is tracking this trip, and a row that hid that would be confidently
+/// wrong in the way this app most wants to avoid.
+pub(super) fn status(d: &crate::db::Departure) -> (String, Style) {
+    let green = Color::Rgb(0x5c, 0xd6, 0x8a);
+    let amber = Color::Rgb(0xff, 0xc1, 0x07);
+    let red = Color::Rgb(0xff, 0x6b, 0x6b);
+    if d.canceled {
+        return (
+            "cancelled".to_string(),
+            Style::default().fg(red).add_modifier(Modifier::BOLD),
+        );
+    }
+    let Some(live) = d.live else {
+        return ("sched".to_string(), Style::default().fg(RULE));
+    };
+    match crate::app::lateness(live, d.secs) {
+        -1..=1 => ("on time".into(), Style::default().fg(green)),
+        l if l > 0 => (format!("{l} late"), Style::default().fg(amber)),
+        l => (format!("{} early", -l), Style::default().fg(DIM)),
+    }
+}
+
 /// Colour by urgency: the board should be readable in peripheral vision.
 pub(super) fn urgency(mins: i32) -> Style {
     match mins {

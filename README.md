@@ -118,8 +118,8 @@ Pinned stops sit above `Bus` and `O-Train` on the first screen, so the stop you
 check every day is already under the cursor when the app opens:
 
 ```
- ❯ RIDEAU / AUGUSTA                  #2331    14       10 min
-   BANK / SOMERSET W                 #1902     7        4 min
+ ❯ UOTTAWA A            #3021   56  Tunney's Pastu…     15 min  2 late
+   UOTTAWA B            #3021   56  King Edward          9 min  4 late
 
 
 
@@ -128,6 +128,10 @@ check every day is already under the cursor when the app opens:
 ──────────────────────────────────────────────────────────────────────
  What are you taking?             type to find a stop · ↑↓ · ↵ · q
 ```
+
+Those two rows are opposite platforms of one station: same pole number, same
+route, opposite directions. The destination column is what tells them apart,
+which is why a pin carries it.
 
 The answers sit at the top, against the line the mark stands on. The ways in
 stay at the bottom where they were. One cursor runs through both.
