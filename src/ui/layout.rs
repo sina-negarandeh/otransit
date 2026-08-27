@@ -4,8 +4,8 @@
 //! it looks like; the one thing that asks the screen a question is the gutter,
 //! whose whole subject is which route the rows below it belong to.
 
-use super::palette::{ACCENT, DIM, FG, RULE, badge, hex, reads_as_a_rule, urgency};
-use crate::app::{Row, Screen, WAIT_W};
+use super::palette::{ACCENT, DIM, FG, NOTE_W, RULE, badge, hex, reads_as_a_rule, status, urgency};
+use crate::app::{Row, Screen, WAIT_W, tidy_stop_name as tidy};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -97,6 +97,40 @@ pub(super) struct Wide {
     routes: usize,
 }
 
+/// Six columns for a pinned stop: which stop, the pole on its sign, the next
+/// bus, where that bus is going, how long, and whether anything is tracking it.
+///
+/// The direction is the column a route number cannot do without. At a stop
+/// served both ways, "the 7 in 4 min" is no use if it is the 7 going the other
+/// way, which is the same reason a stop board carries a headsign column.
+///
+/// No clock time: it and the wait are the same fact given the hour, and only
+/// one of them answers "should I leave now". The board shows both because it
+/// is a table to scan; a pin is a single answer.
+pub(super) struct PinCols {
+    name: usize,
+    toward: usize,
+}
+
+impl PinCols {
+    fn new(width: usize) -> Self {
+        // Everything but the two variable columns: marker, pole, badge, wait,
+        // status and the gaps. Derived so the widths cannot drift from what is
+        // actually drawn.
+        let fixed = MARKER_W + POLE_W + BADGE_W + WAIT_W + NOTE_W + 6;
+        let share = width.saturating_sub(fixed);
+        // The name identifies the pin, so it wins the wider half.
+        let name = (share * 58 / 100).clamp(10, 28);
+        Self {
+            name,
+            toward: share.saturating_sub(name).clamp(6, 20),
+        }
+    }
+}
+
+/// Width of a pole number column, `#` included.
+const POLE_W: usize = 6;
+
 /// Both column sets for one frame.
 ///
 /// Two usizes and four: cheaper to compute both than to thread the choice
@@ -105,6 +139,7 @@ pub(super) struct Wide {
 pub(super) struct Cols {
     plain: Plain,
     wide: Wide,
+    pin: PinCols,
 }
 
 impl Cols {
@@ -113,7 +148,8 @@ impl Cols {
     pub(super) fn line(&self, row: &Row, now: i32) -> Line<'static> {
         match row {
             Row::Hit(h) => hit_line(h, &self.wide),
-            other => plain_line(other, &self.plain, now),
+            Row::Pin(p) => pin_line(p, &self.pin, now),
+            other => plain_line(other, &self.plain),
         }
     }
 
@@ -128,8 +164,50 @@ impl Cols {
                 rows.first().is_some_and(|r| r.badge().is_some()),
             ),
             wide: Wide::new(width),
+            pin: PinCols::new(width),
         }
     }
+}
+
+/// A pinned stop and the next bus from it.
+fn pin_line(p: &crate::app::Pinned, c: &PinCols, now: i32) -> Line<'static> {
+    let mut spans = vec![
+        Span::styled(
+            format!("{:<w$}", truncate(&tidy(&p.stop.name), c.name), w = c.name),
+            Style::default().fg(FG),
+        ),
+        Span::raw(" "),
+        Span::styled(
+            format!("{:<w$}", format!("#{}", p.stop.code), w = POLE_W),
+            Style::default().fg(RULE),
+        ),
+    ];
+    let Some(d) = p.next() else {
+        spans.push(Span::styled(" none left today", Style::default().fg(RULE)));
+        return Line::from(spans);
+    };
+    let mins = crate::app::mins_until(d.when(), now);
+    let (bg, fg) = badge(&d.route_color);
+    let (note, note_style) = status(d);
+    spans.extend([
+        Span::styled(
+            badge_label(&d.route_short),
+            Style::default().bg(bg).fg(fg).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" "),
+        Span::styled(
+            format!("{:<w$}", truncate(&d.headsign, c.toward), w = c.toward),
+            Style::default().fg(DIM),
+        ),
+        Span::raw(" "),
+        Span::styled(
+            format!("{:>WAIT_W$}", crate::app::fmt_wait(mins)),
+            urgency(mins),
+        ),
+        Span::raw("  "),
+        Span::styled(note, note_style),
+    ]);
+    Line::from(spans)
 }
 
 impl Plain {
@@ -214,7 +292,7 @@ pub(super) fn hit_line(h: &crate::db::StopHit, c: &Wide) -> Line<'static> {
 }
 
 /// Every other screen: a label and one dim detail at a fixed column.
-pub(super) fn plain_line(row: &Row, c: &Plain, now: i32) -> Line<'static> {
+pub(super) fn plain_line(row: &Row, c: &Plain) -> Line<'static> {
     // Route numbers get a filled badge in the official route colour.
     let (label, style) = match row.badge() {
         Some(colour) => {
@@ -232,7 +310,7 @@ pub(super) fn plain_line(row: &Row, c: &Plain, now: i32) -> Line<'static> {
     };
 
     let gap = c.label.saturating_sub(label.chars().count()).max(1);
-    let mut spans = vec![
+    let spans = vec![
         Span::styled(label, style),
         Span::raw(" ".repeat(gap)),
         Span::styled(
@@ -240,38 +318,7 @@ pub(super) fn plain_line(row: &Row, c: &Plain, now: i32) -> Line<'static> {
             Style::default().fg(DIM),
         ),
     ];
-    // A pin carries its next bus, so the first screen answers "should I leave
-    // now" before anything is pressed. Same badge and same urgency colour as
-    // the board: it is a one-row board, not a decorated bookmark.
-    if let Row::Pin(p) = row {
-        spans.extend(next_bus(p.next(), now));
-    }
     Line::from(spans)
-}
-
-/// The one departure a pinned stop shows, or why it has none.
-///
-/// `now` is threaded in because the wait counts down: the event loop advances
-/// the clock every frame, and a pin showing a number frozen at launch would be
-/// the same defect the board already had once.
-fn next_bus(next: Option<&crate::db::Departure>, now: i32) -> Vec<Span<'static>> {
-    let Some(d) = next else {
-        return vec![Span::styled("  none left today", Style::default().fg(RULE))];
-    };
-    let mins = crate::app::mins_until(d.when(), now);
-    let (bg, fg) = badge(&d.route_color);
-    vec![
-        Span::raw("  "),
-        Span::styled(
-            badge_label(&d.route_short),
-            Style::default().bg(bg).fg(fg).add_modifier(Modifier::BOLD),
-        ),
-        Span::raw("  "),
-        Span::styled(
-            format!("{:>WAIT_W$}", crate::app::fmt_wait(mins)),
-            urgency(mins),
-        ),
-    ]
 }
 
 #[cfg(test)]
