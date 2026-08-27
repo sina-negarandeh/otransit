@@ -120,11 +120,17 @@ check every day is already under the cursor when the app opens:
 ```
  ❯ RIDEAU / AUGUSTA                  #2331    14       10 min
    BANK / SOMERSET W                 #1902     7        4 min
+
+
+
    Bus                               71 routes running today
    O-Train                           3 lines · scheduled times only
 ──────────────────────────────────────────────────────────────────────
  What are you taking?             type to find a stop · ↑↓ · ↵ · q
 ```
+
+The answers sit at the top, against the line the mark stands on. The ways in
+stay at the bottom where they were. One cursor runs through both.
 
 Each pin carries its next bus, so the question is answered before you press
 anything. The same badge and the same urgency colours as a board, because it is
