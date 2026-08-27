@@ -333,7 +333,7 @@ fn run(terminal: &mut Term, app: &mut App) -> Result<()> {
         // The clock moves and the background fetch lands: both show up here,
         // once a frame, rather than only when a board is opened.
         app.tick();
-        app.refresh_board()?;
+        app.refresh()?;
         app.apply_realtime();
         terminal.draw(|f| ui::draw(f, app))?;
         if !event::poll(Duration::from_millis(250))? {
@@ -434,6 +434,7 @@ mod tests {
             g.into_conn(),
             chrono::NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
+            None,
         )
         .unwrap();
         app.enter().unwrap(); // modes -> routes
@@ -456,11 +457,11 @@ mod tests {
             .trip("t5", "5", "A", "Elmvale")
             .stop("s1", "0001", "PIMISI")
             .stop_time("t5", "s1", 1, "10:00:00");
-        let mut app = App::offline_with_pins(
+        let mut app = App::offline(
             g.into_conn(),
             chrono::NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
-            dir.join("pins"),
+            Some(dir.join("pins")),
         )
         .unwrap();
         for _ in 0..4 {
@@ -468,6 +469,6 @@ mod tests {
         }
         assert!(app.board_pin().is_some(), "not on a board");
         press(&mut app, 'p');
-        assert_eq!(app.board_pin(), Some(app::PinState::Pinned));
+        assert_eq!(app.board_pin(), Some(pins::PinState::Pinned));
     }
 }

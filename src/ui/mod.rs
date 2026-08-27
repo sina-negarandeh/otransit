@@ -10,7 +10,8 @@ mod palette;
 
 pub use palette::RULE_RGB;
 
-use crate::app::{App, Board, Crumb, PinState, Row, Screen, WAIT_W, fmt_hm, fmt_wait};
+use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait};
+use crate::pins::PinState;
 use layout::{Cols, badge_label, gutter, marker, truncate};
 use palette::{ACCENT, DIM, FG, RULE, badge, hex, status, urgency};
 use ratatui::{
@@ -477,11 +478,11 @@ mod tests {
             .trip("t5", "5", "A", "Elmvale")
             .stop("S1", "1902", "BANK / SOMERSET W")
             .stop_time("t5", "S1", 1, "10:00:00");
-        App::offline_with_pins(
+        App::offline(
             g.into_conn(),
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
-            dir.join("pins"),
+            Some(dir.join("pins")),
         )
         .unwrap()
     }
@@ -503,6 +504,7 @@ mod tests {
             conn,
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
+            None,
         )
         .unwrap()
     }
@@ -529,6 +531,7 @@ mod tests {
             conn,
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
+            None,
         )
         .unwrap();
         app.enter().unwrap(); // Bus -> the route list, where long_name is the
@@ -630,11 +633,11 @@ mod tests {
             .stop("B", "3021", "UOTTAWA B")
             .stop_time("out", "A", 1, "10:00:00")
             .stop_time("back", "B", 1, "10:05:00");
-        let mut app = App::offline_with_pins(
+        let mut app = App::offline(
             g.into_conn(),
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
-            dir.join("pins"),
+            Some(dir.join("pins")),
         )
         .unwrap();
 
@@ -774,6 +777,7 @@ mod tests {
             g.into_conn(),
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
+            None,
         )
         .unwrap();
         for c in "rideau".chars() {
@@ -808,6 +812,7 @@ mod tests {
                 fixture(),
                 NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
                 9 * 3600,
+                None,
             )
             .unwrap();
             for c in "rideau".chars() {
@@ -843,6 +848,7 @@ mod tests {
             g.into_conn(),
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
+            None,
         )
         .unwrap();
         for c in "rideau".chars() {
@@ -875,6 +881,7 @@ mod tests {
             g.into_conn(),
             NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
             9 * 3600,
+            None,
         )
         .unwrap();
         for c in "rideau".chars() {
