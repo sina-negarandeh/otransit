@@ -120,6 +120,9 @@ pub fn screenshot(app: &mut App, shot: &Shot) -> Result<()> {
     app.block_on_realtime(30);
     let mut term = Terminal::new(TestBackend::new(shot.w, shot.h))?;
     let mut frame = |app: &mut App, label: &str| -> Result<()> {
+        // The event loop does this once a frame, so a screenshot that skipped
+        // it would show the timetable where the app shows live times.
+        app.apply_realtime();
         term.draw(|f| crate::ui::draw(f, app))?;
         println!("\n--- {label} ---");
         let buf = term.backend().buffer().clone();

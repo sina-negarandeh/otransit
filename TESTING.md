@@ -43,6 +43,7 @@ cache and reported opposite things about it.
 | Typing on a board silently disabled `q` and `esc` | `app/mod.rs` | no |
 | A capped search reported its limit as a match count | `ui/mod.rs` | no |
 | A platform code was measured in bytes, not cells | `ui/layout.rs` | partly |
+| A pin showed the scheduled-earliest bus, not the next one | `app/mod.rs` | no |
 | The service day was asserted against the machine's timezone | `app/clock.rs` | yes, wrongly |
 | The pty tests ran against whatever cache the machine had | `tests/terminal.rs` | yes, wrongly |
 | `update` called the cache current while the browser called it stale | `main.rs` | no |

@@ -13,7 +13,7 @@ use chrono::{DateTime, Duration, Local, NaiveDate, TimeZone};
 /// `origin + arrival_time` land on the right wall clock either side of the
 /// jump. Treating the origin as plain midnight shifts every trip after 02:00
 /// by an hour on those days.
-fn service_day_start(date: NaiveDate) -> DateTime<Local> {
+pub(super) fn service_day_start(date: NaiveDate) -> DateTime<Local> {
     service_day_start_in(&Local, date)
 }
 

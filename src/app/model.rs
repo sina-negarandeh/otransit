@@ -17,8 +17,32 @@ pub enum Row {
     Stop(StopRow),
     /// A stop search result.
     Hit(StopHit),
-    /// A pinned stop, on the first screen above the modes.
-    Pin(StopRow),
+    /// A pinned stop, on the first screen above the modes, carrying the next
+    /// bus so the answer is on screen before anything is pressed.
+    Pin(Pinned),
+}
+
+/// A pinned stop and the departures it might show.
+///
+/// More than one is fetched even though one is drawn. `departures` can only
+/// order by the timetable, so the scheduled-earliest bus is not always the one
+/// that arrives first: a trip running late is overtaken by one scheduled after
+/// it. Taking `LIMIT 1` here would show a bus that is not next, which is the
+/// defect the board already carries a test for.
+///
+/// The list is re-sorted by actual arrival once realtime lands, and `next`
+/// reads the front of it.
+#[derive(Clone, Debug)]
+pub struct Pinned {
+    pub stop: StopRow,
+    pub upcoming: Vec<crate::db::Departure>,
+}
+
+impl Pinned {
+    /// The one departure this pin shows: whichever arrives first.
+    pub fn next(&self) -> Option<&crate::db::Departure> {
+        self.upcoming.first()
+    }
 }
 
 impl Row {
@@ -28,7 +52,8 @@ impl Row {
             Row::Mode(m, _) => m.label().to_string(),
             Row::Route(r) => r.short_name.clone(),
             Row::Direction(d) => format!("toward {}", d.headsign),
-            Row::Stop(s) | Row::Pin(s) => tidy_stop_name(&s.name),
+            Row::Stop(s) => tidy_stop_name(&s.name),
+            Row::Pin(p) => tidy_stop_name(&p.stop.name),
             Row::Hit(h) => crate::db::strip_platform(&h.name, &h.platform),
         }
     }
@@ -40,7 +65,8 @@ impl Row {
             Row::Mode(Mode::Train, n) => format!("{n} lines · scheduled times only"),
             Row::Route(r) => r.long_name.clone(),
             Row::Direction(d) => format!("{} trips today", d.trips),
-            Row::Stop(s) | Row::Pin(s) => format!("#{}", s.code),
+            Row::Stop(s) => format!("#{}", s.code),
+            Row::Pin(p) => format!("#{}", p.stop.code),
             Row::Hit(h) => h.routes.join(", "),
         }
     }
@@ -56,7 +82,8 @@ impl Row {
         match self {
             Row::Route(r) => hit(&r.short_name) || hit(&r.long_name),
             Row::Direction(d) => hit(&d.headsign),
-            Row::Stop(s) | Row::Pin(s) => hit(&s.name) || hit(&s.code),
+            Row::Stop(s) => hit(&s.name) || hit(&s.code),
+            Row::Pin(p) => hit(&p.stop.name) || hit(&p.stop.code),
             Row::Mode(..) | Row::Hit(_) => true,
         }
     }

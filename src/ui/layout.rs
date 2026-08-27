@@ -4,8 +4,8 @@
 //! it looks like; the one thing that asks the screen a question is the gutter,
 //! whose whole subject is which route the rows below it belong to.
 
-use super::palette::{ACCENT, DIM, FG, RULE, badge, hex, reads_as_a_rule};
-use crate::app::{Row, Screen};
+use super::palette::{ACCENT, DIM, FG, RULE, badge, hex, reads_as_a_rule, urgency};
+use crate::app::{Row, Screen, WAIT_W};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -110,10 +110,10 @@ pub(super) struct Cols {
 impl Cols {
     /// The line for one row. Which layout applies is the row's business, so
     /// the caller never has to reach in and choose.
-    pub(super) fn line(&self, row: &Row) -> Line<'static> {
+    pub(super) fn line(&self, row: &Row, now: i32) -> Line<'static> {
         match row {
             Row::Hit(h) => hit_line(h, &self.wide),
-            other => plain_line(other, &self.plain),
+            other => plain_line(other, &self.plain, now),
         }
     }
 
@@ -214,7 +214,7 @@ pub(super) fn hit_line(h: &crate::db::StopHit, c: &Wide) -> Line<'static> {
 }
 
 /// Every other screen: a label and one dim detail at a fixed column.
-pub(super) fn plain_line(row: &Row, c: &Plain) -> Line<'static> {
+pub(super) fn plain_line(row: &Row, c: &Plain, now: i32) -> Line<'static> {
     // Route numbers get a filled badge in the official route colour.
     let (label, style) = match row.badge() {
         Some(colour) => {
@@ -232,14 +232,46 @@ pub(super) fn plain_line(row: &Row, c: &Plain) -> Line<'static> {
     };
 
     let gap = c.label.saturating_sub(label.chars().count()).max(1);
-    Line::from(vec![
+    let mut spans = vec![
         Span::styled(label, style),
         Span::raw(" ".repeat(gap)),
         Span::styled(
             truncate(&row.secondary(), c.detail),
             Style::default().fg(DIM),
         ),
-    ])
+    ];
+    // A pin carries its next bus, so the first screen answers "should I leave
+    // now" before anything is pressed. Same badge and same urgency colour as
+    // the board: it is a one-row board, not a decorated bookmark.
+    if let Row::Pin(p) = row {
+        spans.extend(next_bus(p.next(), now));
+    }
+    Line::from(spans)
+}
+
+/// The one departure a pinned stop shows, or why it has none.
+///
+/// `now` is threaded in because the wait counts down: the event loop advances
+/// the clock every frame, and a pin showing a number frozen at launch would be
+/// the same defect the board already had once.
+fn next_bus(next: Option<&crate::db::Departure>, now: i32) -> Vec<Span<'static>> {
+    let Some(d) = next else {
+        return vec![Span::styled("  none left today", Style::default().fg(RULE))];
+    };
+    let mins = crate::app::mins_until(d.when(), now);
+    let (bg, fg) = badge(&d.route_color);
+    vec![
+        Span::raw("  "),
+        Span::styled(
+            badge_label(&d.route_short),
+            Style::default().bg(bg).fg(fg).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw("  "),
+        Span::styled(
+            format!("{:>WAIT_W$}", crate::app::fmt_wait(mins)),
+            urgency(mins),
+        ),
+    ]
 }
 
 #[cfg(test)]
