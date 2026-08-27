@@ -171,6 +171,39 @@ impl Narrow<'_> {
 ///
 /// Runs twice: once for today's services, once for yesterday's, because a trip
 /// scheduled at 25:10 on Friday is what you catch at 01:10 on Saturday.
+/// The stops behind a list of pinned ids, in the order asked for.
+///
+/// Ids absent from the cache are simply missing from the result: `update`
+/// replaces the whole database, so a pinned stop can vanish between exports,
+/// and a pin pointing at one is hidden rather than shown as a row that cannot
+/// be opened. The stored line stays, so a stop that comes back brings its pin
+/// with it.
+pub fn stops_by_id(conn: &Connection, ids: &[String]) -> Result<Vec<StopRow>> {
+    if ids.is_empty() {
+        return Ok(vec![]);
+    }
+    let sql = format!(
+        "SELECT stop_id, stop_code, name FROM stops WHERE stop_id IN ({})",
+        placeholders(ids.len())
+    );
+    let mut st = conn.prepare(&sql)?;
+    let found: Vec<StopRow> = st
+        .query_map(params_from_iter(ids.iter()), |r| {
+            Ok(StopRow {
+                stop_id: r.get(0)?,
+                code: r.get(1)?,
+                name: r.get(2)?,
+            })
+        })?
+        .collect::<std::result::Result<_, _>>()?;
+    // SQL has no order to give back, and the order is the whole point: a pin's
+    // position in the list is muscle memory.
+    Ok(ids
+        .iter()
+        .filter_map(|id| found.iter().find(|s| &s.stop_id == id).cloned())
+        .collect())
+}
+
 pub fn departures(
     conn: &Connection,
     stop_id: &str,

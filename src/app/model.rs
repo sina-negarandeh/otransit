@@ -17,6 +17,8 @@ pub enum Row {
     Stop(StopRow),
     /// A stop search result.
     Hit(StopHit),
+    /// A pinned stop, on the first screen above the modes.
+    Pin(StopRow),
 }
 
 impl Row {
@@ -26,7 +28,7 @@ impl Row {
             Row::Mode(m, _) => m.label().to_string(),
             Row::Route(r) => r.short_name.clone(),
             Row::Direction(d) => format!("toward {}", d.headsign),
-            Row::Stop(s) => tidy_stop_name(&s.name),
+            Row::Stop(s) | Row::Pin(s) => tidy_stop_name(&s.name),
             Row::Hit(h) => crate::db::strip_platform(&h.name, &h.platform),
         }
     }
@@ -38,7 +40,7 @@ impl Row {
             Row::Mode(Mode::Train, n) => format!("{n} lines · scheduled times only"),
             Row::Route(r) => r.long_name.clone(),
             Row::Direction(d) => format!("{} trips today", d.trips),
-            Row::Stop(s) => format!("#{}", s.code),
+            Row::Stop(s) | Row::Pin(s) => format!("#{}", s.code),
             Row::Hit(h) => h.routes.join(", "),
         }
     }
@@ -54,7 +56,7 @@ impl Row {
         match self {
             Row::Route(r) => hit(&r.short_name) || hit(&r.long_name),
             Row::Direction(d) => hit(&d.headsign),
-            Row::Stop(s) => hit(&s.name) || hit(&s.code),
+            Row::Stop(s) | Row::Pin(s) => hit(&s.name) || hit(&s.code),
             Row::Mode(..) | Row::Hit(_) => true,
         }
     }
