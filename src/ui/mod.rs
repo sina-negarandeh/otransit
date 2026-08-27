@@ -94,7 +94,16 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         .contents
         .board()
         .map_or_else(|| rows.len(), <[crate::db::Departure]>::len);
-    let want = height_for(count).min(area.height);
+    // A split menu reaches for the whole viewport: the pins sit against the
+    // ground line the logo stands on, and the ways in stay where they were,
+    // just above the rule. The viewport reserves these rows on every screen
+    // anyway, so using the top of it costs nothing.
+    let split = (!on_board).then(|| pinned(&rows)).flatten();
+    let want = if split.is_some() {
+        area.height
+    } else {
+        height_for(count).min(area.height)
+    };
 
     // Everything hugs the bottom; the space above is left to scrollback.
     let [_, panel] = Layout::vertical([Constraint::Min(0), Constraint::Length(want)]).areas(area);
@@ -105,10 +114,10 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     ])
     .areas(panel);
 
-    if on_board {
-        departures(f, body, app);
-    } else {
-        list(f, body, app, &rows);
+    match split {
+        _ if on_board => departures(f, body, app),
+        Some(pins) => menu(f, body, app, &rows, pins),
+        None => list(f, body, app, &rows),
     }
     f.render_widget(
         Paragraph::new(Span::styled(
@@ -257,24 +266,81 @@ fn list(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row]) {
     // along with the whole line, so colouring it there would flatten the row's
     // own columns — and on the search screen those columns are the only thing
     // telling two sides of the same corner apart.
-    let selected = app.state.selected();
-    let items: Vec<ListItem> = rows
-        .iter()
+    let items = items(
+        rows,
+        &cols,
+        rule.as_ref(),
+        app.state.selected(),
+        0,
+        app.now(),
+    );
+    let l = List::new(items).highlight_style(Style::default().add_modifier(Modifier::BOLD));
+    f.render_stateful_widget(l, area, &mut app.state);
+}
+
+/// Rows as drawable items, with the cursor on the one at `selected`.
+///
+/// `offset` is what this group's first row is numbered in the list as a whole,
+/// so a screen drawn as two groups can still have one cursor running through
+/// it.
+fn items<'a>(
+    rows: &[Row],
+    cols: &Cols,
+    rule: Option<&Span<'static>>,
+    selected: Option<usize>,
+    offset: usize,
+    now: i32,
+) -> Vec<ListItem<'a>> {
+    rows.iter()
         .enumerate()
         .map(|(i, row)| {
             // Built in the order they appear: the cursor column, the route's
             // rule if there is one, then the row itself.
-            let mut line = cols.line(row, app.now());
-            let mut spans = vec![marker(Some(i) == selected)];
-            spans.extend(rule.clone());
+            let mut line = cols.line(row, now);
+            let mut spans = vec![marker(Some(i + offset) == selected)];
+            spans.extend(rule.cloned());
             spans.append(&mut line.spans);
             line.spans = spans;
             ListItem::new(line)
         })
-        .collect();
+        .collect()
+}
 
-    let l = List::new(items).highlight_style(Style::default().add_modifier(Modifier::BOLD));
-    f.render_stateful_widget(l, area, &mut app.state);
+/// How many rows at the front are pins, when the screen is a mixed menu.
+///
+/// Derived from the rows rather than asked of the screen, like every other
+/// layout decision in this file: the rows know what they are.
+fn pinned(rows: &[Row]) -> Option<usize> {
+    let n = rows.iter().take_while(|r| matches!(r, Row::Pin(_))).count();
+    (n > 0 && n < rows.len()).then_some(n)
+}
+
+/// The first screen when it has pins: answers at the top, the ways in at the
+/// bottom, one cursor running through both.
+///
+/// Two groups rather than one list with a blank row between them. A spacer row
+/// would be a position the cursor has to be taught to skip; a gap between two
+/// areas is nothing at all.
+fn menu(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row], pins: usize) {
+    let width = area.width as usize;
+    let cols = Cols::new(rows, width, 0);
+    let selected = app.state.selected();
+    let ways = rows.len() - pins;
+
+    let [top, _gap, bottom] = Layout::vertical([
+        Constraint::Length(u16::try_from(pins).unwrap_or(u16::MAX)),
+        Constraint::Min(0),
+        Constraint::Length(u16::try_from(ways).unwrap_or(u16::MAX)),
+    ])
+    .areas(area);
+
+    for (area, group, offset) in [(top, &rows[..pins], 0), (bottom, &rows[pins..], pins)] {
+        f.render_widget(
+            List::new(items(group, &cols, None, selected, offset, app.now()))
+                .highlight_style(Style::default().add_modifier(Modifier::BOLD)),
+            area,
+        );
+    }
 }
 
 fn departures(f: &mut Frame, area: Rect, app: &App) {
@@ -415,6 +481,22 @@ mod tests {
     }
 
     /// A small network: one busy stop with more departures than can be shown.
+    fn pinned_app(dir: &std::path::Path) -> App {
+        let g = TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t5", "5", "A", "Elmvale")
+            .stop("S1", "1902", "BANK / SOMERSET W")
+            .stop_time("t5", "S1", 1, "10:00:00");
+        App::offline_with_pins(
+            g.into_conn(),
+            NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            dir.join("pins"),
+        )
+        .unwrap()
+    }
+
     fn busy_app() -> App {
         let mut g = TestGtfs::new()
             .route("5", "5", 3, "0057B8")
@@ -515,6 +597,47 @@ mod tests {
         for step in ["mode", "routes", "directions", "stops", "departures"] {
             assert!(desired_height(&app) <= VIEWPORT_H, "{step}");
             app.enter().unwrap();
+        }
+    }
+
+    #[test]
+    fn a_pinned_first_screen_puts_the_answers_at_the_top_and_the_ways_in_at_the_bottom() {
+        // Two groups with a gap: the pins sit against the ground line the logo
+        // stands on, the modes stay just above the rule. The viewport reserves
+        // these rows on every screen anyway, so the top of it is free.
+        let dir = std::env::temp_dir().join("otransit-ui-menu");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("pins"), "S1\t1902\tBANK / SOMERSET W\n").unwrap();
+        let mut app = pinned_app(&dir);
+
+        let shown = frame(&mut app, 74, VIEWPORT_H);
+        let first = shown.iter().position(|r| r.contains("BANK")).unwrap();
+        let modes = shown.iter().position(|r| r.contains("Bus")).unwrap();
+        let rule = shown.iter().position(|r| r.starts_with('─')).unwrap();
+        assert_eq!(first, 0, "the pin is not at the top: {shown:#?}");
+        assert_eq!(modes, rule - 2, "the modes left the bottom: {shown:#?}");
+        assert!(
+            shown[first + 1..modes].iter().all(|r| r.trim().is_empty()),
+            "no gap between the two groups: {shown:#?}"
+        );
+    }
+
+    #[test]
+    fn one_cursor_runs_through_both_groups() {
+        // Two widgets, one selection. If each group tracked its own the cursor
+        // would appear twice, or vanish crossing the gap.
+        let dir = std::env::temp_dir().join("otransit-ui-cursor");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("pins"), "S1\t1902\tBANK / SOMERSET W\n").unwrap();
+        let mut app = pinned_app(&dir);
+
+        for step in 0..3 {
+            let shown = frame(&mut app, 74, VIEWPORT_H);
+            let cursors = shown.iter().filter(|r| r.contains('❯')).count();
+            assert_eq!(cursors, 1, "step {step} drew {cursors} cursors: {shown:#?}");
+            app.move_by(1);
         }
     }
 
