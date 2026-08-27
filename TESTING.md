@@ -66,7 +66,8 @@ in the order the app moves through them:
 
 | Module | Covers |
 |---|---|
-| `app/mod.rs` | navigation, typing, board scope and refresh, pins |
+| `app/tests.rs` | navigation, typing, pins, board scope and refresh |
+| `pins.rs` | the pin file, and what the cache can still resolve |
 | `app/clock.rs` | the service day, lateness, the wait column |
 | `app/poll.rs` | poll cadence and failure policy |
 | `db/browse.rs` | routes, directions, boards, ordering |
