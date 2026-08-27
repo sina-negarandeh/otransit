@@ -17,7 +17,7 @@ changing code that has one.
 
 ## Why this document exists
 
-Eighteen real defects were found during development. Five came from reviewing
+Twenty-one real defects were found during development. Five came from reviewing
 the fixes for the first ten, which is its own lesson: a behaviour-preserving
 refactor is exactly where a regression hides, and self-verified work is the
 weakest kind. Two came from CI's first run, a sharper version of the same
@@ -44,6 +44,8 @@ cache and reported opposite things about it.
 | A capped search reported its limit as a match count | `ui/mod.rs` | no |
 | A platform code was measured in bytes, not cells | `ui/layout.rs` | partly |
 | A pin showed the scheduled-earliest bus, not the next one | `app/mod.rs` | no |
+| `p` swallowed the first filter keystroke on every list screen | `main.rs` | no |
+| A first screen left open drained, exactly as a board once did | `app/mod.rs` | no |
 | The service day was asserted against the machine's timezone | `app/clock.rs` | yes, wrongly |
 | The pty tests ran against whatever cache the machine had | `tests/terminal.rs` | yes, wrongly |
 | `update` called the cache current while the browser called it stale | `main.rs` | no |

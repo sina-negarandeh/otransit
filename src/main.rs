@@ -370,10 +370,11 @@ fn handle_key(app: &mut App, k: KeyEvent) -> Result<()> {
         }
         // "/" jumps to the stop search from anywhere, unless you're mid-word.
         KeyCode::Char('/') if !typing => app.focus_search()?,
-        // Only reaches here on a board: on every other screen typing narrows
-        // the list, so `p` is a filter character there and `toggle_pin` is a
-        // no-op anyway.
-        KeyCode::Char('p') if !typing => app.toggle_pin()?,
+        // Guarded on being a board, not on the filter being empty. `!typing`
+        // is true exactly when you start typing, so it swallowed the first
+        // keystroke on every list screen and no stop beginning with P could be
+        // searched for.
+        KeyCode::Char('p') if app.board_pin().is_some() => app.toggle_pin(),
         KeyCode::Backspace => {
             if !app.pop_filter()? {
                 app.back()?;
@@ -388,6 +389,11 @@ fn handle_key(app: &mut App, k: KeyEvent) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A key press, as the event loop delivers it.
+    fn press(app: &mut App, c: char) {
+        handle_key(app, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)).unwrap();
+    }
     use fetch::Freshness;
 
     #[test]
@@ -410,5 +416,58 @@ mod tests {
                 .unwrap()
                 .contains("404")
         );
+    }
+
+    #[test]
+    fn a_letter_that_does_nothing_here_still_reaches_the_filter() {
+        // `p` was guarded on "not already typing", which is true exactly when
+        // the filter is empty -- when you start typing. On a list screen it
+        // matched, found no board to pin, and swallowed the keystroke, so no
+        // stop beginning with P could be searched for.
+        let g = crate::testing::TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t5", "5", "A", "Elmvale")
+            .stop("s1", "0001", "PIMISI")
+            .stop_time("t5", "s1", 1, "10:00:00");
+        let mut app = App::offline(
+            g.into_conn(),
+            chrono::NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+        )
+        .unwrap();
+        app.enter().unwrap(); // modes -> routes
+        app.enter().unwrap(); // routes -> directions
+        app.enter().unwrap(); // directions -> stops
+
+        press(&mut app, 'p');
+        press(&mut app, 'i');
+        assert_eq!(app.screen.typed(), "pi", "the p was eaten");
+    }
+
+    #[test]
+    fn p_still_pins_from_a_board() {
+        let dir = std::env::temp_dir().join("otransit-main-pin");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let g = crate::testing::TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t5", "5", "A", "Elmvale")
+            .stop("s1", "0001", "PIMISI")
+            .stop_time("t5", "s1", 1, "10:00:00");
+        let mut app = App::offline_with_pins(
+            g.into_conn(),
+            chrono::NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            dir.join("pins"),
+        )
+        .unwrap();
+        for _ in 0..4 {
+            app.enter().unwrap();
+        }
+        assert!(app.board_pin().is_some(), "not on a board");
+        press(&mut app, 'p');
+        assert_eq!(app.board_pin(), Some(app::PinState::Pinned));
     }
 }
