@@ -17,7 +17,7 @@ mod calendar;
 mod search;
 
 pub use browse::{
-    Narrow, departures, directions_for_route, routes_for_type, sort_by_actual_arrival,
+    Narrow, departures, directions_for_route, routes_for_type, sort_by_actual_arrival, stops_by_id,
     stops_for_direction,
 };
 pub use calendar::active_services;

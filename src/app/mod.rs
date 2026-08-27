@@ -1,5 +1,10 @@
 //! Stateless drill-down: Mode -> Route -> Direction -> Stop -> Departures.
-//! Nothing is remembered between runs; every launch starts at the top.
+//!
+//! Every launch starts at the top, and pinned stops are the one exception:
+//! a short list of stops you check often, sitting above the modes so the
+//! cursor lands on the answer. They are the only thing here that outlives the
+//! process, and they live in their own file rather than in the cache, which
+//! `update` replaces wholesale.
 
 use crate::db::{self, Departure, Direction, ServiceDay, StopRow};
 use crate::rt;
@@ -53,6 +58,16 @@ impl Contents {
 
 /// Everything on screen: where you are, what that screen lists, and the shared
 /// slot the realtime thread fills in.
+/// Whether the board on screen can be pinned, and whether it already is.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PinState {
+    Pinned,
+    Unpinned,
+    /// Not pinned, and there is no room. Said out loud rather than letting the
+    /// key look broken.
+    Full,
+}
+
 pub struct App {
     /// The cache. Private: everything outside `App` asks a question through a
     /// method rather than running its own SQL against the schedule.
@@ -74,15 +89,22 @@ pub struct App {
     pub quit: bool,
     n_bus: usize,
     n_rail: usize,
+
+    /// Stops pinned to the first screen, in the order they were pinned.
+    pins: Vec<crate::pins::Pin>,
+    /// Where they are written back. `None` means this app does not persist
+    /// them: tests, and platforms with no config directory.
+    pins_path: Option<std::path::PathBuf>,
 }
 
 impl App {
     pub fn new(conn: Connection, cache_dir: std::path::PathBuf) -> Result<Self> {
+        let pins = crate::pins::path();
         // Kick the realtime fetch off now — by the time anyone reaches the
         // departures board several keystrokes later it is usually done — and
         // then keep it fresh, so "live" keeps meaning live while you watch.
         let today = Local::now().date_naive();
-        Self::build(conn, poll::start(cache_dir), today, now_secs(today))
+        Self::build(conn, poll::start(cache_dir), today, now_secs(today), pins)
     }
 
     /// An app with no realtime thread and a fixed clock.
@@ -92,7 +114,27 @@ impl App {
     /// the date also makes every schedule assertion reproducible.
     #[cfg(test)]
     pub fn offline(conn: Connection, today: NaiveDate, now: i32) -> Result<Self> {
-        Self::build(conn, Arc::new(Mutex::new(RtState::Off)), today, now)
+        Self::build(conn, Arc::new(Mutex::new(RtState::Off)), today, now, None)
+    }
+
+    /// An offline app whose pins live in a file the test controls.
+    ///
+    /// The path is injected rather than looked up so no test can read or write
+    /// the pins of whoever is running it.
+    #[cfg(test)]
+    pub fn offline_with_pins(
+        conn: Connection,
+        today: NaiveDate,
+        now: i32,
+        pins: std::path::PathBuf,
+    ) -> Result<Self> {
+        Self::build(
+            conn,
+            Arc::new(Mutex::new(RtState::Off)),
+            today,
+            now,
+            Some(pins),
+        )
     }
 
     fn build(
@@ -100,6 +142,7 @@ impl App {
         rt_state: Arc<Mutex<RtState>>,
         today_date: NaiveDate,
         now: i32,
+        pins_path: Option<std::path::PathBuf>,
     ) -> Result<Self> {
         let yday_date = today_date.pred_opt().unwrap_or(today_date);
         let today = db::active_services(&conn, today_date)?;
@@ -123,6 +166,11 @@ impl App {
             quit: false,
             n_bus,
             n_rail,
+            pins: pins_path
+                .as_deref()
+                .map(crate::pins::load)
+                .unwrap_or_default(),
+            pins_path,
         };
         app.contents = app.load(&Screen::Mode)?;
         Ok(app)
@@ -133,10 +181,22 @@ impl App {
     /// disagree about what belongs there.
     fn load(&self, screen: &Screen) -> Result<Contents> {
         let rows: Vec<Row> = match screen {
-            Screen::Mode => vec![
-                Row::Mode(Mode::Bus, self.n_bus),
-                Row::Mode(Mode::Train, self.n_rail),
-            ],
+            Screen::Mode => {
+                // Above the modes, so the cursor lands on the answer rather
+                // than on the first question. Pins whose stop is no longer in
+                // the cache are left out: a row that cannot be opened is worse
+                // than no row, and the stored line survives to come back with
+                // the stop.
+                let ids: Vec<String> = self.pins.iter().map(|p| p.stop_id.clone()).collect();
+                db::stops_by_id(&self.conn, &ids)?
+                    .into_iter()
+                    .map(Row::Pin)
+                    .chain([
+                        Row::Mode(Mode::Bus, self.n_bus),
+                        Row::Mode(Mode::Train, self.n_rail),
+                    ])
+                    .collect()
+            }
             Screen::Search { query } => {
                 db::search_stops(&self.conn, query, &self.today, crate::ui::SEARCH_LIMIT)?
                     .into_iter()
@@ -328,6 +388,9 @@ impl App {
             // A search result goes straight to the stop's board, skipping route
             // and direction entirely.
             Row::Hit(hit) => self.goto(Screen::Departures(Board::Stop { stop: hit.into() }))?,
+            // A pin is the same destination as a search result, reached
+            // without the search.
+            Row::Pin(stop) => self.goto(Screen::Departures(Board::Stop { stop }))?,
             Row::Mode(mode, _) => self.goto(Screen::routes(mode))?,
             Row::Route(route) => {
                 let Some(mode) = self.screen.mode() else {
@@ -356,6 +419,55 @@ impl App {
                     stop,
                 }))?;
             }
+        }
+        Ok(())
+    }
+
+    /// Whether the board on screen is pinned. `None` when this is not a board.
+    pub fn board_pin(&self) -> Option<PinState> {
+        let stop = &self.screen.board()?.stop().stop_id;
+        Some(if self.pins.iter().any(|p| &p.stop_id == stop) {
+            PinState::Pinned
+        } else if self.pins.len() >= crate::ui::MAX_PINS {
+            PinState::Full
+        } else {
+            PinState::Unpinned
+        })
+    }
+
+    /// Pin the stop on screen, or unpin it if it is already pinned.
+    ///
+    /// Only from a board, because a board is the only screen where a letter is
+    /// free -- everywhere else typing narrows a list -- and because it is the
+    /// screen that just showed you whether the stop is worth keeping.
+    ///
+    /// A drilled-down board is filtered to one route, but what gets pinned is
+    /// the stop: it is the durable half, and "everything calling here" is the
+    /// better answer to whether to leave now. The status bar names what is
+    /// pinned so that is visible at the moment of pressing.
+    pub fn toggle_pin(&mut self) -> Result<()> {
+        let Some(state) = self.board_pin() else {
+            return Ok(());
+        };
+        let stop = self
+            .screen
+            .board()
+            .expect("board_pin said so")
+            .stop()
+            .clone();
+        match state {
+            PinState::Pinned => self.pins.retain(|p| p.stop_id != stop.stop_id),
+            // Silently refusing would look like a broken key, so the status bar
+            // says "pins full" instead of offering "pin".
+            PinState::Full => return Ok(()),
+            PinState::Unpinned => self.pins.push(crate::pins::Pin {
+                stop_id: stop.stop_id,
+                code: stop.code,
+                name: stop.name,
+            }),
+        }
+        if let Some(path) = &self.pins_path {
+            crate::pins::save(path, &self.pins)?;
         }
         Ok(())
     }
@@ -616,6 +728,234 @@ mod tests {
 
     fn labels(app: &App) -> Vec<String> {
         app.rows().iter().map(Row::primary).collect()
+    }
+
+    /// The same fixture, with pins in a file the test owns.
+    ///
+    /// A temp dir rather than the real config path: no test may read or write
+    /// the pins of whoever is running it.
+    fn app_with_pins(dir: &std::path::Path) -> App {
+        let g = TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t5", "5", "A", "Elmvale")
+            .stop("s1", "0001", "BANK / SOMERSET W")
+            .stop("s2", "0002", "BANK / GLADSTONE")
+            .stop("s3", "0003", "BANK / LAURIER")
+            .stop("s4", "0004", "BANK / SLATER")
+            .stop("s5", "0005", "BANK / QUEEN")
+            .stop("s6", "0006", "BANK / ALBERT")
+            .stop("s7", "0007", "BANK / SPARKS")
+            .stop_time("t5", "s1", 1, "10:00:00")
+            .stop_time("t5", "s2", 2, "10:05:00")
+            .stop_time("t5", "s3", 3, "10:10:00")
+            .stop_time("t5", "s4", 4, "10:15:00")
+            .stop_time("t5", "s5", 5, "10:20:00")
+            .stop_time("t5", "s6", 6, "10:25:00")
+            .stop_time("t5", "s7", 7, "10:30:00");
+        App::offline_with_pins(
+            g.into_conn(),
+            NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            dir.join("pins"),
+        )
+        .unwrap()
+    }
+
+    /// Open the board for one stop, the only screen `p` works from.
+    fn open_stop(app: &mut App, stop_id: &str, code: &str, name: &str) {
+        app.goto(Screen::Departures(Board::Stop {
+            stop: StopRow {
+                stop_id: stop_id.into(),
+                code: code.into(),
+                name: name.into(),
+            },
+        }))
+        .unwrap();
+    }
+
+    fn tmp(label: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("otransit-pins-{label}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    // ---------- pins ----------
+
+    #[test]
+    fn a_pin_survives_a_restart() {
+        // The one piece of state the app keeps. If it does not outlive the
+        // process it has bought nothing over drilling down again.
+        let dir = tmp("restart");
+        let mut app = app_with_pins(&dir);
+        open_stop(&mut app, "s2", "0002", "BANK / GLADSTONE");
+        app.toggle_pin().unwrap();
+
+        let fresh = app_with_pins(&dir);
+        let first = fresh.rows().first().cloned();
+        assert!(
+            matches!(&first, Some(Row::Pin(s)) if s.stop_id == "s2"),
+            "the pin is not the first row after a restart: {first:?}"
+        );
+    }
+
+    #[test]
+    fn pins_sit_above_the_modes_so_the_cursor_starts_on_one() {
+        // The whole point: land on the answer, not on the first question.
+        let dir = tmp("above");
+        let mut app = app_with_pins(&dir);
+        open_stop(&mut app, "s2", "0002", "BANK / GLADSTONE");
+        app.toggle_pin().unwrap();
+        app.goto(Screen::Mode).unwrap();
+
+        let kinds: Vec<&str> = app
+            .rows()
+            .iter()
+            .map(|r| match r {
+                Row::Pin(_) => "pin",
+                Row::Mode(..) => "mode",
+                _ => "other",
+            })
+            .collect();
+        assert_eq!(kinds, ["pin", "mode", "mode"]);
+        assert_eq!(app.state.selected(), Some(0), "cursor starts on the pin");
+    }
+
+    #[test]
+    fn pressing_p_twice_leaves_no_pin() {
+        let dir = tmp("toggle");
+        let mut app = app_with_pins(&dir);
+        open_stop(&mut app, "s2", "0002", "BANK / GLADSTONE");
+        app.toggle_pin().unwrap();
+        assert_eq!(app.board_pin(), Some(PinState::Pinned));
+        app.toggle_pin().unwrap();
+        assert_eq!(app.board_pin(), Some(PinState::Unpinned));
+        assert!(
+            app_with_pins(&dir)
+                .rows()
+                .iter()
+                .all(|r| !matches!(r, Row::Pin(_)))
+        );
+    }
+
+    #[test]
+    fn a_pin_whose_stop_left_the_feed_is_hidden_but_not_forgotten() {
+        // `update` replaces the whole cache, so a pinned stop can vanish
+        // between exports. A row that cannot be opened is worse than no row --
+        // and deleting the line would lose the pin to a stop that comes back.
+        let dir = tmp("dangling");
+        std::fs::write(
+            dir.join("pins"),
+            "gone	9999	RETIRED STOP
+s2	0002	BANK / GLADSTONE
+",
+        )
+        .unwrap();
+        let app = app_with_pins(&dir);
+
+        let pins: Vec<String> = app
+            .rows()
+            .iter()
+            .filter_map(|r| match r {
+                Row::Pin(s) => Some(s.stop_id.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(pins, ["s2"], "the missing stop is still on screen");
+        assert!(
+            std::fs::read_to_string(dir.join("pins"))
+                .unwrap()
+                .contains("gone"),
+            "the line was deleted rather than hidden"
+        );
+    }
+
+    #[test]
+    fn pins_keep_the_order_they_were_pinned_in_not_the_cache_s() {
+        // Where a pin sits is muscle memory, and SQL has no order to give
+        // back: `IN (...)` returns rows in whatever order it likes. Pinning
+        // s3 then s1 must not come back as s1 then s3.
+        let dir = tmp("order");
+        let mut app = app_with_pins(&dir);
+        for (id, name) in [("s3", "BANK / LAURIER"), ("s1", "BANK / SOMERSET W")] {
+            open_stop(&mut app, id, "0000", name);
+            app.toggle_pin().unwrap();
+        }
+        app.goto(Screen::Mode).unwrap();
+
+        let order: Vec<String> = app
+            .rows()
+            .iter()
+            .filter_map(|r| match r {
+                Row::Pin(s) => Some(s.stop_id.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(order, ["s3", "s1"], "the list reordered itself");
+    }
+
+    #[test]
+    fn the_list_never_grows_past_what_fits_on_screen() {
+        // A pin list you have to scroll has lost the property that makes it
+        // worth having, so the cap is the layout's, not a number picked here.
+        let dir = tmp("cap");
+        let mut app = app_with_pins(&dir);
+        for (i, id) in ["s1", "s2", "s3", "s4", "s5", "s6", "s7"]
+            .iter()
+            .enumerate()
+        {
+            open_stop(&mut app, id, "0000", "X");
+            app.toggle_pin().unwrap();
+            assert!(
+                app.pins.len() <= crate::ui::MAX_PINS,
+                "pin {i} pushed the list past the cap"
+            );
+        }
+        assert_eq!(app.pins.len(), crate::ui::MAX_PINS);
+        assert_eq!(
+            app.board_pin(),
+            Some(PinState::Full),
+            "the last one was refused"
+        );
+    }
+
+    #[test]
+    fn a_stop_reached_by_drilling_down_pins_the_stop_not_the_route() {
+        // A drilled board is filtered to one route; the stop is the durable
+        // half, and everything calling there is the better answer to whether
+        // to leave now.
+        let dir = tmp("drill");
+        let mut app = app_with_pins(&dir);
+        app.enter().unwrap(); // mode -> routes
+        app.enter().unwrap(); // routes -> directions
+        app.enter().unwrap(); // directions -> stops
+        app.enter().unwrap(); // stops -> a Board::Route
+        assert!(matches!(
+            app.screen,
+            Screen::Departures(Board::Route { .. })
+        ));
+        app.toggle_pin().unwrap();
+
+        app.goto(Screen::Mode).unwrap();
+        assert!(
+            matches!(app.rows().first(), Some(Row::Pin(_))),
+            "pinning from a drilled board recorded nothing"
+        );
+    }
+
+    #[test]
+    fn p_does_nothing_anywhere_but_a_board() {
+        // Every other screen treats letters as filter input, so the toggle must
+        // be inert there rather than quietly recording something.
+        let dir = tmp("elsewhere");
+        let mut app = app_with_pins(&dir);
+        for step in ["mode", "routes", "directions", "stops"] {
+            assert_eq!(app.board_pin(), None, "{step}");
+            app.toggle_pin().unwrap();
+            assert!(app.pins.is_empty(), "{step} recorded a pin");
+            app.enter().unwrap();
+        }
     }
 
     // ---------- navigation ----------

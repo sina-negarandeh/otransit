@@ -111,8 +111,29 @@ the route's own colour, so the O-Train's lines carry theirs:
 
 ![The stations of O-Train Line 1 toward Tunney's Pasture, in travel order, with pole numbers beside them. A red rule runs down the left in Line 1's own colour, and the trail at the bottom shows the line badge in the same red.](docs/images/otrain-stations.png)
 
-Keys: `↑↓`/`jk` move, `↵` select, `esc` back, `/` search from anywhere, `q`
-quit.
+Keys: `↑↓`/`jk` move, `↵` select, `esc` back, `/` search from anywhere, `p`
+pin the board you are looking at, `q` quit.
+
+Pinned stops sit above `Bus` and `O-Train` on the first screen, so the stop you
+check every day is already under the cursor when the app opens:
+
+```
+ ❯ RIDEAU / AUGUSTA                  #2331
+   Bus                               71 routes running today
+   O-Train                           3 lines · scheduled times only
+──────────────────────────────────────────────────────────────────────
+ What are you taking?             type to find a stop · ↑↓ · ↵ · q
+```
+
+`p` on a departures board pins it, and unpins it if it is already pinned. It
+works only there: everywhere else letters narrow the list you are looking at.
+The list holds as many as fit above the modes without scrolling, and lives in
+`pins` beside your config, not in the cache, so rebuilding the schedule does
+not touch it.
+
+A pinned stop that disappears from a new export is hidden rather than shown as
+a row that cannot be opened. The line stays in the file, so a stop that comes
+back brings its pin with it.
 
 ## The feed
 

@@ -63,7 +63,7 @@ in the order the app moves through them:
 
 | Module | Covers |
 |---|---|
-| `app/mod.rs` | navigation, typing, board scope and refresh |
+| `app/mod.rs` | navigation, typing, board scope and refresh, pins |
 | `app/clock.rs` | the service day, lateness, the wait column |
 | `app/poll.rs` | poll cadence and failure policy |
 | `db/browse.rs` | routes, directions, boards, ordering |
@@ -76,6 +76,7 @@ in the order the app moves through them:
 | `ui/layout.rs` | badges, column widths, the gutter |
 | `ui/palette.rs` | which colours can carry a rule |
 | `logo.rs` | the mark, both fallbacks, its ground line |
+| `pins.rs` | the file: round trips, odd names, a hand-edited typo |
 | `tests/terminal.rs` | inline viewport, clean exit, no tty |
 
 Four fixes here carry no test, and say so rather than carrying a fake one:

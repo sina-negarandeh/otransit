@@ -4,6 +4,7 @@ mod dev;
 mod fetch;
 mod gtfs;
 mod logo;
+mod pins;
 mod rt;
 #[cfg(test)]
 mod testing;
@@ -369,6 +370,10 @@ fn handle_key(app: &mut App, k: KeyEvent) -> Result<()> {
         }
         // "/" jumps to the stop search from anywhere, unless you're mid-word.
         KeyCode::Char('/') if !typing => app.focus_search()?,
+        // Only reaches here on a board: on every other screen typing narrows
+        // the list, so `p` is a filter character there and `toggle_pin` is a
+        // no-op anyway.
+        KeyCode::Char('p') if !typing => app.toggle_pin()?,
         KeyCode::Backspace => {
             if !app.pop_filter()? {
                 app.back()?;

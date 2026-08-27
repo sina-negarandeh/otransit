@@ -10,7 +10,7 @@ mod palette;
 
 pub use palette::RULE_RGB;
 
-use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait, lateness};
+use crate::app::{App, Board, Crumb, PinState, Row, Screen, WAIT_W, fmt_hm, fmt_wait, lateness};
 use layout::{Cols, badge_label, gutter, marker, truncate};
 use palette::{ACCENT, DIM, FG, RULE, badge, hex, urgency};
 use ratatui::{
@@ -49,6 +49,14 @@ pub fn desired_height(app: &App) -> u16 {
 fn height_for(rows: usize) -> u16 {
     u16::try_from(rows).unwrap_or(MAX_ROWS).clamp(1, MAX_ROWS) + 2 // rule + status
 }
+
+/// Pins the first screen can hold: whatever fits above the two modes without
+/// the list starting to scroll.
+///
+/// Derived rather than chosen. A pin list you have to scroll has lost the
+/// property that makes it worth having -- that the cursor is already on the
+/// answer -- so the layout decides the cap.
+pub const MAX_PINS: usize = MAX_ROWS as usize - 2;
 
 /// Stop search results to fetch. Also the point past which the count in the
 /// status bar stops being a total and becomes "at least this many".
@@ -161,10 +169,18 @@ fn status_bar(f: &mut Frame, area: Rect, app: &App, rows: &[Row]) {
     let note = app.rt_note().unwrap_or_default();
     let hints = match &app.screen {
         Screen::Departures(_) => {
+            // Names the gesture and its effect, so the key is discoverable and
+            // a refusal at the cap reads as a state rather than a dead key.
+            let pin = match app.board_pin() {
+                Some(PinState::Pinned) => "p unpin · ",
+                Some(PinState::Unpinned) => "p pin · ",
+                Some(PinState::Full) => "pins full · ",
+                None => "",
+            };
             if note.is_empty() {
-                "esc · q ".to_string()
+                format!("{pin}esc · q ")
             } else {
-                format!("{note} · esc · q ")
+                format!("{note} · {pin}esc · q ")
             }
         }
         // Nothing on screen advertises the stop search, so the hint must.
