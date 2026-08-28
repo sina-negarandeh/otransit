@@ -43,8 +43,8 @@ git clone https://github.com/sina-negarandeh/otransit && cd otransit
 cargo run --release -- update
 ```
 
-`update` downloads the published GTFS feed (109 MB, no key required), unpacks
-it, and builds a SQLite cache. It takes about ten seconds.
+`update` downloads the published GTFS feed, which is 109 MB and needs no key. It
+unpacks the feed and builds a SQLite cache. This takes about ten seconds.
 
 ```
 checking https://oct-gtfs-emasagcnfmcgeham.z01.azurefd.net/public-access/GTFSExport.zip
@@ -59,10 +59,10 @@ schedule updated (109 MB)
 ```
 
 Run it when the browser tells you to. OC Transpo republishes on its own
-schedule rather than on a fixed cadence, and realtime trip IDs are only
-guaranteed to match the export they were issued against, so the browser asks
-the server on startup and says so only when a newer export exists. Asking
-costs one round trip and no body, and so does an unchanged feed here:
+schedule, not on a fixed cadence. A realtime trip ID is only guaranteed to match
+the export it was issued against. So the browser asks the server at startup, and
+it tells you only when a newer export exists. The question costs one round trip
+and no body. An unchanged feed costs the same:
 
 ```
 checking https://oct-gtfs-emasagcnfmcgeham.z01.azurefd.net/public-access/GTFSExport.zip
@@ -140,11 +140,11 @@ Each pin carries its next bus, so the question is answered before you press
 anything. The same badge and the same urgency colours as a board, because it is
 a board, one row long.
 
-`p` on a departures board pins it, and unpins it if it is already pinned. It
-works only there: everywhere else letters narrow the list you are looking at.
-The list holds as many as fit above the modes without scrolling, and lives in
-`pins` beside your config, not in the cache, so rebuilding the schedule does
-not touch it.
+`p` on a departures board pins that board. Press `p` again to unpin it. The key
+works only there, because on every other screen a letter narrows the list. The
+list holds as many pins as fit above the modes without scrolling. It lives in a
+`pins` file beside your config, not in the cache, so a rebuild of the schedule
+does not touch it.
 
 A pinned stop that disappears from a new export is hidden rather than shown as
 a row that cannot be opened. The line stays in the file, so a stop that comes
@@ -174,13 +174,13 @@ answer 404, and only `TripUpdates` exists. The detours are published as RSS on
 the developer page instead, tagged with the routes they affect.
 
 It is the weakest of the three sources here. The other two are specified
-formats; this is a CMS emitting RSS, where `affectedRoutes-19, 42, 44, 48` is a
-convention rather than a contract. `otransit probe` reports how many parsed, so
-a change in shape shows up as a number rather than as a quiet week.
+formats. This one is a CMS that emits RSS, where `affectedRoutes-19, 42, 44, 48`
+is a convention and not a contract. `otransit probe` reports how many parsed, so
+a change of shape appears as a number instead of as a quiet week.
 
-Route-level only. The feed names stops too, but in prose, mixed in with the
-alternate stops it is telling you to use instead, so there is no safe way to say
-"your stop is closed" rather than "your stop is the detour".
+The detours are route-level only. The feed names stops as well, but it names
+them in prose, together with the alternate stops it tells you to use. There is
+no safe way to separate "your stop is closed" from "your stop is on the detour".
 
 ### Three sources
 
@@ -248,32 +248,32 @@ writes an escape sequence anywhere.
 
 | Command | |
 |---|---|
-| `otransit` | the browser |
-| `otransit update` | download today's feed, rebuild the cache |
-| `otransit probe` | check the realtime feed still parses |
-| `otransit dump <route> [stop]` | headless walk of the query path |
+| `otransit` | open the browser |
+| `otransit update` | download today's feed and rebuild the cache |
+| `otransit probe` | check that both live feeds still parse |
+| `otransit dump <route> [stop]` | walk the query path without a terminal |
 | `otransit screenshot [w] [h]` | render screens as text (`search=rideau`, `route=75`) |
-| `otransit ingest <dir>` | build from a feed you already unpacked |
-| `otransit logo` | the startup mark |
-| `otransit --version` | version and data attribution |
+| `otransit ingest <dir>` | build the cache from a feed you unpacked |
+| `otransit logo` | print the startup mark |
+| `otransit --version` | print the version and the data attribution |
 
-The browser needs a real terminal, since the inline viewport queries cursor
-position. Piping gets a clear error rather than a hang. Use `dump` or
-`screenshot` in scripts.
+The browser needs a real terminal, because the inline viewport asks for the
+cursor position. A pipe gets a clear error, not a hang. Use `dump` or
+`screenshot` in a script.
 
 ## Limits
 
-All of these are the feed's, not the app's.
+These are limits of the feed, not of the app.
 
 - **The O-Train has no realtime data.** Lines 1, 2 and 4 are always schedule
-  only. Checked against a live feed at 8:30pm on a Friday: 359 bus trips, zero
-  rail.
+  only. A check against a live feed at 8:30pm on a Friday found 359 bus trips
+  and zero rail trips.
 - **No confidence bounds.** The feed carries no `uncertainty` field.
-- **Predictions reach about 45 minutes.** Past that the board shows the
+- **Predictions reach about 45 minutes.** Past that, the board shows the
   timetable and labels it `sched`.
-- **GPS runs about two minutes stale**, not the 30 seconds advertised. Median
-  115s, occasionally eleven minutes. The status bar shows the feed's age rather
-  than hiding it.
+- **GPS runs about two minutes behind**, not the 30 seconds the portal
+  advertises. The median is 115 seconds, and it sometimes reaches eleven
+  minutes. The status bar shows the age of the feed instead of hiding it.
 
 ## Development
 
@@ -284,20 +284,21 @@ cargo build --release
 cargo test --release
 ```
 
-All four must be clean, and CI runs the same four on every push and pull
-request. Unit tests live beside the code they cover; the integration tests in
-`tests/` drive the real binary through a pty.
+All four must be clean. CI runs the same four on every push and every pull
+request. Unit tests live beside the code they cover, and a large test module
+moves to its own child file. The integration tests in `tests/` drive the real
+binary through a pty.
 
-[RUST.md](RUST.md) covers the standards: rustfmt, the API Guidelines, a curated
-clippy set, `unsafe` forbidden at the manifest level. [TESTING.md](TESTING.md)
-covers the approach, including the rule that earned its keep. After writing a
-test, break the code and watch it fail. That caught three tests which could not
-fail at all.
+[RUST.md](RUST.md) covers the standards: rustfmt, the API Guidelines, a selected
+clippy set, and `unsafe` forbidden at the manifest level.
+[TESTING.md](TESTING.md) covers the approach, including the rule that earned its
+keep. After you write a test, break the code and watch the test fail. That has
+caught four tests which could not fail at all.
 
 ## Attribution
 
-Transit data is published by the City of Ottawa, and using it carries an
-attribution requirement. `otransit --version` carries it:
+The City of Ottawa publishes the transit data, and its licence requires
+attribution. `otransit --version` prints it:
 
 ```
 otransit 0.1.0
