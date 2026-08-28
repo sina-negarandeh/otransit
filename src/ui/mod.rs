@@ -13,7 +13,7 @@ pub use palette::RULE_RGB;
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait};
 use crate::pins::PinState;
 use layout::{Cols, badge_label, below_a_route, gutter, marker, truncate};
-use palette::{ACCENT, DIM, FG, RULE, badge, hex, status, urgency};
+use palette::{ACCENT, AMBER, DIM, FG, RULE, badge, hex, status, urgency};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -415,13 +415,19 @@ fn wrap(text: &str, width: usize, max: usize) -> Vec<String> {
 /// know how tall this is, and wrapping again here would be a second answer to
 /// a question already asked.
 fn alert(f: &mut Frame, area: Rect, lines: &[String]) {
+    // Amber, the palette's "off-nominal but not wrong": the same colour a bus
+    // running late wears. Neither screen this appears on has a wait column, so
+    // it is the only amber on them and does not have to compete with a
+    // countdown for the meaning. Not bold -- two lines of bold prose shout,
+    // and the colour has already said it.
+    let warn = Style::default().fg(AMBER);
     let lines: Vec<Line> = lines
         .iter()
         .enumerate()
         .map(|(i, l)| {
             Line::from(vec![
-                Span::styled(if i == 0 { " ⚠ " } else { "   " }, Style::default().fg(FG)),
-                Span::styled(l.clone(), Style::default().fg(FG)),
+                Span::styled(if i == 0 { " ⚠ " } else { "   " }, warn),
+                Span::styled(l.clone(), warn),
             ])
         })
         .collect();

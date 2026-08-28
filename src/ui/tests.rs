@@ -267,6 +267,27 @@ fn a_detour_does_not_push_a_direction_off_the_screen() {
 }
 
 #[test]
+fn the_detour_is_amber_and_the_choices_below_it_are_not() {
+    // It has to read as a warning at a glance, and the rows under it have to
+    // keep reading as a list of choices. Both screens it appears on have no
+    // wait column, so this is the only amber on them.
+    let mut app = app_with_a_detour("Detour: Route 44 during Terminal Avenue bridge closure");
+
+    let rows = colours(&mut app, 74, VIEWPORT_H);
+    let warn = &rows[0];
+    assert!(
+        warn.iter().any(|(fg, _)| *fg == super::palette::AMBER),
+        "the detour is not amber"
+    );
+    assert!(
+        rows[1..]
+            .iter()
+            .all(|r| r.iter().all(|(fg, _)| *fg != super::palette::AMBER)),
+        "amber leaked onto the choices below"
+    );
+}
+
+#[test]
 fn the_detour_stays_up_while_you_pick_a_stop() {
     // The stops screen still sits under exactly one route -- it draws the
     // route's gutter -- and it is the screen where a detour decides which

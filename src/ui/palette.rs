@@ -25,6 +25,20 @@ pub(super) const RULE: Color = Color::Rgb(RULE_RGB.0, RULE_RGB.1, RULE_RGB.2);
 
 pub(super) const INK: Color = Color::Rgb(0x0c, 0x0c, 0x0c);
 
+/// The traffic light. Green is fine, amber is off-nominal, red is wrong.
+///
+/// Named once because three places read them: how a trip is doing, how soon it
+/// leaves, and whether something is published about the route. They were
+/// previously locals in one function and repeated literals in another, which
+/// is how a fourth caller ends up inventing a fifth warm colour.
+///
+/// `RED` is not `ACCENT`. The brand red marks the cursor and means "you are
+/// here"; this one is lighter and means "this is wrong". Two reds, because
+/// they answer different questions and both have to be legible at once.
+pub(super) const GREEN: Color = Color::Rgb(0x5c, 0xd6, 0x8a);
+pub(super) const AMBER: Color = Color::Rgb(0xff, 0xc1, 0x07);
+pub(super) const RED: Color = Color::Rgb(0xff, 0x6b, 0x6b);
+
 pub(super) fn hex(s: &str) -> Option<(u8, u8, u8)> {
     let s = s.trim().trim_start_matches('#');
     if s.len() != 6 {
@@ -72,21 +86,18 @@ pub(super) const NOTE_W: usize = 9;
 /// nothing is tracking this trip, and a row that hid that would be confidently
 /// wrong in the way this app most wants to avoid.
 pub(super) fn status(d: &crate::db::Departure) -> (String, Style) {
-    let green = Color::Rgb(0x5c, 0xd6, 0x8a);
-    let amber = Color::Rgb(0xff, 0xc1, 0x07);
-    let red = Color::Rgb(0xff, 0x6b, 0x6b);
     if d.canceled {
         return (
             "cancelled".to_string(),
-            Style::default().fg(red).add_modifier(Modifier::BOLD),
+            Style::default().fg(RED).add_modifier(Modifier::BOLD),
         );
     }
     let Some(live) = d.live else {
         return ("sched".to_string(), Style::default().fg(RULE));
     };
     match crate::app::lateness(live, d.secs) {
-        -1..=1 => ("on time".into(), Style::default().fg(green)),
-        l if l > 0 => (format!("{l} late"), Style::default().fg(amber)),
+        -1..=1 => ("on time".into(), Style::default().fg(GREEN)),
+        l if l > 0 => (format!("{l} late"), Style::default().fg(AMBER)),
         l => (format!("{} early", -l), Style::default().fg(DIM)),
     }
 }
@@ -95,13 +106,9 @@ pub(super) fn status(d: &crate::db::Departure) -> (String, Style) {
 pub(super) fn urgency(mins: i32) -> Style {
     match mins {
         m if m < 0 => Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT),
-        m if m <= 2 => Style::default()
-            .fg(Color::Rgb(0xff, 0x6b, 0x6b))
-            .add_modifier(Modifier::BOLD),
-        m if m <= 6 => Style::default()
-            .fg(Color::Rgb(0xff, 0xc1, 0x07))
-            .add_modifier(Modifier::BOLD),
-        m if m <= 15 => Style::default().fg(Color::Rgb(0x5c, 0xd6, 0x8a)),
+        m if m <= 2 => Style::default().fg(RED).add_modifier(Modifier::BOLD),
+        m if m <= 6 => Style::default().fg(AMBER).add_modifier(Modifier::BOLD),
+        m if m <= 15 => Style::default().fg(GREEN),
         _ => Style::default().fg(DIM),
     }
 }
