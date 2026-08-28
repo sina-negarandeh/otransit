@@ -443,16 +443,7 @@ impl App {
     /// the full timeout on both. Only the headless tools wait at all; the
     /// browser draws without them and picks them up on a later frame.
     pub fn block_on_alerts(&self, secs: u64) {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
-        loop {
-            if self.alerts.lock().is_ok_and(|g| g.is_some()) {
-                return;
-            }
-            if std::time::Instant::now() >= deadline {
-                return;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+        block_until(secs, || self.alerts.lock().is_ok_and(|g| g.is_some()));
     }
 
     /// How many alerts landed, for `probe`. A feed that quietly stops naming
@@ -676,18 +667,11 @@ impl App {
     /// Block until the background fetch settles, or `secs` elapse.
     /// Only used by the headless tools; the TUI never waits.
     pub fn block_on_realtime(&self, secs: u64) {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
-        loop {
-            if let Ok(g) = self.rt.lock()
-                && !matches!(*g, RtState::Loading)
-            {
-                return;
-            }
-            if std::time::Instant::now() >= deadline {
-                return;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+        block_until(secs, || {
+            self.rt
+                .lock()
+                .is_ok_and(|g| !matches!(*g, RtState::Loading))
+        });
     }
 
     /// A one-line note about the feed, for the status bar.
@@ -726,6 +710,22 @@ impl App {
         (self.screen.mode() == Some(Mode::Train))
             .then(|| self.screen.route().map(|r| r.color.as_str()))
             .flatten()
+    }
+}
+
+/// Spin until a background fetch has settled, or `secs` runs out.
+///
+/// The headless tools want an answer before they print; the browser never
+/// waits at all. Both sources are asked the same way because both are the same
+/// arrangement — a thread filling a slot — and the only thing that differs is
+/// how a slot says it is done.
+fn block_until(secs: u64, settled: impl Fn() -> bool) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+    while !settled() {
+        if std::time::Instant::now() >= deadline {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
     }
 }
 

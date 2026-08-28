@@ -84,7 +84,7 @@ in the order the app moves through them:
 | `gtfs.rs` | ingest, `parse_hms`, CSV handling |
 | `fetch.rs` | 304 handling, empty bodies, feed freshness |
 | `rt.rs` | the realtime parser and its anomalies |
-| `ui/mod.rs` | the frame: sizing, the status bar, alignment, the cursor |
+| `ui/tests.rs` | the frame: sizing, the two-group screens, alignment, the cursor |
 | `ui/layout.rs` | badges, column widths, the gutter |
 | `ui/palette.rs` | which colours can carry a rule |
 | `logo.rs` | the mark, both fallbacks, its ground line |

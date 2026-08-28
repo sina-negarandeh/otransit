@@ -65,32 +65,36 @@ impl Alerts {
 /// real, but about places rather than routes, and there is nowhere in a
 /// route-shaped screen to put them.
 pub fn parse(xml: &str) -> Alerts {
-    Alerts(
-        split(xml, "item")
-            .filter_map(|item| {
-                let cats: Vec<String> = split(&item, "category").map(|c| clean(&c)).collect();
-                if !cats
-                    .iter()
-                    .any(|c| c == "Detours" || c == "Route service change")
-                {
-                    return None;
-                }
-                let routes: Vec<String> = cats
-                    .iter()
-                    .filter_map(|c| c.strip_prefix("affectedRoutes-"))
-                    .flat_map(|list| list.split(','))
-                    .map(|r| r.trim().to_string())
-                    .filter(|r| !r.is_empty())
-                    .collect();
-                // An alert naming no route cannot be shown on a route's screen.
-                if routes.is_empty() {
-                    return None;
-                }
-                let title = clean(&split(&item, "title").next()?);
-                (!title.is_empty()).then_some(Alert { title, routes })
-            })
-            .collect(),
-    )
+    Alerts(split(xml, "item").filter_map(|item| entry(&item)).collect())
+}
+
+/// One `<item>`, if it is an alert this app can place on a screen.
+///
+/// Named rather than inlined into `parse` so the four rules that decide it are
+/// readable as four rules, and so a test can put one item in front of them
+/// without wrapping it in a document.
+fn entry(item: &str) -> Option<Alert> {
+    let cats: Vec<String> = split(item, "category").map(|c| clean(&c)).collect();
+    // Detours and route changes are what a route-shaped screen can show.
+    if !cats
+        .iter()
+        .any(|c| c == "Detours" || c == "Route service change")
+    {
+        return None;
+    }
+    let routes: Vec<String> = cats
+        .iter()
+        .filter_map(|c| c.strip_prefix("affectedRoutes-"))
+        .flat_map(|list| list.split(','))
+        .map(|r| r.trim().to_string())
+        .filter(|r| !r.is_empty())
+        .collect();
+    // An alert naming no route cannot be shown on a route's screen.
+    if routes.is_empty() {
+        return None;
+    }
+    let title = clean(&split(item, "title").next()?);
+    (!title.is_empty()).then_some(Alert { title, routes })
 }
 
 /// The text inside every `<tag>…</tag>` at any depth, in document order.
