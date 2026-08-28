@@ -15,7 +15,11 @@ use anyhow::{Context, Result};
 
 /// Where the alerts are published. Linked from the developer page, beside the
 /// GTFS documentation, not from the realtime API.
-pub const FEED_URL: &str = "https://www.octranspo.com/feeds/updates-en/";
+///
+/// The `/en/` is load-bearing: the developer page links the path without it,
+/// which answers 301. That worked only because ureq follows redirects, and it
+/// spent a round trip per launch to be told where the language prefix goes.
+pub const FEED_URL: &str = "https://www.octranspo.com/en/feeds/updates-en/";
 
 /// One published alert, reduced to what a terminal can act on.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -106,14 +110,66 @@ fn split<'a>(xml: &'a str, tag: &'a str) -> impl Iterator<Item = String> + 'a {
 /// CDATA off, entities decoded, whitespace flattened.
 fn clean(s: &str) -> String {
     let s = s.replace("<![CDATA[", "").replace("]]>", "");
-    let s = s
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#039;", "'")
-        .replace("&#8217;", "\u{2019}");
-    s.split_whitespace().collect::<Vec<_>>().join(" ")
+    entities(&s)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Character references resolved, in one left-to-right pass.
+///
+/// A list of `replace` calls was the first shape and was wrong twice: the feed
+/// is not limited to whichever references the list happens to name, and each
+/// call sees the output of the last, so a literal `&amp;lt;` decoded twice
+/// into `<`. Scanning once does neither.
+fn entities(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('&') {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        // `&` is one byte and so is `;`, so both slices land on boundaries.
+        let found = rest
+            .find(';')
+            .and_then(|end| Some((end, reference(&rest[1..end])?)));
+        match found {
+            Some((end, c)) => {
+                out.push(c);
+                rest = &rest[end + 1..];
+            }
+            // Not a reference. Emit the ampersand alone and resume after it,
+            // so a real one later in the same run is still found rather than
+            // swallowed by the search for a semicolon.
+            None => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// One reference body — what sits between the `&` and the `;`.
+///
+/// The five names are all XML defines; anything else has to be numeric, which
+/// is how the feed writes its accents and emoji.
+fn reference(body: &str) -> Option<char> {
+    match body {
+        "amp" => Some('&'),
+        "lt" => Some('<'),
+        "gt" => Some('>'),
+        "quot" => Some('"'),
+        "apos" => Some('\''),
+        _ => {
+            let digits = body.strip_prefix('#')?;
+            let code = match digits.strip_prefix(['x', 'X']) {
+                Some(hex) => u32::from_str_radix(hex, 16).ok()?,
+                None => digits.parse().ok()?,
+            };
+            char::from_u32(code)
+        }
+    }
 }
 
 /// Fetch and parse. Failure is not an error worth surfacing: an alert you could
@@ -189,6 +245,46 @@ mod tests {
         assert!(a.for_route("44").is_some());
         assert!(a.for_route("1801").is_none(), "read a stop code as a route");
         assert!(a.for_route("2026").is_none(), "read a year as a route");
+    }
+
+    #[test]
+    fn a_numeric_reference_in_a_headline_becomes_its_character() {
+        // The feed does not restrict itself to the named five. The Pride
+        // detour -- the newest one live as this was written, and the reason
+        // this test exists -- ends in `&#127752;`, and a hand-written list of
+        // entities rendered it as those nine literal characters on the screen.
+        let xml = "<item><category>Detours</category>\
+                   <category>affectedRoutes-7</category>\
+                   <title>Detour: Capital Pride Festival &#127752; caf&#xe9;</title></item>";
+        assert_eq!(
+            parse(xml).for_route("7").unwrap().title,
+            "Detour: Capital Pride Festival \u{1F308} café"
+        );
+    }
+
+    #[test]
+    fn an_ampersand_that_starts_nothing_survives_and_the_next_one_still_decodes() {
+        // Decoding cannot be a scan for `;` from any `&`: a bare ampersand --
+        // which CDATA permits and the feed's stop names carry -- would swallow
+        // the text up to the next semicolon and take a real reference with it.
+        let xml = "<item><category>Detours</category>\
+                   <category>affectedRoutes-9</category>\
+                   <title><![CDATA[Rideau & Sussex; see caf&#233;]]></title></item>";
+        assert_eq!(
+            parse(xml).for_route("9").unwrap().title,
+            "Rideau & Sussex; see café"
+        );
+    }
+
+    #[test]
+    fn an_escaped_entity_is_decoded_once_and_not_twice() {
+        // `&amp;lt;` is how the feed writes a literal "&lt;". Replacing
+        // `&amp;` before `&lt;` turned it into "<" -- one pass left to right
+        // is what stops the output of one substitution feeding the next.
+        let xml = "<item><category>Detours</category>\
+                   <category>affectedRoutes-8</category>\
+                   <title>Wait &amp;lt; 5 min</title></item>";
+        assert_eq!(parse(xml).for_route("8").unwrap().title, "Wait &lt; 5 min");
     }
 
     #[test]
