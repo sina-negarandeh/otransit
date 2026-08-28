@@ -17,14 +17,21 @@ changing code that has one.
 
 ## Why this document exists
 
-Twenty-one real defects were found during development. Five came from reviewing
-the fixes for the first ten, which is its own lesson: a behaviour-preserving
-refactor is exactly where a regression hides, and self-verified work is the
-weakest kind. Two came from CI's first run, a sharper version of the same
-lesson: both were tests that passed for months on one machine because they read
-something the machine happened to provide. The last was found by using the app,
-which no amount of reviewing would have surfaced: two commands read the same
-cache and reported opposite things about it.
+Twenty-three real defects were found during development. Five came from
+reviewing the fixes for the first ten, which is its own lesson: a
+behaviour-preserving refactor is exactly where a regression hides, and
+self-verified work is the weakest kind. Two came from CI's first run, a sharper
+version of the same lesson: both were tests that passed for months on one
+machine because they read something the machine happened to provide. One was
+found by using the app, which no amount of reviewing would have surfaced: two
+commands read the same cache and reported opposite things about it.
+
+The last two came from checking a finished feature against the **live** source
+rather than against its fixture. The fixture was a trimmed copy of the feed, so
+everything it did not contain was invisible — including a character reference
+in the newest headline and, one screen up, the fact that the tool used to look
+at screens had been walking the wrong path since pins were added. A fixture
+proves the parser; only the source proves the fixture.
 
 | Defect | File | Had tests? |
 |---|---|---|
@@ -49,12 +56,14 @@ cache and reported opposite things about it.
 | The service day was asserted against the machine's timezone | `app/clock.rs` | yes, wrongly |
 | The pty tests ran against whatever cache the machine had | `tests/terminal.rs` | yes, wrongly |
 | `update` called the cache current while the browser called it stale | `main.rs` | no |
+| A hand-listed entity table left `&#127752;` on screen, and decoded `&amp;lt;` twice | `alerts.rs` | yes, wrongly |
+| `dump` and `screenshot` walked into a pin and labelled it "directions" | `dev.rs` | no |
 
 The first ten were each in a file with no coverage; the four tests that existed
-were on string formatting, the part least likely to break. The eight that
-followed were in files that by then had plenty — which is why "the tests pass"
-is never the question. The question is whether a test fails when the code is
-wrong.
+were on string formatting, the part least likely to break. The thirteen that
+followed were in files that by then had plenty — two of them in code the suite
+covered and *passed* over, which is why "the tests pass" is never the question.
+The question is whether a test fails when the code is wrong.
 
 The goal is not a coverage percentage. It is that **the next bug of these
 shapes fails a test before it reaches a terminal.**
@@ -80,7 +89,8 @@ in the order the app moves through them:
 | `ui/palette.rs` | which colours can carry a rule |
 | `logo.rs` | the mark, both fallbacks, its ground line |
 | `pins.rs` | the pin file: round trips, odd names, a hand-edited typo |
-| `alerts.rs` | the updates feed: which kinds count, where routes come from |
+| `alerts.rs` | the updates feed: which kinds count, where routes come from, references decoded |
+| `dev.rs` | that the headless walk finds the modes rather than a fixed row |
 | `main.rs` | which keys reach the filter and which act |
 | `tests/terminal.rs` | inline viewport, clean exit, no tty |
 
@@ -90,6 +100,11 @@ deriving the board's fixed width from `WAIT_W`, capping the drawn rows at
 route types through `Mode`. All four are refactors whose output is identical
 byte for byte; a test could only assert on call counts, which tests the
 implementation rather than the behaviour.
+
+A fifth carries none for the opposite reason: `alerts::FEED_URL` pointed at a
+path that answers 301, and worked only because ureq follows redirects. Asserting
+that the URL is the one that answers 200 means asking the network, which rule 3
+forbids. `otransit probe` is where that gets checked instead, by a person.
 
 ## Three rules
 
@@ -253,7 +268,7 @@ project.
 A test that has never been seen failing is unproven. After writing one, break
 the code and confirm it fails — for the right reason, and ideally alone.
 
-This has caught **three vacuous tests** that would otherwise have sat there
+This has caught **four vacuous tests** that would otherwise have sat there
 looking like coverage:
 
 - `no_row_ever_overflows_the_terminal_width` could not fail: ratatui clips at
@@ -265,6 +280,11 @@ looking like coverage:
   clamp as the backstop it is.
 - A column-alignment test used `str::find`, a **byte** index — `❯` and `…` are
   three bytes each, so it reported drift where the columns lined up fine.
+- `an_ampersand_that_starts_nothing_survives…` used `&amp;` as its bare
+  ampersand. That decodes, so the branch it named was never reached and the
+  mutation walked straight past it. A real one (`Rideau & Sussex`) kills it.
+  Written and caught in the same minute, which is the whole argument for
+  mutating at the moment of writing rather than later.
 
 And one wrong belief: removing our BOM stripping changed nothing, because the
 `csv` crate already strips it. The test was testing the dependency. It now
