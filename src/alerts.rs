@@ -49,6 +49,10 @@ impl Alerts {
             .find(|a| a.routes.iter().any(|r| r == short_name))
     }
 
+    /// How many were published. `probe` is the only caller and wants the
+    /// number; there is deliberately no `is_empty` beside it, because an
+    /// unused method to satisfy a lint that a binary crate never fires is a
+    /// warning in a codebase that keeps none.
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -94,7 +98,7 @@ pub fn parse(xml: &str) -> Alerts {
 /// A real XML parser would be a dependency for three tags in one document.
 /// This does not need to handle namespaces, attributes with `>` in them, or
 /// nesting of the same tag, and the feed has none of those.
-fn split<'a>(xml: &'a str, tag: &'a str) -> impl Iterator<Item = String> + 'a {
+fn split<'a>(xml: &'a str, tag: &str) -> impl Iterator<Item = String> + 'a {
     let open = format!("<{tag}>");
     let close = format!("</{tag}>");
     let mut rest = xml;

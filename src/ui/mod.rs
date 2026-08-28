@@ -12,7 +12,7 @@ pub use palette::RULE_RGB;
 
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait};
 use crate::pins::PinState;
-use layout::{Cols, badge_label, gutter, marker, truncate};
+use layout::{Cols, badge_label, below_a_route, gutter, marker, truncate};
 use palette::{ACCENT, DIM, FG, RULE, badge, hex, status, urgency};
 use ratatui::{
     Frame,
@@ -105,10 +105,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // just above the rule. The viewport reserves these rows on every screen
     // anyway, so using the top of it costs nothing.
     let split = (!on_board).then(|| pinned(&rows)).flatten();
-    // A detour for the route being chosen, shown above the ways into it. Same
+    // A detour for the route being chosen, shown above the choices. The same
     // screens the gutter marks, for the same reason: they sit under exactly
-    // one route, so there is exactly one message to show.
-    let notice = matches!(app.screen, Screen::Directions { .. })
+    // one route, so there is exactly one message to show -- and it stays up
+    // while you pick a stop, which is when a detour decides where you walk.
+    let notice = below_a_route(&app.screen)
         .then(|| app.route_alert())
         .flatten();
     let want = if split.is_some() || notice.is_some() {
@@ -131,13 +132,15 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // same shape the pinned first screen uses.
     let body = match &notice {
         Some(text) => {
+            // Wrapped once, here: the height reserved and the lines drawn are
+            // the same list, so they cannot disagree about how tall this is.
             let lines = wrap(text, body.width.saturating_sub(4) as usize, 2);
             let [top, rest] = Layout::vertical([
-                Constraint::Length(u16::try_from(lines.len()).unwrap_or(2)),
+                Constraint::Length(u16::try_from(lines.len()).unwrap_or(u16::MAX)),
                 Constraint::Min(1),
             ])
             .areas(body);
-            alert(f, top, text);
+            alert(f, top, &lines);
             // The list keeps the bottom, where it sits on every other screen.
             // Only the message moves to the top; the gap between them is
             // whatever is left, which is the same gap the pinned first screen
@@ -378,7 +381,11 @@ fn wrap(text: &str, width: usize, max: usize) -> Vec<String> {
             }
             break;
         } else {
-            lines.push(word.to_string());
+            // A word longer than the whole width still has to fit in it. The
+            // `Paragraph` does not wrap, so an unbounded line is one ratatui
+            // clips at the buffer edge -- silently, which is the failure this
+            // function exists to avoid.
+            lines.push(truncate(word, width));
         }
     }
     lines
@@ -390,14 +397,17 @@ fn wrap(text: &str, width: usize, max: usize) -> Vec<String> {
 /// route -- which is what makes one message the right number to show. A stop
 /// board mixes routes and a pin list mixes stops; neither has a single answer
 /// to put here.
-fn alert(f: &mut Frame, area: Rect, text: &str) {
-    let lines: Vec<Line> = wrap(text, area.width.saturating_sub(4) as usize, 2)
-        .into_iter()
+/// Takes the wrapped lines rather than the headline: the caller has to wrap to
+/// know how tall this is, and wrapping again here would be a second answer to
+/// a question already asked.
+fn alert(f: &mut Frame, area: Rect, lines: &[String]) {
+    let lines: Vec<Line> = lines
+        .iter()
         .enumerate()
         .map(|(i, l)| {
             Line::from(vec![
                 Span::styled(if i == 0 { " ⚠ " } else { "   " }, Style::default().fg(FG)),
-                Span::styled(l, Style::default().fg(FG)),
+                Span::styled(l.clone(), Style::default().fg(FG)),
             ])
         })
         .collect();
@@ -706,6 +716,99 @@ mod tests {
     fn a_short_headline_takes_one_line_and_no_ellipsis() {
         let lines = wrap("Detour: Cheo Roadway closure", 70, 2);
         assert_eq!(lines, vec!["Detour: Cheo Roadway closure"]);
+    }
+
+    #[test]
+    fn a_word_longer_than_the_width_is_cut_to_the_width() {
+        // Nothing wraps a word that has no space in it, so the line it starts
+        // has to be bounded on its own. The `Paragraph` does not wrap, so an
+        // over-long line is one ratatui clips at the edge without a mark.
+        let lines = wrap("Temporary Reconfiguration", 13, 2);
+        for l in &lines {
+            assert!(l.chars().count() <= 13, "over the width: {l:?}");
+        }
+        assert!(lines[1].ends_with('…'), "no sign it was cut: {lines:#?}");
+    }
+
+    /// A directions screen for a route the feed has published a detour about.
+    fn app_with_a_detour(headline: &str) -> App {
+        // Three ways in, so a test about rows being squeezed off has more than
+        // one row to lose.
+        let g = TestGtfs::new()
+            .route("44", "44", 3, "0057B8")
+            .always("S")
+            .trip("t1", "44", "S", "Billings Bridge")
+            .trip("t2", "44", "S", "Hurdman")
+            .trip("t3", "44", "S", "Greenboro")
+            .stop("S1", "3009", "BANK / RIVERSIDE")
+            .stop_time("t1", "S1", 1, "10:00:00")
+            .stop_time("t2", "S1", 1, "10:10:00")
+            .stop_time("t3", "S1", 1, "10:20:00");
+        let mut app = App::offline(
+            g.into_conn(),
+            NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            None,
+        )
+        .unwrap();
+        app.set_alerts(crate::alerts::parse(&format!(
+            "<item><category>Detours</category>\
+             <category>affectedRoutes-44</category>\
+             <title>{headline}</title></item>"
+        )));
+        app.enter().unwrap(); // Bus -> routes
+        app.enter().unwrap(); // route 44 -> directions
+        app
+    }
+
+    #[test]
+    fn a_detour_takes_the_top_and_leaves_the_choices_at_the_bottom() {
+        // The same two-group shape the pinned first screen uses: the thing you
+        // are being told at the top, the thing you are choosing at the bottom,
+        // and a gap saying they are different kinds of thing.
+        let mut app = app_with_a_detour("Detour: Route 44 during Terminal Avenue bridge closure");
+
+        let shown = frame(&mut app, 74, VIEWPORT_H);
+        let warn = shown.iter().position(|r| r.contains('⚠')).unwrap();
+        let first = shown.iter().position(|r| r.contains("toward")).unwrap();
+        let last = shown.iter().rposition(|r| r.contains("toward")).unwrap();
+        let rule = shown.iter().position(|r| r.starts_with('─')).unwrap();
+        assert_eq!(warn, 0, "the detour is not at the top: {shown:#?}");
+        assert_eq!(last, rule - 1, "the choices left the bottom: {shown:#?}");
+        assert!(
+            shown[warn + 1..first].iter().all(|r| r.trim().is_empty()),
+            "no gap between the two groups: {shown:#?}"
+        );
+    }
+
+    #[test]
+    fn a_detour_does_not_push_a_direction_off_the_screen() {
+        // The message takes rows from a viewport that was already sized for
+        // the list. Every way into the route still has to be selectable.
+        let mut app = app_with_a_detour(
+            "Detour: Routes 57, 61, 62, 63, 66, 67, 88, 158, 256, 301, 303, 454 \
+             during Bayshore Transitway closure",
+        );
+        let ways = app.rows().len();
+
+        let shown = frame(&mut app, 74, VIEWPORT_H);
+        let drawn = shown.iter().filter(|r| r.contains("toward")).count();
+        assert_eq!(drawn, ways, "a direction was pushed off: {shown:#?}");
+    }
+
+    #[test]
+    fn the_detour_stays_up_while_you_pick_a_stop() {
+        // The stops screen still sits under exactly one route -- it draws the
+        // route's gutter -- and it is the screen where a detour decides which
+        // way you walk.
+        let mut app = app_with_a_detour("Detour: Route 44 during Terminal Avenue bridge closure");
+        app.enter().unwrap(); // a direction -> its stops
+
+        let shown = frame(&mut app, 74, VIEWPORT_H);
+        assert!(
+            shown.iter().any(|r| r.contains('⚠')),
+            "the detour vanished on the stops screen: {shown:#?}"
+        );
     }
 
     #[test]

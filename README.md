@@ -197,12 +197,18 @@ parsed      362 trips, feed built 3s ago
 predictions 352/362 first stops resolved (97%)
 static join 353/362 trip_ids in the cache (98%)
 O-Train     0 trips (expected 0; rail has no realtime)
+alerts      13 detours and route changes
 ```
 
-That command exists because a shape change in the realtime feed is silent. The
-parser returns zero arrivals, every row falls back to `sched`, and the board
-looks like a quiet Sunday. The endpoint has `beta` in its URL, so it will move
-eventually.
+That command exists because a shape change in either live feed is silent. The
+realtime parser returns zero arrivals, every row falls back to `sched`, and the
+board looks like a quiet Sunday. The endpoint has `beta` in its URL, so it will
+move eventually.
+
+The updates feed is the third source, and the shakiest: RSS from a CMS, where
+the `affectedRoutes-` tag every detour is found by is a convention rather than
+a contract. Its line in `probe` is there for the same reason — a feed that
+stopped tagging routes would read as a city with no detours in it.
 
 ### Five things that will bite
 

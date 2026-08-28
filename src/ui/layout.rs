@@ -50,8 +50,20 @@ pub(super) const MARKER_W: usize = 3;
 /// Both screens below a route belong to it: the ways it runs, and the stops
 /// along one of them. The rule says so once, down the side, instead of a badge
 /// repeating the same number on every row.
+/// The screens that sit below exactly one route: the ways it runs, and the
+/// stops along one of them.
+///
+/// One predicate rather than two matches, because two things are drawn on
+/// exactly these screens for exactly this reason — the gutter, which says
+/// which route you are under, and the detour, which is what is published
+/// about that route. A screen above a route has no single answer for either,
+/// and a board mixes routes. Kept together so they cannot drift apart.
+pub(super) fn below_a_route(screen: &Screen) -> bool {
+    matches!(screen, Screen::Stops { .. } | Screen::Directions { .. })
+}
+
 pub(super) fn gutter(screen: &Screen) -> Option<Span<'static>> {
-    if !matches!(screen, Screen::Stops { .. } | Screen::Directions { .. }) {
+    if !below_a_route(screen) {
         return None;
     }
     let colour = screen

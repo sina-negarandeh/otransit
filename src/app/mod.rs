@@ -78,9 +78,13 @@ pub struct App {
     /// Published detours, filled in by a background thread.
     ///
     /// Shared the way realtime is, and for the same reason: the browser must
-    /// not wait on a third network call to draw its first screen. Empty until
-    /// the fetch lands, and empty forever if it fails.
-    alerts: Arc<Mutex<crate::alerts::Alerts>>,
+    /// not wait on a third network call to draw its first screen.
+    ///
+    /// `None` while the fetch is still out, exactly as `RtState::Loading`
+    /// means "not yet". A feed that publishes nothing route-tagged is a real
+    /// answer and has to be distinguishable from one that has not arrived, or
+    /// anything waiting on it waits out its whole timeout on a quiet week.
+    alerts: Arc<Mutex<Option<crate::alerts::Alerts>>>,
 }
 
 impl App {
@@ -113,14 +117,16 @@ impl App {
         pins: Option<std::path::PathBuf>,
     ) -> Result<Self> {
         // No fetch: a test that reached the updates feed would be reading
-        // whatever OC Transpo published this morning.
+        // whatever OC Transpo published this morning. Settled rather than
+        // pending, because nothing is coming -- a caller that waited on this
+        // would otherwise wait for the whole timeout.
         Self::build(
             conn,
             Arc::new(Mutex::new(RtState::Off)),
             today,
             now,
             pins,
-            Arc::default(),
+            Arc::new(Mutex::new(Some(crate::alerts::Alerts::default()))),
         )
     }
 
@@ -130,7 +136,7 @@ impl App {
         today_date: NaiveDate,
         now: i32,
         pins_path: Option<std::path::PathBuf>,
-        alerts: Arc<Mutex<crate::alerts::Alerts>>,
+        alerts: Arc<Mutex<Option<crate::alerts::Alerts>>>,
     ) -> Result<Self> {
         let yday_date = today_date.pred_opt().unwrap_or(today_date);
         let today = db::active_services(&conn, today_date)?;
@@ -427,27 +433,48 @@ impl App {
     pub fn route_alert(&self) -> Option<String> {
         let route = self.screen.route()?;
         let guard = self.alerts.lock().ok()?;
-        Some(guard.for_route(&route.short_name)?.title.clone())
+        Some(guard.as_ref()?.for_route(&route.short_name)?.title.clone())
     }
 
-    /// Wait for the alerts fetch to land, or `secs` to pass.
+    /// Wait for the alerts fetch to settle, or `secs` to pass.
     ///
-    /// Only the headless tools wait; the browser draws without them and picks
-    /// them up on a later frame.
+    /// Settled, not non-empty: a failed fetch and a week with no detours both
+    /// end with nothing to show, and waiting for a count to rise would sit out
+    /// the full timeout on both. Only the headless tools wait at all; the
+    /// browser draws without them and picks them up on a later frame.
     pub fn block_on_alerts(&self, secs: u64) {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
-        while std::time::Instant::now() < deadline {
-            if self.alert_count() > 0 {
+        loop {
+            if self.alerts.lock().is_ok_and(|g| g.is_some()) {
                 return;
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            if std::time::Instant::now() >= deadline {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
         }
     }
 
     /// How many alerts landed, for `probe`. A feed that quietly stops naming
     /// routes reads as "no detours anywhere", which is worth being able to see.
     pub fn alert_count(&self) -> usize {
-        self.alerts.lock().map(|a| a.len()).unwrap_or(0)
+        self.alerts
+            .lock()
+            .map(|g| g.as_ref().map_or(0, crate::alerts::Alerts::len))
+            .unwrap_or(0)
+    }
+
+    /// Put alerts on screen without a network call.
+    ///
+    /// `App::offline` never fetches, so this is the only way a test reaches
+    /// the code that draws them. It takes the parsed shape rather than the
+    /// XML so a caller can build one stop-gap alert without a fixture.
+    #[cfg(test)]
+    pub(crate) fn set_alerts(&mut self, alerts: crate::alerts::Alerts) {
+        *self
+            .alerts
+            .lock()
+            .expect("no other thread holds this in a test") = Some(alerts);
     }
 
     /// Whether the board on screen is pinned. `None` when this is not a board.
@@ -702,27 +729,27 @@ impl App {
     }
 }
 
-/// Station names repeat the direction we already picked:
-/// "RIDEAU O-TRAIN EAST / EST" -> "RIDEAU". Platform letters are kept.
 /// Fetch the published detours in the background.
 ///
 /// Started at launch and never repeated: a detour lasts days and a browser
-/// session lasts a minute. Failure leaves the list empty, which reads as "no
-/// alerts" — the honest answer when the feed could not be reached, since an
-/// alert you cannot download is one you cannot act on.
-fn spawn_alerts() -> Arc<Mutex<crate::alerts::Alerts>> {
-    let slot: Arc<Mutex<crate::alerts::Alerts>> = Arc::default();
+/// session lasts a minute. Failure settles on an empty list, which reads as
+/// "no alerts" — the honest answer when the feed could not be reached, since
+/// an alert you cannot download is one you cannot act on. It settles either
+/// way, so that anything waiting knows the attempt is over.
+fn spawn_alerts() -> Arc<Mutex<Option<crate::alerts::Alerts>>> {
+    let slot: Arc<Mutex<Option<crate::alerts::Alerts>>> = Arc::default();
     let fill = Arc::clone(&slot);
     std::thread::spawn(move || {
-        if let Ok(found) = crate::alerts::fetch()
-            && let Ok(mut g) = fill.lock()
-        {
-            *g = found;
+        let found = crate::alerts::fetch().unwrap_or_default();
+        if let Ok(mut g) = fill.lock() {
+            *g = Some(found);
         }
     });
     slot
 }
 
+/// Station names repeat the direction we already picked:
+/// "RIDEAU O-TRAIN EAST / EST" -> "RIDEAU". Platform letters are kept.
 pub fn tidy_stop_name(name: &str) -> String {
     let n = name
         .split(" O-TRAIN ")
