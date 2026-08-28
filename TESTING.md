@@ -80,6 +80,7 @@ in the order the app moves through them:
 | `ui/palette.rs` | which colours can carry a rule |
 | `logo.rs` | the mark, both fallbacks, its ground line |
 | `pins.rs` | the pin file: round trips, odd names, a hand-edited typo |
+| `alerts.rs` | the updates feed: which kinds count, where routes come from |
 | `main.rs` | which keys reach the filter and which act |
 | `tests/terminal.rs` | inline viewport, clean exit, no tty |
 

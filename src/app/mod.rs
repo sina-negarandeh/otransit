@@ -75,6 +75,12 @@ pub struct App {
 
     /// Stops pinned to the first screen, in the order they were pinned.
     pins: crate::pins::Pins,
+    /// Published detours, filled in by a background thread.
+    ///
+    /// Shared the way realtime is, and for the same reason: the browser must
+    /// not wait on a third network call to draw its first screen. Empty until
+    /// the fetch lands, and empty forever if it fails.
+    alerts: Arc<Mutex<crate::alerts::Alerts>>,
 }
 
 impl App {
@@ -84,7 +90,14 @@ impl App {
         // departures board several keystrokes later it is usually done — and
         // then keep it fresh, so "live" keeps meaning live while you watch.
         let today = Local::now().date_naive();
-        Self::build(conn, poll::start(cache_dir), today, now_secs(today), pins)
+        Self::build(
+            conn,
+            poll::start(cache_dir),
+            today,
+            now_secs(today),
+            pins,
+            spawn_alerts(),
+        )
     }
 
     /// An app with no realtime thread and a fixed clock.
@@ -99,7 +112,16 @@ impl App {
         now: i32,
         pins: Option<std::path::PathBuf>,
     ) -> Result<Self> {
-        Self::build(conn, Arc::new(Mutex::new(RtState::Off)), today, now, pins)
+        // No fetch: a test that reached the updates feed would be reading
+        // whatever OC Transpo published this morning.
+        Self::build(
+            conn,
+            Arc::new(Mutex::new(RtState::Off)),
+            today,
+            now,
+            pins,
+            Arc::default(),
+        )
     }
 
     fn build(
@@ -108,6 +130,7 @@ impl App {
         today_date: NaiveDate,
         now: i32,
         pins_path: Option<std::path::PathBuf>,
+        alerts: Arc<Mutex<crate::alerts::Alerts>>,
     ) -> Result<Self> {
         let yday_date = today_date.pred_opt().unwrap_or(today_date);
         let today = db::active_services(&conn, today_date)?;
@@ -133,6 +156,7 @@ impl App {
             n_bus,
             n_rail,
             pins,
+            alerts,
         };
         app.contents = app.load(&Screen::Mode)?;
         Ok(app)
@@ -395,6 +419,37 @@ impl App {
         Ok(())
     }
 
+    /// What is published about the route on screen, if a route is chosen and
+    /// anything is published about it.
+    ///
+    /// The lock is held only long enough to copy the headline: this is asked
+    /// once a frame while a background thread may be replacing the list.
+    pub fn route_alert(&self) -> Option<String> {
+        let route = self.screen.route()?;
+        let guard = self.alerts.lock().ok()?;
+        Some(guard.for_route(&route.short_name)?.title.clone())
+    }
+
+    /// Wait for the alerts fetch to land, or `secs` to pass.
+    ///
+    /// Only the headless tools wait; the browser draws without them and picks
+    /// them up on a later frame.
+    pub fn block_on_alerts(&self, secs: u64) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+        while std::time::Instant::now() < deadline {
+            if self.alert_count() > 0 {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+
+    /// How many alerts landed, for `probe`. A feed that quietly stops naming
+    /// routes reads as "no detours anywhere", which is worth being able to see.
+    pub fn alert_count(&self) -> usize {
+        self.alerts.lock().map(|a| a.len()).unwrap_or(0)
+    }
+
     /// Whether the board on screen is pinned. `None` when this is not a board.
     pub fn board_pin(&self) -> Option<crate::pins::PinState> {
         Some(self.pins.state(&self.screen.board()?.stop().stop_id))
@@ -649,6 +704,25 @@ impl App {
 
 /// Station names repeat the direction we already picked:
 /// "RIDEAU O-TRAIN EAST / EST" -> "RIDEAU". Platform letters are kept.
+/// Fetch the published detours in the background.
+///
+/// Started at launch and never repeated: a detour lasts days and a browser
+/// session lasts a minute. Failure leaves the list empty, which reads as "no
+/// alerts" — the honest answer when the feed could not be reached, since an
+/// alert you cannot download is one you cannot act on.
+fn spawn_alerts() -> Arc<Mutex<crate::alerts::Alerts>> {
+    let slot: Arc<Mutex<crate::alerts::Alerts>> = Arc::default();
+    let fill = Arc::clone(&slot);
+    std::thread::spawn(move || {
+        if let Ok(found) = crate::alerts::fetch()
+            && let Ok(mut g) = fill.lock()
+        {
+            *g = found;
+        }
+    });
+    slot
+}
+
 pub fn tidy_stop_name(name: &str) -> String {
     let n = name
         .split(" O-TRAIN ")

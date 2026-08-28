@@ -118,6 +118,7 @@ pub struct Shot<'a> {
 /// Render each screen in turn and print the terminal buffer as text.
 pub fn screenshot(app: &mut App, shot: &Shot) -> Result<()> {
     app.block_on_realtime(30);
+    app.block_on_alerts(10);
     let mut term = Terminal::new(TestBackend::new(shot.w, shot.h))?;
     let mut frame = |app: &mut App, label: &str| -> Result<()> {
         // The event loop does this once a frame, so a screenshot that skipped
@@ -330,5 +331,16 @@ pub fn probe(app: &App) -> Result<()> {
         println!("            ^ the cache is stale: run `otransit update`");
     }
     println!("O-Train     {rail} trips (expected 0; rail has no realtime)");
+
+    // The updates feed is a CMS emitting RSS, not a specified format. If it
+    // stops tagging routes the way it does today, every screen quietly reports
+    // no detours, which looks exactly like a calm week. This is where that
+    // becomes visible.
+    app.block_on_alerts(10);
+    let n = app.alert_count();
+    println!("alerts      {n} detours and route changes");
+    if n == 0 {
+        println!("            ^ none parsed: the updates feed may have changed shape");
+    }
     Ok(())
 }

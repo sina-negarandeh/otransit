@@ -105,7 +105,13 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // just above the rule. The viewport reserves these rows on every screen
     // anyway, so using the top of it costs nothing.
     let split = (!on_board).then(|| pinned(&rows)).flatten();
-    let want = if split.is_some() {
+    // A detour for the route being chosen, shown above the ways into it. Same
+    // screens the gutter marks, for the same reason: they sit under exactly
+    // one route, so there is exactly one message to show.
+    let notice = matches!(app.screen, Screen::Directions { .. })
+        .then(|| app.route_alert())
+        .flatten();
+    let want = if split.is_some() || notice.is_some() {
         area.height
     } else {
         height_for(count).min(area.height)
@@ -119,6 +125,32 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Constraint::Length(1),
     ])
     .areas(panel);
+
+    // The message takes the top of the body and the list keeps the bottom,
+    // with the gap between saying they are different kinds of thing -- the
+    // same shape the pinned first screen uses.
+    let body = match &notice {
+        Some(text) => {
+            let lines = wrap(text, body.width.saturating_sub(4) as usize, 2);
+            let [top, rest] = Layout::vertical([
+                Constraint::Length(u16::try_from(lines.len()).unwrap_or(2)),
+                Constraint::Min(1),
+            ])
+            .areas(body);
+            alert(f, top, text);
+            // The list keeps the bottom, where it sits on every other screen.
+            // Only the message moves to the top; the gap between them is
+            // whatever is left, which is the same gap the pinned first screen
+            // opens up.
+            let [_, list] = Layout::vertical([
+                Constraint::Min(0),
+                Constraint::Length(height_for(count).saturating_sub(2)),
+            ])
+            .areas(rest);
+            list
+        }
+        None => body,
+    };
 
     match split {
         _ if on_board => departures(f, body, app),
@@ -319,6 +351,57 @@ fn items<'a>(
 fn pinned(rows: &[Row]) -> Option<usize> {
     let n = rows.iter().take_while(|r| matches!(r, Row::Pin(_))).count();
     (n > 0 && n < rows.len()).then_some(n)
+}
+
+/// Wrap a headline to the width, at spaces, to at most `max` lines.
+///
+/// The feed's titles run from 43 to 101 columns because they enumerate the
+/// routes they affect. Truncating puts the ellipsis over the useful half --
+/// "Detour: Routes 19, 42, 44, 48 during Terminal Avenue bridge clos…" -- so
+/// they wrap instead. There is room: the directions screen carries two to
+/// seven rows in a body of eight.
+fn wrap(text: &str, width: usize, max: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for word in text.split_whitespace() {
+        let fits = lines
+            .last()
+            .is_some_and(|l| l.chars().count() + 1 + word.chars().count() <= width);
+        if fits {
+            let line = lines.last_mut().expect("fits implies one exists");
+            line.push(' ');
+            line.push_str(word);
+        } else if lines.len() == max {
+            // Out of room: the last line gives up its tail for an ellipsis
+            // rather than stopping mid-word with no sign it was cut.
+            if let Some(last) = lines.last_mut() {
+                *last = truncate(last, width.saturating_sub(1)) + "…";
+            }
+            break;
+        } else {
+            lines.push(word.to_string());
+        }
+    }
+    lines
+}
+
+/// The published detour for the route on screen, above the choices.
+///
+/// Drawn where the gutter is drawn, on the screens that sit under exactly one
+/// route -- which is what makes one message the right number to show. A stop
+/// board mixes routes and a pin list mixes stops; neither has a single answer
+/// to put here.
+fn alert(f: &mut Frame, area: Rect, text: &str) {
+    let lines: Vec<Line> = wrap(text, area.width.saturating_sub(4) as usize, 2)
+        .into_iter()
+        .enumerate()
+        .map(|(i, l)| {
+            Line::from(vec![
+                Span::styled(if i == 0 { " ⚠ " } else { "   " }, Style::default().fg(FG)),
+                Span::styled(l, Style::default().fg(FG)),
+            ])
+        })
+        .collect();
+    f.render_widget(Paragraph::new(lines), area);
 }
 
 /// The first screen when it has pins: answers at the top, the ways in at the
@@ -590,6 +673,39 @@ mod tests {
             assert!(desired_height(&app) <= VIEWPORT_H, "{step}");
             app.enter().unwrap();
         }
+    }
+
+    #[test]
+    fn a_long_headline_wraps_instead_of_losing_its_ending() {
+        // The feed's titles run to 101 columns because they enumerate the
+        // routes. Truncating puts the ellipsis exactly over the part that says
+        // what is happening.
+        let t = "Detour: Routes 57, 61, 62, 63, 66, 67, 88, 158, 256, 301, 303, 454 \
+                 during Bayshore Transitway closure";
+        let lines = wrap(t, 70, 2);
+        assert_eq!(lines.len(), 2, "{lines:#?}");
+        assert!(
+            lines[1].contains("Bayshore Transitway closure"),
+            "the ending was lost: {lines:#?}"
+        );
+        for l in &lines {
+            assert!(l.chars().count() <= 70, "over the width: {l:?}");
+        }
+    }
+
+    #[test]
+    fn a_headline_too_long_even_wrapped_says_it_was_cut() {
+        // Two lines is the budget. Running past it silently would read as a
+        // sentence that simply stops.
+        let lines = wrap(&"word ".repeat(80), 40, 2);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[1].ends_with('…'), "no sign it was cut: {lines:#?}");
+    }
+
+    #[test]
+    fn a_short_headline_takes_one_line_and_no_ellipsis() {
+        let lines = wrap("Detour: Cheo Roadway closure", 70, 2);
+        assert_eq!(lines, vec!["Detour: Cheo Roadway closure"]);
     }
 
     #[test]

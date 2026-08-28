@@ -1,0 +1,1735 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+	xmlns:slash="http://purl.org/rss/1.0/modules/slash/">
+	<channel>
+ 		<title>OC Transpo - Live Updates</title>
+ 		<link>http://www.octranspo.com/</link>
+ 		<description>Daily route changes resulting from detours and cancelled trips are listed here by OC Transpo staff on weekdays, Saturdays until 9 pm and Sundays until 5 pm.</description>
+ 	
+ 		
+		<item>
+			<title><![CDATA[Detour: Capital Pride Festival and Parade &#127752;]]></title>
+			<pubDate>Thu, 27 Aug 2026 09:53:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-6, 7, 8, 11]]></category>
+			<link>https://www.octranspo.com/e/269825</link>
+			<description><![CDATA[August 27 2026 - <!-- Starts -->
+<link href="https://www.octranspo.com/images/files/dist/custom-style.css" rel="stylesheet" />
+<style type="text/css">.pride-announcement {
+			display: flex;
+			flex-direction: column;
+			border-top: 4px solid var(--line1--600);
+			border-image: linear-gradient(to left, #b827fc 0%, #2c90fc 25%, #b8fd33 50%, #fec837 75%, #fd1892 100%);
+			border-image-slice: 1;
+			border-radius: 2px;
+			background-color: #F5F5F5;
+			box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+			font-weight: 500;
+			padding: 15px;
+			margin-bottom: 20px;
+			font-size: 15px;
+		}
+
+		.date-box-bar {
+			display: inline-block;
+			background-color: #f5f5f5;
+			color: black;
+			font-weight: 600;
+			padding: 5px 10px;
+			margin: 4px;
+			border-radius: 8px;
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+			transition: background-color 0.3s ease;
+		}
+
+		.date-box-bar:hover {
+			background-color: #e0e0e0;
+			cursor: default;
+		}
+
+		.parade-title {
+			border: none;
+			border-bottom: 2px solid;
+			border-image: linear-gradient(to left, #b827fc 0%, #2c90fc 25%, #b8fd33 50%, #fec837 75%, #fd1892 100%);
+			border-image-slice: 1;
+			padding: 10px 0px;
+			display: block;
+			margin: 0px;
+		}
+</style>
+<p>Due to the Capital Pride Festival and Parade some roads will be closed. As a result, routes 6, 7, 8, and 11 will be detoured from <strong>Friday, August 28 at 4:30 pm</strong> and will continue until <strong>Monday, August 31 at 12:30 am</strong>. Please review the following road closures and detours carefully. Times are approximate and may change during the event.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Road closures:</h4>
+
+<div class="grid grid--2col">
+<div class="pride-announcement">
+<h5 class="parade-title">Pride Festival</h5>
+
+<div>
+<p>From <span class="date-box-bar">Friday, August 28 at 4:30 pm</span> to <span class="date-box-bar">Monday, August 31 at 12:30 am</span></p>
+
+<ul>
+	<li>Friday at 3 pm to Sunday at midnight:Bank (Slater to Gladstone)</li>
+</ul>
+</div>
+</div>
+
+<div class="pride-announcement">
+<h5 class="parade-title">Pride Parade</h5>
+
+<div>
+<p><span class="date-box-bar">Sunday, August 30 from 12 pm to 4:30 pm</span></p>
+
+<ul>
+	<li>12:15 pm to 3pm: Booth (Albert to Vimy)</li>
+	<li>1 pm to 4 pm: Bank (Wellington to Slater)*</li>
+	<li>Albert (Bank to O&#39;Connor)</li>
+</ul>
+
+<p>*Buses will be allowed through at Queen.</p>
+</div>
+</div>
+</div>
+
+<h4>Pride Festival: Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>#2483 -- Bank (east-side) / Lewis</td>
+			<td>
+			<ul>
+				<li><span class="rt rt-type--frequent">6</span> Rockcliffe</li>
+				<li><span class="rt rt-type--local">7</span> St-Laurent</li>
+			</ul>
+			</td>
+			<td rowspan="2"><a class="travel-planner-link" data-stop-number="8798" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CH080" target="_blank">#8798 -- Bank (east-side) / Gladstone</a></td>
+		</tr>
+		<tr>
+			<td>#1902 -- Bank (east-side) / Somerset</td>
+			<td rowspan="3">
+			<ul>
+				<li><span class="rt rt-type--frequent">6</span> Rockcliffe</li>
+				<li><span class="rt rt-type--local">7</span> St-Laurent</li>
+				<li><span class="rt rt-type--frequent">11</span> Waller</li>
+			</ul>
+			</td>
+		</tr>
+		<tr>
+			<td>#2484 -- Bank (east-side) / Gloucester</td>
+			<td rowspan="2"><a class="travel-planner-link" data-stop-number="3052" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CB940" target="_blank">#3052 -- Parliament A</a></td>
+		</tr>
+		<tr>
+			<td>#7688 -- Bank (east-side) / Slater</td>
+		</tr>
+		<tr>
+			<td>#2486 -- Bank (west-side) / Gloucester</td>
+			<td rowspan="2">
+			<ul>
+				<li><span class="rt rt-type--frequent">6</span> Greenboro</li>
+				<li><span class="rt rt-type--local">7</span> Carleton</li>
+				<li><span class="rt rt-type--frequent">11</span> Bayshore</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="7687" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CA090" target="_blank">TEMP -- O&#39;Connor (west-side) / Somerset</a></td>
+		</tr>
+		<tr>
+			<td>#2487 -- Bank (west-side) / Lisgar</td>
+			<td><a class="travel-planner-link" data-stop-number="7687" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CA090" target="_blank">TEMP -- O&#39;Connor (west-side) / Lisgar</a></td>
+		</tr>
+		<tr>
+			<td>#2488 -- Bank (west-side) / Somerset</td>
+			<td rowspan="2">
+			<ul>
+				<li><span class="rt rt-type--frequent">6</span> Greenboro</li>
+				<li><span class="rt rt-type--local">7</span> Carleton</li>
+			</ul>
+			</td>
+			<td rowspan="2"><a class="travel-planner-link" data-stop-number="2489" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CH090" target="_blank">#2489 -- Bank (west-side) / Gladstone</a></td>
+		</tr>
+		<tr>
+			<td>#7665 -- Bank (west-side) / Gilmour</td>
+		</tr>
+		<tr>
+			<td>#7687 -- Bank (west-side) / Slater</td>
+			<td rowspan="3">
+			<ul>
+				<li><span class="rt rt-type--frequent">11</span> Bayshore</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="3052" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CB930" target="_blank">#3052 -- Parliament B</a></td>
+		</tr>
+		<tr>
+			<td>#1548 -- Somerset (west-side) / Bank</td>
+			<td rowspan="2"><a class="travel-planner-link" data-stop-number="1546" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CI310" target="_blank">#1546 -- Somerset (west-side) / Lyon</a></td>
+		</tr>
+		<tr>
+			<td>#6635 -- Somerset (west-side) / Kent</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Pride Festival: Detour routing</h4>
+
+<p><strong><span class="rt rt-type--frequent">6</span> Rockliffe, <span class="rt rt-type--local">7</span> St-Laurent:</strong> From Bank, turn right onto Gladstone, turn left onto Metcalfe, turn left onto Albert, turn right onto Bank, turn right onto Queen and continue to regular route.</p>
+
+<p><strong><span class="rt rt-type--frequent">6</span> Greenboro, <span class="rt rt-type--local">7</span> Carleton:</strong> From Elgin, turn right onto O&#39;Connor, turn right Gladstone, and turn left onto Bank to regular route.</p>
+
+<p><strong><span class="rt rt-type--frequent">11</span> Waller:</strong> From Somerset, turn left onto Kent, and turn right onto Queen to regular route.</p>
+
+<p><strong><span class="rt rt-type--frequent">11</span> Bayshore:</strong> From Queen, turn left onto Lyon, and turn right onto Somerset to regular route.</p>
+
+<p><strong><span class="rt rt-type--local_l">450</span> Rideau:</strong> From Bank, right to Gladstone, left to Metcalfe, left to Albert, right to Bank, right to Queen, continue route.</p>
+
+<p><strong><span class="rt rt-type--local_l">450</span> Landsdown:</strong> From Elgin, right to Albert, left to O&rsquo;Connor, right to Gladstone, left to Bank to route.</p>
+
+<p><strong><span class="rt rt-type--local_l">450</span> Rideau:</strong> From Bank, right to Gladstone, left to Metcalfe, left to Albert, right to Bank, right to Queen, continue route.</p>
+
+<p><strong><span class="rt rt-type--local_l">450</span> Landsdown:</strong> From Elgin, right to Albert, left to O&rsquo;Connor, right to Gladstone, left to Bank to route.</p>
+
+<p></p>
+
+<h4>Pride Parade: Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>#3052 -- Parliament A</td>
+			<td rowspan="2">
+			<ul>
+				<li><span class="rt rt-type--frequent">6</span> Rockcliffe</li>
+				<li><span class="rt rt-type--local">7</span> St-Laurent</li>
+			</ul>
+			</td>
+			<td rowspan="2"><a class="travel-planner-link" data-stop-number="8798" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CH080" target="_blank">#7557 -- Elgin (east-side) / Wellington</a></td>
+		</tr>
+		<tr>
+			<td>#1512 -- Queen (south-side) / Metcalfe</td>
+		</tr>
+		<tr>
+			<td>
+			<p>#3010 -- Pimisi A</p>
+
+			<p>#1876 -- Booth (east-side) / Wellington</p>
+
+			<p>#5722 -- Booth (east-side) / Vimy</p>
+
+			<p>#0597 -- Booth (east-side) / Chaudiere</p>
+
+			<p>#6530 -- Eddy (east-side) / Laurier</p>
+
+			<p>TEMP -- Laval (east-side) / Laurier</p>
+
+			<p>TEMP -- Portage (south-side) / Hotel-de-ville</p>
+
+			<p>#1150 -- Laurier (east-side) / Victoria</p>
+
+			<p>#1940 -- Laurier (east-side) / Elizabeth Bruyere</p>
+			</td>
+			<td>
+			<ul>
+				<li><span class="rt rt-type--frequent">8</span> Gatineau</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="3000" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CD910" target="_blank">#3010 -- Pimisi D</a></td>
+		</tr>
+		<tr>
+			<td>
+			<p>#6533 -- Des Allumetti&egrave;res (north-side) / Laurier</p>
+
+			<p>#6532 -- Maisonneuve (west-side) /Des Allumetti&egrave;res</p>
+
+			<p>#6531 -- Maisonneuve (west-side) / Papineau</p>
+
+			<p>#5742-- Maisonneuve (west-side) / Place D&#39;accueil AT</p>
+
+			<p>#6534 -- Laurier (north-side) / Maisonneuve</p>
+
+			<p>TEMP-- Laurier (north-side) / Eddy</p>
+
+			<p>#3161-- Eddy (west-side) / Laurier</p>
+
+			<p>#0596-- Booth (west-side) / Zaida Eddy</p>
+
+			<p>#0433 -- Booth (west-side) / Vimy</p>
+
+			<p>#1877 -- Booth (west-side) / Wellington</p>
+
+			<p>#3010 -- Pimisi B</p>
+			</td>
+			<td>
+			<p><span class="rt rt-type--frequent">8</span> Dow&#39;s Lake</p>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="3000" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CD910" target="_blank">#3010 -- Pimisi C</a></td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Pride Parade: Detour routing</h4>
+
+<p>Once the Pride Parade has ended, buses will return to the Pride Festival Detours above.</p>
+
+<p><strong><span class="rt rt-type--frequent">6</span> Rockcliffe, <span class="rt rt-type--local">7</span> St-Laurent:</strong> From Bank, turn right onto Gladstone, turn left onto Metcalfe, and turn right onto Queen continue to regular route</p>
+
+<p><strong><span class="rt rt-type--local">8</span> Gatineau:</strong> End trip at Slater/Kent (11:45 am to 3:30 pm).</p>
+
+<p><strong><span class="rt rt-type--local">8</span> Dow&#39;s Lake:</strong> Start trip at Slater/Kent (11:45 am to 3:30 pm).</p>
+<!-- 
+	<p>
+		<a href="https://www.octranspo.com/images/files/maps/detours/2025/Detour_OR174_Westbound_30_33_34_35_38_39.pdf"
+			target="_blank">
+			<img alt="Detour map for Route 41 and 92."
+				src="https://www.octranspo.com/images/files/maps/detours/2025/Detour_OR174_Westbound_30_33_34_35_38_39.png"
+				style="width: 100%;" />
+		</a>
+	</p> --><!-- Ends -->]]></description>
+			<guid>https://www.octranspo.com/e/269825</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[[Updated: started early] Detour: Route 63 during Legget Drive closure (Terry Fox to Solandt)]]></title>
+			<pubDate>Fri, 14 Aug 2026 21:53:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-63]]></category>
+			<link>https://www.octranspo.com/e/269763</link>
+			<description><![CDATA[August 14 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>From <strong>now</strong>until <strong>6:00 pm on Tuesday, September 22,</strong> Legget Drive (Terry Fox Drive to Solandt Road) will be closed for sanitary sewer installation.</p>
+
+<p><strong>Route 63</strong> will be detoured in both directions along Solandt and March Road, before continuing on its regular route.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#4972 -- Legget (west-side) / Terry Fox</td>
+			<td>
+			<ul>
+				<li>63 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WM290">#6155 -- Terry Fox (south-side) / March</a></td>
+		</tr>
+		<tr>
+			<td>#6150 -- Legget (west-side) / Solandt</td>
+			<td>
+			<ul>
+				<li>63 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WH270">#7987 -- Legget (west-side) / Solandt</a></td>
+		</tr>
+		<tr>
+			<td>#6909 -- Legget (east-side) / Solandt</td>
+			<td>
+			<ul>
+				<li>63 Innovation / Briarbrook</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WH260">#7991 -- Legget (east-side) / Solandt</a></td>
+		</tr>
+		<tr>
+			<td>#4974 -- Legget (east-side) / Ad. 515</td>
+			<td>
+			<ul>
+				<li>63 Innovation / Briarbrook</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WH260">#7991 -- Legget (east-side) / Solandt</a></td>
+		</tr>
+		<tr>
+			<td>#6149 -- Legget (east-side) / Terry Fox</td>
+			<td>
+			<ul>
+				<li>63 Innovation / Briarbrook</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WM285">#4875 -- Terry Fox (north-side) / March</a></td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<p><strong>63 Tunney&#39;s Pasture:</strong> From Terry Fox at March, right onto March, left onto Solandt, right onto Legget to regular route.</p>
+
+<p><strong>63 Innovation / Briarbrook:</strong> From Legget at Solandt, left onto Solandt, right onto March, left onto Terry Fox to regular route.</p>
+<!--<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2025/.pdf"><img alt="Detour map for Route 0." src="https://www.octranspo.com/images/files/maps/detours/2025/.png" style="width: 100%;" /></a></p>-->]]></description>
+			<guid>https://www.octranspo.com/e/269763</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[DETOUR: Route 20 in both directions near Brittany and Montreal Road]]></title>
+			<pubDate>Thu, 06 Aug 2026 19:39:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-20]]></category>
+			<link>https://www.octranspo.com/e/269679</link>
+			<description><![CDATA[August 06 2026 - <p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{28}" paraid="1587223322"><strong>DETOUR: Route 20 in both directions near Brittany and Montreal Road</strong><br />
+</p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{28}" paraid="1587223322"><strong>20 Rideau</strong></p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{32}" paraid="1024786620">Remain on Montreal rd. in both directions to regular routing.</p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{38}" paraid="634032910"><em>Stops missed:BRITTANY / MONTR&Eacute;AL - (4396),BRITTANY / KRISTIN - (6126),BRITTANY / TRURO - (4394,BRITTANY / BANGS - (8847),ST-LAURENT / DUNBARTON - (8924),ST-LAURENT / AD. 505 - (4391)</em></p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{42}" paraid="457379994"><em>Alternate stops: H&Ocirc;PITAL MONTFORT - (0989),ST-LAURENT / MONTR&Eacute;AL - (1576)</em></p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{42}" paraid="457379994"></p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{28}" paraid="1587223322"><strong>20 St-Laurent</strong></p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{32}" paraid="1024786620">Remain on Montreal rd. in both directions to regular routing.</p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{38}" paraid="634032910">Stops missed:ST-LAURENT / MONTR&Eacute;AL - (4393),ST-LAURENT / AD. 505 - (4392),ST-LAURENT / BRITTANY - (8627),BRITTANY / COLEFORD - (1519),BRITTANY / BANGS - (8729),BRITTANY / QUARRY - (4397),BRITTANY / KRISTIN - (4398),BRITTANY / MONTR&Eacute;AL - (8730)</p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{42}" paraid="457379994">Alternate stops: MONTR&Eacute;AL / CIMETI&Egrave;RE NOTRE-DAME - (7060),MONTR&Eacute;AL / CUMMINGS - (8734)</p>
+
+<p paraeid="{193c1aba-a7de-4bb9-888e-399a7ea993df}{42}" paraid="457379994"></p>]]></description>
+			<guid>https://www.octranspo.com/e/269679</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Detour: Routes 7, 10, 48, 111 during Campus Avenue closure (Carleton University)]]></title>
+			<pubDate>Thu, 06 Aug 2026 10:23:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-7, 10, 48, 111]]></category>
+			<link>https://www.octranspo.com/e/269675</link>
+			<description><![CDATA[August 06 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<style type="text/css">ol.turn-by-turn li:not(.starting-point){	list-style: none;
+	background-image: url("https://www.octranspo.com/images/files/icons/arrow-right.svg");
+	background-repeat: no-repeat;
+	background-position: left center;
+	background-size: 1.1rem;
+padding-left:1.5rem;
+}
+ol.turn-by-turn li.left-turn:not(.starting-point) {background-image: url("https://www.octranspo.com/images/files/icons/arrow-left.svg");}
+ol.turn-by-turn li.straight-through:not(.starting-point) {background-image: url("https://www.octranspo.com/images/files/icons/arrow-straight.svg");}
+ol.turn-by-turn li.start-end-trip:not(.starting-point) {background-image: url("https://www.octranspo.com/images/files/icons/transport_bus.svg");}
+ol.turn-by-turn li.roundabout:not(.starting-point) {background-image: url("https://www.octranspo.com/images/files/icons/arrow-roundabout.png");}
+ol.turn-by-turn li.starting-point {list-style: none;}
+
+
+.mapContainer {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.mapColumn {
+  flex: 1; /* Ensures equal width across all 3 columns on desktop */
+}
+
+@media (max-width: 990px) {
+  .mapContainer {
+    flex-direction: column;
+  }
+}
+</style>
+<div class="note note__type--warning">
+<div class="note__desc">
+<p style="margin-top: 0; font-weight: bold;">Detour end date changed to Septmber 7, 2026 (updated on August 10).</p>
+</div>
+</div>
+
+<p>From <strong>7:00 am on Thursday, August 6,</strong> until <strong>6:00 pm on Monday, September 7,</strong> Campus Avenue at Carleton University will be closed for water main construction.</p>
+
+<p><strong>Routes 7, 10, 48, </strong>and <strong>111</strong> will be detoured along University Drive and Daycare Roadway.</p>
+
+<p>Stop #3062 -- Carleton A will be temporarily relocated to the west-side of University Drive, outside of the Facilities Maintenance Building and across from <a href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CG905">#3062 -- Carleton B</a>.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#6612 -- Campus (west-side) / Residence Commons</td>
+			<td>
+			<ul>
+				<li>7 Carleton</li>
+				<li>10 Hurdman</li>
+				<li>48 Carleton</li>
+				<li>111 Carleton</li>
+			</ul>
+			</td>
+			<td>TEMP -- University (west-side)</td>
+		</tr>
+		<tr>
+			<td>#3062 -- Carleton A</td>
+			<td>
+			<ul>
+				<li>7 St-Laurent</li>
+			</ul>
+			</td>
+			<td>TEMP -- University (west-side)<br />
+			OR<br />
+			<a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=CG905">#3062 -- Carleton B</a></td>
+		</tr>
+		<tr>
+			<td>#3062 -- Carleton A</td>
+			<td>
+			<ul>
+				<li>7 St-Laurent</li>
+				<li>10 Hurdman</li>
+				<li>48 Hurdman</li>
+				<li>111 Baseline</li>
+			</ul>
+			</td>
+			<td>TEMP -- University (west-side)</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<h5><strong>7 Carleton</strong></h5>
+
+<ol class="turn-by-turn">
+	<li class="starting-point">From Sunnyside</li>
+	<li class="straight-through">Continue on University</li>
+	<li class="left-turn">Left to remain on University</li>
+	<li class="left-turn">Left onto Daycare Roadway</li>
+	<li>Right onto Raven</li>
+	<li>Right onto University</li>
+</ol>
+
+<h5><strong>7 St-Laurent</strong></h5>
+
+<ol class="turn-by-turn">
+	<li class="starting-point">Start trip at #3062 Carleton B</li>
+	<li>Right onto University</li>
+	<li class="straight-through">Continue Sunnyside to regular route</li>
+</ol>
+
+<h5><strong>10 Hurdman</strong></h5>
+
+<ol class="turn-by-turn">
+	<li class="starting-point">From Bronson southbound</li>
+	<li>Right onto University</li>
+	<li class="left-turn">Left to remain on University</li>
+	<li class="left-turn">Left onto Raven to regular route</li>
+</ol>
+
+<h5><strong>48 Carleton</strong></h5>
+
+<ol class="turn-by-turn">
+	<li class="starting-point">From Sunnyside</li>
+	<li class="straight-through">Continue University</li>
+	<li class="left-turn">Left to remain on University</li>
+	<li class="left-turn">Left onto Daycare Roadway</li>
+	<li>Right onto Raven</li>
+	<li class="start-end-trip">End trip at #4880 -- Raven (north-side) / University</li>
+</ol>
+
+<h5><strong>48 Hurdman</strong></h5>
+
+<ol class="turn-by-turn">
+	<li class="starting-point">From Raven</li>
+	<li>Right onto University</li>
+	<li class="start-end-trip">Start trip at #3062 -- Carleton B</li>
+	<li>Right onto University</li>
+	<li class="straight-through">Continue Sunnyside to regular route</li>
+</ol>
+
+<h5><strong>111 Carleton</strong></h5>
+
+<ol class="turn-by-turn">
+	<li class="starting-point">From Bronson northbound</li>
+	<li class="left-turn">Left onto Raven</li>
+	<li>Right onto University</li>
+	<li class="start-end-trip">End trip at #3062 -- Carleton B</li>
+	<li class="roundabout">Use roundabout to turnaround and head southbound on University</li>
+</ol>
+
+<h5><strong>111 Baseline</strong></h5>
+
+<ol class="turn-by-turn">
+	<li class="starting-point">From University</li>
+	<li class="start-end-trip">Service temporary stop on Universtiy</li>
+	<li class="left-turn">Left onto Raven</li>
+	<li>Right onto Bronson to regular route</li>
+</ol>
+
+<h4>Detour maps</h4>
+
+<div class="mapContainer">
+<div class="mapColumn"><a class="fancybox-media" href="https://www.octranspo.com/images/files/maps/detours/2026/detour_carleton_7-48_august2026.png" title=""><img alt="" src="https://www.octranspo.com/images/files/maps/detours/2026/detour_carleton_7-48_august2026.png" style="width: 100%; border: 2px solid #eee; border-radius: 10px; margin: 2rem 0;" title="Opens in a pop-up." /> </a>
+
+<p style="font-style: italic; font-size: .7rem; margin-top: 0; color: #aaa;">Click map to enlarge</p>
+</div>
+
+<div class="mapColumn"><a class="fancybox-media" href="https://www.octranspo.com/images/files/maps/detours/2026/detour_carleton_10_august2026.png" title=""><img alt="" src="https://www.octranspo.com/images/files/maps/detours/2026/detour_carleton_10_august2026.png" style="width: 100%; border: 2px solid #eee; border-radius: 10px; margin: 2rem 0;" title="Opens in a pop-up." /> </a>
+
+<p style="font-style: italic; font-size: .7rem; margin-top: 0; color: #aaa;">Click map to enlarge</p>
+</div>
+
+<div class="mapColumn"><a class="fancybox-media" href="https://www.octranspo.com/images/files/maps/detours/2026/detour_carleton_111_august2026.png" title=""><img alt="" src="https://www.octranspo.com/images/files/maps/detours/2026/detour_carleton_111_august2026.png" style="width: 100%; border: 2px solid #eee; border-radius: 10px; margin: 2rem 0;" title="Opens in a pop-up." /> </a>
+
+<p style="font-style: italic; font-size: .7rem; margin-top: 0; color: #aaa;">Click map to enlarge</p>
+</div>
+</div>]]></description>
+			<guid>https://www.octranspo.com/e/269675</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Detour: Routes 19, 42, 44, 48 during Terminal Avenue bridge closure]]></title>
+			<pubDate>Wed, 29 Jul 2026 21:04:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-19, 42, 44, 48]]></category>
+			<link>https://www.octranspo.com/e/269637</link>
+			<description><![CDATA[July 29 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>From <strong>7:00 am on Monday, August 3,</strong> until <strong>11:59 pm on Saturday, August 29,</strong> Terminal Avenue will be closed between Sandford Fleming Avenue and Terminal Avenue South for bridge work and rehabilitation.</p>
+
+<p>Routes <strong>19, 42, 44,</strong> and <strong>48</strong> will detour in both directions around the closure before continuing on their regular routes.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) affected</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#1801 -- Terminal (north-side) / Sandford Fleming</td>
+			<td>
+			<ul>
+				<li>19 Hurdman</li>
+				<li>42 Hurdman</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=AF090">#5793 -- Sandford Fleming (west-side) / Industrial</a></td>
+		</tr>
+		<tr>
+			<td>#1801 -- Terminal (north-side) / Sandford Fleming</td>
+			<td>
+			<ul>
+				<li>44 Hurdman</li>
+				<li>48 Hurdman</li>
+			</ul>
+			</td>
+			<td>TEMP -- Industrial (north-side) / Alta Vista</td>
+		</tr>
+		<tr>
+			<td>#1802 -- Terminal (south-side) / Sandford Fleming</td>
+			<td>
+			<ul>
+				<li>44 Billings Bridge</li>
+				<li>48 Carleton</li>
+			</ul>
+			</td>
+			<td>TEMP -- Industrial (south-side) / Alta Vista</td>
+		</tr>
+		<tr>
+			<td>#8552 -- Sandford Fleming (east-side) / Industrial</td>
+			<td>
+			<ul>
+				<li>44 Hurdman</li>
+				<li>48 Hurdman</li>
+			</ul>
+			</td>
+			<td>TEMP -- Industrial (north-side) / Alta Vista</td>
+		</tr>
+		<tr>
+			<td>#5793 -- Sandford Fleming (west-side) / Industrial</td>
+			<td>
+			<ul>
+				<li>44 Billings Bridge</li>
+				<li>48 Carleton</li>
+			</ul>
+			</td>
+			<td>TEMP -- Industrial (south-side) / Alta Vista</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<p><strong>19 Hurdman:</strong> From Terminal at Sandford Fleming, left onto Sandford Fleming, use stop <a href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=AF090">#5793 -- Sandford Fleming (west-side) / Industrial</a>, right onto Industrial, continue across Riverside, left onto Terminal, continue Transitway to regular route.</p>
+
+<p><strong>19 Parliament:</strong> From Hurdman Station, continue Transitway, right onto Terminal, continue Industrial, left onto Sandford Fleming, use stop <a href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=AF100">#8552 -- Sandford Fleming (east-side) / Industrial</a>, right onto Terminal to regular route.</p>
+
+<p><strong>42 Hurdman:</strong> From Terminal at Sandford Fleming, left onto Sandford Fleming, use stop <a href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=AF090">#5793 -- Sandford Fleming (west-side) / Industrial</a>, right onto Industrial, continue across Riverside, left onto Terminal, continue Transitway to regular route.</p>
+
+<p><strong>42 Blair:</strong> From Hurdman Station, continue Transitway, right onto Terminal, continue Industrial, left onto Sandford Fleming, use stop <a href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=AF100">#8552 -- Sandford Fleming (east-side) / Industrial</a>, right onto Terminal to regular route.</p>
+
+<p><strong>44 Hurdman:</strong> From Alta Vista, left onto Industrial, (service temp stop on north side of Industrial) continue across Riverside, left onto Terminal, continue Transitway to regular route.</p>
+
+<p><strong>44 Billings Bridge:</strong> From Hurdman Station, continue Transitway, right onto Terminal, continue Industrial, (service temp stop on south side of Industrial) right onto Alta Vista to regular route.</p>
+
+<p><strong>48 Hurdman:</strong> From Alta Vista, left onto Industrial, (service temp stop on north side of Industrial) continue across Riverside, left onto Terminal, continue Transitway to regular route.</p>
+
+<p><strong>48 Carleton:</strong> From Hurdman Station, continue Transitway, right onto Terminal, continue Industrial, (service temp stop on south side of Industrial) continue Industrial to regular route.</p>
+
+<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2026/detour_terminal_july2026.png"><img alt="Detour map for Routes 19, 42, 44, 48." src="https://www.octranspo.com/images/files/maps/detours/2026/detour_terminal_july2026.png" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/269637</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Detour: Routes 57, 61, 62, 63, 66, 67, 88, 158, 256, 301, 303, 454 during Bayshore Transitway closure]]></title>
+			<pubDate>Thu, 23 Jul 2026 09:41:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-57, 61, 62, 63, 66, 67, 88, 158, 256, 301, 303, 454]]></category>
+			<link>https://www.octranspo.com/e/269599</link>
+			<description><![CDATA[July 23 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line --><!--<div class="note note__type--urgent">
+<div class="note__desc">
+<p style="margin: 0; font-weight: bold;">This detour is affected by the <a href="https://www.octranspo.com/en/alerts/#alerts-269635" onclick="location.href = this.href; location.reload(); return false;">full closure of Holly Acres Road</a> (August 4 to 10)</p>
+</div>
+</div>-->
+<p>From <strong>1:00 am on Sunday, June 28,</strong> until <strong>11:59 pm on Saturday, August 22,</strong> the westbound Transitway between Bayshore Station and Holly Acres Road will be closed for road work.</p>
+
+<p>As a result, <strong>routes 57, 61, 62, 63, 66, 67, 88, 158, 256, 301, 303, </strong>and <strong>454</strong> will be detoured to exit the station via the east access, along Woodridge Crescent and Bayshore Drive, before continuing on their regular routes.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#0763 -- Holly Acres / Bayshore Station</td>
+			<td>
+			<ul>
+				<li>57 Carling Campus</li>
+				<li>88 Hurdman</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WD940">#3050 -- Bayshore C</a></td>
+		</tr>
+		<tr>
+			<td>#4036 -- Holly Acres / ramp</td>
+			<td>
+			<ul>
+				<li>57 Carling Campus</li>
+				<li>88 Hurdman</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WD940">#3050 -- Bayshore C</a><br />
+			OR<br />
+			<a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WD050">#6435 -- Richmond / Nanaimo</a></td>
+		</tr>
+		<tr>
+			<td>#4036 -- Holly Acres / ramp</td>
+			<td>
+			<ul>
+				<li>61 Tunney&#39;s Pasture &amp; N Rideau</li>
+				<li>62 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=WD940">#3050 -- Bayshore C</a></td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<p><strong>57 Carling Campus:</strong> After Servicing Bayshore Station, exit at the east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond to regular route.</p>
+
+<p><strong>61 Tunney&#39;s Pasture:</strong> After Servicing Bayshore Station, exit at the east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto Curl ramp to Highway 417 eastbound, continue regular route.</p>
+
+<p><strong>61 Stittsville:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>62 Tunney&#39;s Pasture:</strong> After Servicing Bayshore Station, exit at the east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto Curl ramp to Highway 417 eastbound, continue regular route.</p>
+
+<p><strong>62 Stittsville:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>63 Innovation/ Briarbrook:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>66 Innovation:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>67 Terry Fox:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>88 Hurdman:</strong> After Servicing Bayshore Station, exit at the east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond to regular route.</p>
+
+<p><strong>158 Haanel:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>256 Bridlewood:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>301 Richmond:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>303 Carp:</strong> From Bayshore Station, exit at east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto ramp to Highway 417 westbound, continue regular route.</p>
+
+<p><strong>454 Lansdowne:</strong> After Servicing Bayshore Station, exit at the east access, left onto Mall Roadway, right onto Woodridge, right onto Bayshore, right onto Richmond, right onto Curl ramp to Highway 417 eastbound, continue regular route.</p>
+
+<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2026/detour_bayshore-transitway_june2026.png"><img src="https://www.octranspo.com/images/files/maps/detours/2026/detour_bayshore-transitway_june2026.png" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/269599</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Stop impacts: #5595 -- Pinecrest (east-side) / Queensview closed]]></title>
+			<pubDate>Mon, 06 Jul 2026 12:01:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-82]]></category>
+			<link>https://www.octranspo.com/e/269484</link>
+			<description><![CDATA[July 06 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>From <strong>5:00 am on Monday, July 6,</strong> until <strong>6:00 pm on Friday, August 28,</strong> stop #5595 -- Pinecrest (east-side) / Queensview will be closed for work near Pinecrest Station.</p>
+
+<p>Route <strong>82 Lincoln Fields &amp; Tunney&#39;s Pasture</strong> will use stop #3019 -- Pinecrest B.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#5595 -- Pinecrest (east-side) / Queensview</td>
+			<td>
+			<ul>
+				<li>82 Lincoln Fields &amp; Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td>#3019 -- Pinecrest B</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<p>No detours.</p>
+<!--<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2026/detour_brittany_june2026.png"><img alt="Detour map for Route 20." src="https://www.octranspo.com/images/files/maps/detours/2026/detour_brittany_june2026.png" style="width: 100%;" /></a></p>-->]]></description>
+			<guid>https://www.octranspo.com/e/269484</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Stop impact: #3039 -- Airport A relocation]]></title>
+			<pubDate>Tue, 09 Jun 2026 17:12:00 EDT</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[affectedRoutes-105]]></category>
+			<link>https://www.octranspo.com/e/269253</link>
+			<description><![CDATA[June 09 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>From <strong>10:00 am on Wednesday, June 10, </strong>until <strong>6:00 pm on Saturday, October 10,</strong> stop <a href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=RE900">#3039 -- Airport A</a> will be relocated to the southeast end of theupper roadway (Departures, level 3). The relocation is due to construction activities occurring near the existing stop.</p>
+
+<p><strong>Route 105 Airport</strong> will stop and depart from the temporary bus stop.</p>
+<!--<div class="note note__type--warning">
+<div class="note__desc">
+<p style="margin-top: 0;">On Friday, August 14, from 7:00 am until 3:00 pm, route 105 will stop at a temporary stop on the east-side of the lower level due to construction.</p>
+</div>
+</div>-->
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#3039 -- Airport A</td>
+			<td>
+			<ul>
+				<li>105 Airport</li>
+			</ul>
+			</td>
+			<td>Southeast end of upper roadway</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<p><strong>105 Airport:</strong> Nodetour.</p>
+
+<p><strong>105 Hurdman:</strong>No detour.</p>
+<!--<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2026/detour_105_airport_june2026.png"><img alt="Detour map for Route 105." src="https://www.octranspo.com/images/files/maps/detours/2026/detour_105_airport_june2026.png" style="width: 100%;" /></a></p>-->]]></description>
+			<guid>https://www.octranspo.com/e/269253</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[NCC Weekend Bikedays: Routes 57, 61, 62, 63, 74, 75, 87 to detour]]></title>
+			<pubDate>Thu, 07 May 2026 14:08:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-57, 61, 62, 63, 74, 75, 87]]></category>
+			<link>https://www.octranspo.com/e/268938</link>
+			<description><![CDATA[May 07 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" />
+<p>Beginning on <strong>Saturday, May 9</strong>, NCC Weekend Bikedays returns to the Kichi Zībī Mīkan!</p>
+
+<p>Until October 12,<strong> routes 57, 61, 62, 63, 74, 75, </strong>and <strong>87</strong>willdetour on weeknights and weekends in both directions around the parkway, between Lincoln Fields station and Churchill Avenue.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<div class="note note__style--filled note__type--warning">
+<div class="note__heading">
+<p class="note__title">NCC Weekend Bikedays detour schedule</p>
+</div>
+
+<div class="note__body">
+<p>Planned detours start on Friday, May 8<strong>:</strong></p>
+
+<ul>
+	<li><strong>On weekends, </strong>routes will be detoured from <strong>Friday at 10:30 pm until the following Monday at 6 am</strong>(in the case of Monday being a holiday, routes will be detoured until the following Tuesday at 6 am)</li>
+	<li><strong>On weekdays (Monday to Thursday), </strong>routes will be detoured <strong>nightly (10:30 pm - 6 am)</strong></li>
+</ul>
+</div>
+</div>
+
+<p></p>
+
+<h4>Affected stops</h4>
+
+<p></p>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#3013 -- Dominion 2A</td>
+			<td>
+			<ul>
+				<li><span style="text-align: left;">57</span> Tunney&#39;s Pasture</li>
+				<li><span style="text-align: left;">61</span> Tunney&#39;s Pasture</li>
+				<li><span style="text-align: left;">62</span> Tunney&#39;s Pasture</li>
+				<li><span style="text-align: left;">63</span> Tunney&#39;s Pasture</li>
+				<li><span style="text-align: left;">74</span> Tunney&#39;s Pasture</li>
+				<li><span style="text-align: left;">75</span> Tunney&#39;s Pasture &amp; N Rideau</li>
+				<li><span style="text-align: left;">87 Tunney&#39;s Pasture</span></li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="4941" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NH020" style="text-align: left;" target="_blank">#4941 -- Richmond (south side) / Golden</a></td>
+		</tr>
+		<tr>
+			<td>#3013 -- Dominion 1A</td>
+			<td>
+			<ul>
+				<li><span style="text-align: left;">57 Crystal Bay</span></li>
+				<li><span style="text-align: left;">61</span> <span style="text-align: left;">Stittsville</span></li>
+				<li><span style="text-align: left;">62 Stittsville</span></li>
+				<li><span style="text-align: left;">63 Innovation</span></li>
+				<li><span style="text-align: left;">74 Nepean Woods</span></li>
+				<li><span style="text-align: left;">75 Barrhaven</span></li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="4922" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NH010" style="text-align: left;" target="_blank">#4922 -- Richmond (north side) / Golden</a></td>
+		</tr>
+		<tr>
+			<td>#3014 -- Lincoln Fields 1A</td>
+			<td>
+			<ul>
+				<li><span style="text-align: left;">61</span> <span style="text-align: left;">Stittsville</span></li>
+				<li><span style="text-align: left;">62 Stittsville</span></li>
+				<li><span style="text-align: left;">63 Innovation</span></li>
+				<li><span style="text-align: left;">74 Nepean Woods</span></li>
+				<li><span style="text-align: left;">75 Barrhaven</span></li>
+				<li><span style="text-align: left;">87 Baseline</span></li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="3014" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI936" style="text-align: left;" target="_blank">#3014 -- Lincoln Fields 3B </a><br />
+			OR<br />
+			<a class="travel-planner-link" data-stop-number="3014" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI950" style="text-align: left;" target="_blank">#3014 -- Lincoln Fields 5A </a></td>
+		</tr>
+		<tr>
+			<td>#4944 -- Woodroffe (west side) / Saunders*</td>
+			<td>
+			<ul>
+				<li><span style="text-align: left;">87 Baseline</span></li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="6244" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI060" style="text-align: left;" target="_blank">#6244 -- Woodroffe (west side) / Knightsbridge</a></td>
+		</tr>
+		<tr>
+			<td>#1832 -- Woodroffe (west side) / Richmond*</td>
+			<td>
+			<ul>
+				<li><span style="text-align: left;">87 Baseline</span></li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="6244" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI060" style="text-align: left;" target="_blank">#6244 -- Woodroffe (west side) / Knightsbridge</a></td>
+		</tr>
+		<tr>
+			<td>#4942 -- Woodroffe (east side) / Saunders*</td>
+			<td>
+			<ul>
+				<li><span style="text-align: left;">87 Tunney&#39;s Pasture</span></li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="6472" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI070" style="text-align: left;" target="_blank">#6472 -- Woodroffe (east side) / Knightsbridge </a></td>
+		</tr>
+		<tr>
+			<td>#2783 -- Woodroffe (east side) / Richmond*</td>
+			<td>
+			<ul>
+				<li><span style="text-align: left;">87 Tunney&#39;s Pasture</span></li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" data-stop-number="6472" href="https://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI070" style="text-align: left;" target="_blank">#6472 -- Woodroffe (east side) / Knightsbridge </a></td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<p>*These stops are already not in use due to the <a class="arrow-link" href="https://www.octranspo.com/en/alerts/#alerts-268523" target="_blank">closure of Woodroffe Avenue (Byron/Richmond to Kichi Zībī Mīkan)</a></p>
+
+<h4>Detour routing</h4>
+
+<p><strong>57 Tunney&#39;s Pasture</strong>: From Lincoln Fields local bus loop, return to Transitway, left onto Transitway, left onto J-Ramp, right onto Carling, left onto Woodroffe, right onto Richmond, left onto Churchill, right onto Scott, continue regular routing.</p>
+
+<p><strong>57 Bayshore</strong>: From Scott / Churchill, left onto Churchill, right onto Richmond, left onto Woodroffe, right onto Carling, left onto J-Ramp, continue regular routing.</p>
+
+<p><strong>61 Tunney&#39;s Pasture</strong>: From Lincoln Fields local bus loop, return to Transitway, left onto Transitway, left onto J-Ramp, right onto Carling, left onto Woodroffe, right onto Richmond, left onto Churchill, right onto Scott, continue regular routing.</p>
+
+<p><strong>61 Stittsville / Terry Fox</strong>: From Scott / Churchill, left onto Churchill, right onto Richmond, left onto Woodroffe right onto Carling, left onto J-Ramp, right onto Transitway, right onto Access road to Lincoln Fields local bus loop, stop at 3B, continue to Transitway, left onto Transitway, continue regular routing.</p>
+
+<p><strong>62 Tunney&#39;s Pasture</strong>: From Lincoln Fields local bus loop, return to Transitway, left onto Transitway, left onto J-Ramp, right onto Carling, left onto Woodroffe, right onto Richmond, left onto Churchill, right onto Scott, continue regular routing.</p>
+
+<p><strong>62 Stittsville</strong>: From Scott / Churchill, left onto Churchill, right onto Richmond, left onto Woodroffe right onto Carling, left onto J-Ramp, right onto Transitway, right onto Access road to Lincoln Fields local bus loop, stop at 3B, continue to Transitway, left onto Transitway, continue regular routing.</p>
+
+<p><strong>63 Tunney&#39;s Pasture</strong>: From Lincoln Fields local bus loop, return to Transitway, left onto Transitway, left onto J-Ramp, right onto Carling, left onto Woodroffe, right onto Richmond, left onto Churchill, right onto Scott, continue regular routing.</p>
+
+<p><strong>63 Innovation/ Briarbrook</strong>: From Scott / Churchill, left onto Churchill, right onto Richmond, left onto Woodroffe right onto Carling, left onto J-Ramp, right onto Transitway, right onto Access road to Lincoln Fields local bus loop, stop at 3B, continue to Transitway, left onto Transitway, continue regular routing.</p>
+
+<p><strong>74 Tunney&#39;s Pasture</strong>: From Lincoln Fields local bus loop, return to Transitway, left onto Transitway, left onto J-Ramp, right onto Carling, left onto Woodroffe, right onto Richmond, left onto Churchill, right onto Scott, continue regular routing.</p>
+
+<p><strong>74 Limebank</strong>: From Scott / Churchill, left onto Churchill, right onto Richmond, left onto Woodroffe right onto Carling, left onto J-Ramp, right onto Transitway, right onto Access road to Lincoln Fields local bus loop, stop at 3B, continue to Transitway, left onto Transitway, continue regular routing.</p>
+
+<p><strong>75 Tunney&#39;s Pasture &amp; N Rideau</strong>: From Lincoln Fields local bus loop, return to Transitway, left onto Transitway, left onto J-Ramp, right onto Carling, left onto Woodroffe, right onto Richmond, left onto Churchill, right onto Scott, continue regular routing.</p>
+
+<p><strong>75 Barrhaven Centre / Cambrian</strong>: From Scott / Churchill, left onto Churchill, right onto Richmond, left onto Woodroffe right onto Carling, left onto J-Ramp, right onto Transitway, right onto Access road to Lincoln Fields local bus loop, stop at 3B, continue to Transitway, left onto Transitway, continue regular routing.</p>
+
+<p><strong>87 Baseline</strong>: From Scott / Churchill, left onto Churchill, right onto Richmond, left onto Woodroffe, right onto Carling, left onto J-Ramp, right onto Transitway, right onto Access road to Lincoln Fields local bus loop, stop at 3B, continue to Transitway, left onto Transitway, continue regular routing.</p>
+
+<p><strong>87 Tunney&#39;s Pasture</strong>: From Woodroffe and Byron, turn right onto Byron, continue on Richmond, left onto Churchill, right onto Scott to regular route.</p>
+
+<h4>Detour Map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2026/detour_bikedays_may-2026.pdf"><img alt="Map for routes 57, 61, 62, 63, 74, 75, 87" src="https://www.octranspo.com/images/files/maps/detours/2026/detour_bikedays_may-2026.png" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/268938</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Detour: Route 87 during Woodroffe Avenue closure (Byron/Richmond to Kichi Zibi Mikan)]]></title>
+			<pubDate>Mon, 16 Mar 2026 09:31:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-87]]></category>
+			<link>https://www.octranspo.com/e/268523</link>
+			<description><![CDATA[March 16 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>From <strong>8:00 pm on Sunday, March 29,</strong> until <strong>11:59 pm on Friday, December 18,</strong> Woodroffe Avenue will be closed between Byron Avenue/Richmond Road and Kichi Zībī Mīkan for sewer and watermain work, as well as electrical and paving work.</p>
+
+<p><strong>Route 87 </strong>will detour in both directions along Richmond between Churchill Avenue and Woodroffe, bypassing Dominion Station, before continuing on its regular route.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#4944 -- Woodroffe / Saunders</td>
+			<td rowspan="2">
+			<ul>
+				<li>87 Baseline</li>
+			</ul>
+			</td>
+			<td rowspan="2"><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI060">#6244 -- Woodroffe (west-side) / Knightsbridge</a></td>
+		</tr>
+		<tr>
+			<td>#1832 -- Woodroffe / Richmond</td>
+		</tr>
+		<tr>
+			<td>#4942 -- Woodroffe / Saunders</td>
+			<td rowspan="2">
+			<ul>
+				<li>87 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td rowspan="2"><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NH180">#7515 -- Richmond / Woodroffe</a><br />
+			OR<br />
+			<a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NI070">#6472 -- Woodroffe (east-side) / Knightsbridge</a></td>
+		</tr>
+		<tr>
+			<td>#2783 -- Woodroffe / Richmond</td>
+		</tr>
+		<tr>
+			<td>#3013 -- Dominion 1A</td>
+			<td>
+			<ul>
+				<li>87 Baseline</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NH010">#4922 -- Richmond / Golden</a><br />
+			OR<br />
+			TEMP A -- Churchill / Scott</td>
+		</tr>
+		<tr>
+			<td>#3013 -- Dominion 2A</td>
+			<td>
+			<ul>
+				<li>87 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NH020">#4941 -- Richmond / Golden</a><br />
+			OR<br />
+			TEMP B -- Churchill / Scott</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<p><strong>87 Tunney&#39;s Pasture:</strong> From Woodroffe and Byron, turn right onto Byron, continue on Richmond, left onto Churchill, right onto Scott to regular route.</p>
+
+<p><strong>87 Baseline:</strong> From Scott, turn left onto Churchill, right onto Richmond, continue on Byron, left onto Woodroffe to regular route.</p>
+
+<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2026/detour_woodroffe_87_mar-2026.pdf"><img alt="Detour map for Route 87." src="https://www.octranspo.com/images/files/maps/detours/2026/detour_woodroffe_87_mar-2026.png" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/268523</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Detour: Route 51 (Clare Street eastbound lane closure)]]></title>
+			<pubDate>Tue, 10 Mar 2026 13:13:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-51]]></category>
+			<link>https://www.octranspo.com/e/268495</link>
+			<description><![CDATA[March 10 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>From <strong>6:00 am on Monday, March 23,</strong> until <strong>6:00 pm on Tuesday, December 1,</strong> the eastbound lanes of Clare Street, between Churchill Avenue and Kirkwood Avenue will be closed to support the <strong>Clare &amp; Dovercourt Integrated Renewal Project</strong>.</p>
+
+<p>As a result, route <strong>51 Tunney&#39;s Pasture</strong> will detour along Churchill and Byron Avenue before continuing onto the regular route at Kirkwood.</p>
+
+<p>Please allow extra time for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) affected</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody style="background-color: #fff;">
+		<tr>
+			<td>#4861 -- Clare (south-side) / Evered</td>
+			<td rowspan="4">
+			<ul>
+				<li>51 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td rowspan="2"><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=NH630">#7536 -- Churchill (east-side) / Clare</a></td>
+		</tr>
+		<tr>
+			<td>#7531 -- Clare (south-side) / Tweedsmuir</td>
+		</tr>
+		<tr>
+			<td>#4862 -- Clare (south-side) / Westhaven</td>
+			<td rowspan="2"><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=ND580">#4843 -- Kirkwood (east-side) / Clare</a></td>
+		</tr>
+		<tr>
+			<td>#7533 -- Clare (south-side) / Kirkwood</td>
+		</tr>
+		<tr>
+			<td rowspan="2">#7423 -- Kirkwood (east-side) / Iona</td>
+			<td>
+			<ul>
+				<li>51 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=ND510">#0345 -- Kirkwood (east-side) / Byron</a></td>
+		</tr>
+		<tr>
+			<td>
+			<ul>
+				<li>81 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td>No change to service</td>
+		</tr>
+		<tr>
+			<td rowspan="2">#4844 -- Kirkwood (east-side) / Geoffrey</td>
+			<td>
+			<ul>
+				<li>51 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=ND510">#0345 -- Kirkwood (east-side) / Byron</a></td>
+		</tr>
+		<tr>
+			<td>
+			<ul>
+				<li>81 Tunney&#39;s Pasture</li>
+			</ul>
+			</td>
+			<td>No change to service</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour routing</h4>
+
+<p><strong>51 Tunney&#39;s Pasture:</strong> From Churchill northbound, continue Churchill, right onto Byron, left onto Kirkwood, continue regular route.</p>
+
+<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2026/detour_51_clare-street_mar2026.pdf"><img alt="Detour map for Route 51." src="https://www.octranspo.com/images/files/maps/detours/2026/detour_51_clare-street_mar2026.png" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/268495</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Permanent route change: 621 and 698 serving Ottawa high schools]]></title>
+			<pubDate>Fri, 27 Feb 2026 15:51:00 EST</pubDate>
+			<category><![CDATA[Route service change]]></category>
+			<category><![CDATA[affectedRoutes-698]]></category>
+			<link>https://www.octranspo.com/e/268410</link>
+			<description><![CDATA[February 27 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>Starting <strong>March 2,</strong> service on school <strong>routes 621</strong> and <strong>698</strong> will be withdrawn or modified. Affected schools have notified the students impacted by these changes with details on alternative service.</p>
+
+<p>Students can use the <a href="https://plan.octranspo.com/plan/">Travel Planner</a> to plan their trip on OC Transpo buses, or visit the <a class="external-link" href="https://www.ottawaschoolbus.ca/" target="_blank">Ottawa Student Transportation website</a> for information on yellow school bus service.</p>
+
+<h4>Route 621</h4>
+
+<ul>
+	<li>All trips on this route will be removed</li>
+	<li>Transportation to Lester B. Pearson High School and Gloucester High School will be provided by yellow school bus going forward</li>
+	<li>Service to Colonel By High School is available with OC Transpo regular bus service</li>
+</ul>
+
+<h4>Route 698</h4>
+
+<ul>
+	<li>Trips serving St Patrick&rsquo;s High School will be shortened to no longer operate east of Conroy Road</li>
+	<li>Service east of Conroy Road will be replaced by yellow school bus service</li>
+	<li>The trip starting at Blohm / Forestglade at 7:40 am will be removed</li>
+	<li>One of the trips departing St Patrick&rsquo;s High School at 2:44 pm will be removed</li>
+	<li>The remaining three morning and three afternoon trips are expected to provide sufficient capacity</li>
+	<li>These changes do not impact Route 698 service for Ridgemont High School</li>
+</ul>]]></description>
+			<guid>https://www.octranspo.com/e/268410</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Stop Impacts: Bayshore Stop A & B Relocation]]></title>
+			<pubDate>Fri, 30 Jan 2026 09:20:00 EST</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[affectedRoutes-57, 58, 61, 62, 63, 81, 85, 404, 406]]></category>
+			<link>https://www.octranspo.com/e/268173</link>
+			<description><![CDATA[January 30 2026 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p data-pm-slice="1 1 []">Until further notice, <strong>Bayshore</strong> <strong>Stop Band Stop C </strong>will be located on the north side of the platform.<strong>Bayshore Stop A</strong>will also be temporarily relocated to the south side of the platform.</p>
+
+<p><strong>All routes will be serving Bayshore Station,during this time.</strong>This adjustment is to allow for Stage 2 work. For assistance,<a href="https://www.octranspo.com/en/contact-us/"><strong>contact us</strong></a>.</p>
+<!--<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2025/.pdf"><img alt="Detour map for Route 0." src="https://www.octranspo.com/images/files/maps/detours/2025/.png" style="width: 100%;" /></a></p>-->]]></description>
+			<guid>https://www.octranspo.com/e/268173</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Limebank Station: Passenger pick-up and drop-off area relocation]]></title>
+			<pubDate>Fri, 12 Dec 2025 16:48:00 EST</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[]]></category>
+			<link>https://www.octranspo.com/e/267793</link>
+			<description><![CDATA[December 12 2025 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>At <strong>10:00 am on Thursday, December 18,</strong> Town Square Road and the connector road at Limebank Station will re-open to general traffic. As a result, the temporarily-relocated passenger pick-up and drop-off zone will be moved back to its original location, on the north side of Limebank Station.</p>
+
+<p>Customers are reminded to use the designated pedestrian crossing zones when travelling between the O-Train station and the passenger pick-up and drop-off area.</p>
+
+<p><strong>Routes 70, 73, 74, 99, 110, 198, 283, 299</strong> will continue to follow a detour by entering and exiting Limebank Station via Limebank Road.</p>
+
+<h4>Detour routing</h4>
+
+<p><strong>99 Limebank:</strong> From Limebank, right onto Limebank Station Bus Only Roadway, Loop around bus loop, right onto Connector Roadway, continue regular route (and regular service stops within Limebank Station).</p>
+
+<p><strong>99 Barrhaven Centre:</strong> From Limebank Station, loop around bus loop, right onto Connector Roadway, left onto Limebank, continue regular route.</p>
+
+<p><strong>110 Limebank:</strong> From Earl Armstrong, right onto Limebank, right onto Limebank Station Bus Only Roadway, Loop around bus loop, right onto Connector Roadway, continue regular route (and regular service stops within Limebank Station).</p>
+
+<p><strong>110 Innovation:</strong> No detour required.</p>
+
+<p><strong>70, 73, 74, 198, 283, 299 Limebank:</strong> From Earl Armstrong, right onto Limebank, right onto Limebank Station Bus Only Roadway, Loop around bus loop, right onto Connector Roadway, continue regular route (and regular service stops within Limebank Station).</p>
+
+<p><strong>70, 73, 74, 198, 283, 299 Outbound trips:</strong> From Limebank Station, loop around bus loop, right onto Connector Roadway, left onto Limebank, left onto Earl Armstrong, continue regular route.</p>
+
+<h4>Maps (effective December 18)</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/station_layout/line_2_stations/STATION_limebank.pdf"><img alt="Map of Limebank Station" src="https://www.octranspo.com/images/files/maps/station_layout/line_2_stations/STATION_limebank.jpg" style="width: 100%;" /></a></p>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2025/limebank_passenger-pickup_dec-18-2026.pdf"><img alt="Detour map for Limebank Station" src="https://www.octranspo.com/images/files/maps/detours/2025/limebank_passenger-pickup_dec-18-2026.png" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/267793</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Stop impacts: Blair Station stop I relocation (UPDATED)]]></title>
+			<pubDate>Fri, 10 Oct 2025 09:17:00 EDT</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[affectedRoutes-12, 15, 23, 24, 26, 42]]></category>
+			<link>https://www.octranspo.com/e/267205</link>
+			<description><![CDATA[October 10 2025 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<div class="note note__type--warning">
+<p class="note__title">Updated on Friday, February 27, 2026</p>
+</div>
+
+<p>From <strong>11:00 am on Tuesday, October 14 and continuing throughfall 2026*</strong>, <strong>stop I</strong> at Blair Station will be temporarily closed. This closure is due to construction work being performed on the north bus platform, as <span data-contrast="auto" lang="EN-CA" xml:lang="EN-CA">part of the <strong><a href="https://www.octranspo.com/en/news/article/blair-station-elevator-replacement">Blair Station Elevator Replacement Project</a></strong>.</span><span data-ccp-props="{}"></span></p>
+
+<h4>Impacts</h4>
+
+<ul id="phase-a-info">
+	<li>Service for <strong>routes 12, 15, 23, 24, 26, 39, N39, </strong> and <strong>42</strong> will be relocated two stops east to <strong>stop G</strong> during the work period.</li>
+	<li>No pedestrian access to north bus platform from the west side of the station. Use the accessible walkway along north platform East.</li>
+	<li><strong>No impact</strong> to north bus platform elevator or stairs</li>
+</ul>
+
+<p></p>
+
+<h4>What else to expect</h4>
+
+<p>Customers should expect a heavier presence of construction activity along the pedestrian walkway at the station.</p>
+
+<p>Starting March 2, 2026, part of the north bus platform and the lower level east doors will be closed for several months to allow work on the new elevator system. Customers will use the adjacent south doors to access stops F, G, and H using a temporary platform installed next to the existing platform. This will not affect the stop locations or service.</p>
+
+<p>Other minor impacts to platforms and walkways on certain workdays may occur. Construction crews and flaggers will guide customers as required.</p>
+
+<p></p>
+
+<p><em>*Date to-be-confirmed</em></p>
+<!--<p>Please allow extra time for your travels.</p>-->
+
+<div id="phase-b-info">
+<h4 id="affected-heading">Affected stops</h4>
+
+<div class="overflow-x-container">
+<table aria-labelledby="affected-heading" class="table-border detour-table" style="min-width: 100%;">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable" style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Routes</th>
+			<th class="readable" style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>#3027 -- Blair I</td>
+			<td>
+			<ul>
+				<li>12 Tunney&#39;s Pasture</li>
+				<li>15 Parliament</li>
+				<li>23 Rothwell Heights &amp; Blair</li>
+				<li>24 Chapel Hill</li>
+				<li>26 Pineview</li>
+				<li>39 Millennium</li>
+				<li>39 Blair &amp; N Rideau</li>
+				<li>42 Hurdman</li>
+			</ul>
+			</td>
+			<td><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=EE962">#3027 -- Blair G</a></td>
+		</tr>
+	</tbody>
+</table>
+</div>
+</div>
+
+<h4>Stop relocation map</h4>
+
+<p><a aria-describedby="phase-a-info" href="https://www.octranspo.com/images/files/maps/detours/2025/blair_stop-relocation_phase-A_oct2025.pdf"><img alt="Stop relocation map for Blair Station during Phase A" src="https://www.octranspo.com/images/files/maps/detours/2025/blair_stop-relocation_phase-A_oct2025.png" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/267205</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Detour: Routes entering and exiting Limebank Station]]></title>
+			<pubDate>Fri, 15 Aug 2025 15:01:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-70, 73, 74, 99, 110, 198, 283, 299]]></category>
+			<link>https://www.octranspo.com/e/266714</link>
+			<description><![CDATA[August 15 2025 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" /><!-- don't copy above line -->
+<p>At<strong>10:00 am on Thursday, December 18,</strong>Town Square Road and the connector road at Limebank Station will re-open to general traffic.<strong>Routes 70, 73, 74, 99, 110, 198, 283, 299</strong>will continue to follow a detour by entering and exiting Limebank Station via Limebank Road, until further notice.</p>
+
+<h4>Detour routing</h4>
+
+<p><strong>99 Limebank:</strong> From Limebank, right onto Limebank Station Bus Only Roadway, Loop around bus loop, right onto Connector Roadway, continue regular route (and regular service stops within Limebank Station).</p>
+
+<p><strong>99 Barrhaven Centre:</strong> From Limebank Station, loop around bus loop, right onto Connector Roadway, left onto Limebank, continue regular route.</p>
+
+<p><strong>110 Limebank:</strong> From Earl Armstrong, right onto Limebank, right onto Limebank Station Bus Only Roadway, Loop around bus loop, right onto Connector Roadway, continue regular route (and regular service stops within Limebank Station).</p>
+
+<p><strong>110 Innovation:</strong> No detour required.</p>
+
+<p><strong>70, 73, 74, 198, 283, 299 Limebank:</strong> From Earl Armstrong, right onto Limebank, right onto Limebank Station Bus Only Roadway, Loop around bus loop, right onto Connector Roadway, continue regular route (and regular service stops within Limebank Station).</p>
+
+<p><strong>70, 73, 74, 198, 283, 299 Outbound trips:</strong> From Limebank Station, loop around bus loop, right onto Connector Roadway, left onto Limebank, left onto Earl Armstrong, continue regular route.</p>
+
+<h4>Detour map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2025/limebank_passenger-pickup_dec-18-2026.pdf"><img src="https://www.octranspo.com/images/files/maps/detours/2025/limebank_passenger-pickup_dec-18-2026.png" style="width: 100%;" /></a></p>
+
+<h4>Station layout map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/station_layout/line_2_stations/STATION_limebank.pdf"><img src="https://www.octranspo.com/images/files/maps/station_layout/line_2_stations/STATION_limebank.jpg" style="width: 100%;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/266714</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Service Impact: Baseline Station Park and Ride – Temporary Lot Configuration]]></title>
+			<pubDate>Fri, 02 May 2025 15:40:00 EDT</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[]]></category>
+			<link>https://www.octranspo.com/e/264993</link>
+			<description><![CDATA[May 02 2025 - <p>Starting<strong> Thursday, May 1, 2025, until further notice,</strong> the <strong>Park and Ride at Baseline Station</strong> will be temporarily split into two separate lots (north and south). All gold permit holders and accessible stalls will be located in the north lot, standard parking spaces will be available in the south lot.</p>]]></description>
+			<guid>https://www.octranspo.com/e/264993</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Detour extended: Cheo Roadway closure (1Door4Care)]]></title>
+			<pubDate>Mon, 28 Apr 2025 00:00:00 EDT</pubDate>
+			<category><![CDATA[Detours]]></category>
+			<category><![CDATA[affectedRoutes-5, 45]]></category>
+			<link>https://www.octranspo.com/e/190587</link>
+			<description><![CDATA[April 28 2025 - <p><strong>Until further notice</strong>, Route <strong>45 Hurdman</strong>and <strong>5</strong>will be detoured due to the closure of CHEORoadway for the 1Door4Care: CHEO Integrated Treatment Centre development. Please allow a few extra minutes for your travels.</p>
+
+<div class="note note__type--info">
+<p class="note__title">Effective April 27, at the start of service</p>
+
+<div class="note__desc">
+<p>Routes 55 Elmvale and55 Westgate changed to Routes 5 Elmvale and 5 Waller, respectively.</p>
+</div>
+</div>
+
+<h4>AffectedStops</h4>
+
+<div class="table-container">
+<table class="detour-table table-border">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable">Bus Stop (560#) not in use</th>
+			<th class="readable">Routes</th>
+			<th class="readable">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>
+			<p>#1808 -- CHEO Roadway (east side) / Main Entrance</p>
+			</td>
+			<td rowspan="">
+			<ul>
+				<li>45 Hurdman / Rideau</li>
+				<li>5 Waller</li>
+			</ul>
+			</td>
+			<td rowspan="">
+			<p><a class="travel-planner-link" href="http://plan.octranspo.com/plan/StopSchedules?ShowOptions=false&amp;StopIdentifier=AJ008">#7072 -- Ring (north side) / CHEO Roadway</a></p>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			<p>#7045 -- CHEO Roadway (west side) / Main Entrance</p>
+			</td>
+			<td rowspan="">
+			<ul>
+				<li>5Elmvale</li>
+			</ul>
+			</td>
+			<td rowspan="">Temporary stop --Ring (south side) / CHEO Roadway</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<h4>Detour Routings</h4>
+
+<p><strong>Route 45/ N45 Hurdman &amp; N Rideau:</strong> From Ring Road/ CHEO Roadway, continue on Ring Road, right onto Ring Road, and then continue to regular routing.</p>
+
+<p><strong>Route 5 Elmvale:</strong> From Ring Road northbound, right onto Ring Road, and then continue to regular routing.</p>
+
+<p><strong>Route 5 Waller: </strong>From Ring Road/ CHEO Roadway, continue on Ring Road, left onto Ring Road, and then continue to regular routing.</p>
+
+<h4>Detour Maps</h4>
+
+<div class="grid--2col"><a href="https://www.octranspo.com/images/files/maps/detours/2024/Cheo_2024_45.pdf"><img alt="Detour Map for Route 45: Cheo Roadway closure" src="https://www.octranspo.com/images/files/maps/detours/2024/Cheo_2024_45.png" style="width: 100%;" /></a><a href="https://www.octranspo.com/images/files/maps/detours/2025/Cheo_2025_5.pdf"><img alt="Detour Map for Route 5: Cheo Roadway closure" src="https://www.octranspo.com/images/files/maps/detours/2025/Cheo_2025_5.png" style="width: 100%;" /></a></div>]]></description>
+			<guid>https://www.octranspo.com/e/190587</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Stop impacts: Bayview B]]></title>
+			<pubDate>Tue, 03 Dec 2024 11:33:00 EST</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[]]></category>
+			<link>https://www.octranspo.com/e/236271</link>
+			<description><![CDATA[December 03 2024 - <p>Until further notice,<b></b><strong>Bayview B</strong><b></b>will be relocated to Scott Street (south side) / Bayview station Road for work. Please allow a few extra minutes for your travels.</p>
+
+<h4>Alternate stops</h4>
+
+<table class="table-border">
+	<thead class="yellow-header">
+		<tr>
+			<th style="text-align: left;">Bus Stop (560#) not in use</th>
+			<th style="text-align: left;">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>
+			<p>Bayview B</p>
+			</td>
+			<td>
+			<p style="text-align: left;">Temporary stop -- Scott Street (south side) / Bayview station Road</p>
+			</td>
+		</tr>
+	</tbody>
+</table>
+
+<h4>Stop impact map</h4>
+
+<p><a href="https://www.octranspo.com/images/files/maps/detours/2024/BayviewB_2024.pdf"><img alt="" src="https://www.octranspo.com/images/files/maps/detours/2024/BayviewB_2024.png" style="width: 941px; height: 1074px;" /></a></p>]]></description>
+			<guid>https://www.octranspo.com/e/236271</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Relocation notice: Trim Station bus loop]]></title>
+			<pubDate>Wed, 18 Sep 2024 15:47:00 EDT</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[]]></category>
+			<link>https://www.octranspo.com/e/218097</link>
+			<description><![CDATA[September 18 2024 - <link href="/images/files/dist/custom-style.css" rel="stylesheet" />
+<p>On <strong>Sunday, September 22 </strong>at <strong>4 am,</strong>the current Trim Station will be <strong>permanently relocated to the new Trim Station Bus Loop </strong>due to the closure of of South Frontage between Old Trim and New Trim Road, in addition to the southern parts of the Park and Ride lot for Stage 2 work. Please allow a few extra minutes for your travels.</p>
+
+<div class="note note__type--warning">
+<p class="note__title"><strong>Park &amp; Ride impacts</strong></p>
+
+<div class="note__desc">
+<p>The most southern Park and Ride lot will be closed. Please park in the open areas of the parking lots.</p>
+</div>
+</div>
+
+<div class="note note__type--info">
+<p class="note__title"><strong>Pedestrian access instructions</strong></p>
+
+<div class="note__desc">
+<p>Pedestrian access into the station is available at the east side of the station along New Trim Road.</p>
+
+<p>Pedestrian access will also be available within the Park and Ride itself to the new bus platforms.</p>
+</div>
+</div>
+
+<h4>Affected stops</h4>
+
+<table aria-labelledby="" class="table-border detour-table">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable">Bus Stop (560#) not in use</th>
+			<th class="readable">Routes</th>
+			<th class="readable">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>
+			<p>#3029 -- Trim 2A</p>
+
+			<p></p>
+			</td>
+			<td>
+			<ul>
+				<li>
+				<p>38 Blair</p>
+
+				<p>39 Blair &amp; N Rideau</p>
+
+				<p>221 Blair</p>
+
+				<p>639 Place d&#39;Orl&eacute;ans</p>
+				</li>
+			</ul>
+			</td>
+			<td>
+			<p>Trim 2A in new bus loop.</p>
+			</td>
+		</tr>
+		<tr>
+			<td>#3029 -- Trim 1A</td>
+			<td>
+			<ul>
+				<li>
+				<p>39 Blair &amp; N Rideau</p>
+
+				<p>39 Millennium</p>
+
+				<p>221 Cumberland</p>
+
+				<p>639 Gis&egrave;le Lalonde</p>
+				</li>
+			</ul>
+			</td>
+			<td>
+			<p>Trim 1Ain new bus loop.</p>
+
+			<p></p>
+			</td>
+		</tr>
+	</tbody>
+</table>
+
+<h4>Detour routing</h4>
+
+<p><strong>38 Blair: </strong>Start route in new Trim Bus Loop at service stop 2A, continue to east exit to New Trim Road, left onto New Trim Road, continue regular routing</p>
+
+<p><strong>38 Jeanne d&rsquo;Arc/Trim:</strong> From New Trim Southbound, right onto Eastern access to New Trim Station, continue to service stop 1A, end route</p>
+
+<p><strong>39 Blair &amp; N Rideau:</strong> Start route in new Trim Bus Loop at service stop 2A, continue to east exit to New Trim Road, left onto New Trim Road, continue regular routing</p>
+
+<p><strong>39 Millennium: </strong>From OR174 Eastbound, exit Trim Road, remaining in the left lane, proceed to intersection of Trim EB Off-ramp and Old Trim Rd, left onto Western access to Trim Station, continue to service stop 1A, continue to east exit to New Trim Road, right onto New Trim Rd, continue to regular routing</p>
+
+<p><strong>221 Blair:</strong> From Old Trim/South Frontage, continue Old Trim northbound to western access to new Trim Bus loop, continue to service stop 2A, continue to east exit to New Trim Road, left onto New Trim Road, continue regular routing</p>
+
+<p><strong>221 Cumberland:</strong> From OR174 Eastbound, exit Trim Road, remaining in the left lane, proceed to intersection of Trim EB Off-ramp and Old Trim Rd, left onto Western access to Trim Station, continue to service stop 1A, continue to east exit to New Trim Road, right onto New Trim Rd, continue to regular routing</p>
+
+<p><strong>639 Gisele Lalonde: </strong>From Southbound New Trim, right onto East access to Trim Station, continue to service stop 1A, continue to western roadway to Old Trim Southbound, continue Trim SB on regular routing</p>
+
+<p><strong>639 Place d&rsquo;Orl&eacute;ans: </strong>From Old trim Northbound, continue NB Trim To Trim Station, continue to service stop 2A, continue to east end of Trim Station, left onto New Trim, continue regular routing</p>
+
+<p><strong>405 Canadian Tire Centre: </strong>Start route at service stop 2A in New Trim Bus Loop, continue to east exit, left onto New Trim Rd, continue regular routing</p>
+
+<p><strong>405 Trim: </strong>From OR174 Eastbound, exit Trim Road, remaining in the left lane, proceed to intersection of Trim EB Off-ramp and Old Trim Rd, left onto Western access to Trim Station, continue to service stop 1A, end route</p>
+
+<p><strong>455 Lansdowne: </strong>Start route at service stop 2A in New Trim Bus Loop, continue to east exit, left onto New Trim Rd, continue regular routing</p>
+
+<p><strong>455 Trim: </strong>From OR174 Eastbound, exit Trim Road, remaining in the left lane, proceed to intersection of Trim EB Off-ramp and Old Trim Rd, left onto Western access to Trim Station, continue to service stop 1A, end route</p>]]></description>
+			<guid>https://www.octranspo.com/e/218097</guid>
+		</item>
+ 		
+		<item>
+			<title><![CDATA[Permanent relocation: Westboro A]]></title>
+			<pubDate>Wed, 18 Sep 2024 15:16:00 EDT</pubDate>
+			<category><![CDATA[General Message]]></category>
+			<category><![CDATA[]]></category>
+			<link>https://www.octranspo.com/e/218073</link>
+			<description><![CDATA[September 18 2024 - <p><strong>Permanent relocation</strong></p>
+
+<p>On <strong>Sunday, October 6</strong>at <strong>4:00 am</strong>, <strong>Westboro A </strong>will be relocated to the west of Athlone, across from Westboro B for Stage 2 construction. Please allow a few extra minutes for your travels.</p>
+
+<h4>Affected stops</h4>
+
+<table aria-labelledby="" class="table-border detour-table">
+	<thead class="blue-header">
+		<tr>
+			<th class="readable">Bus Stop (560#) not in use</th>
+			<th class="readable">Alternate Stop</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>Westboro A</td>
+			<td>
+			<p style="text-align: left;">Relocated to the west of Athlone, across from Westboro B</p>
+			</td>
+		</tr>
+	</tbody>
+</table>
+
+<h4>Detour routing</h4>
+
+<p>No detours will be required.</p>]]></description>
+			<guid>https://www.octranspo.com/e/218073</guid>
+		</item>
+ 		
+ 
+ 		 
+	</channel>
+</rss>
