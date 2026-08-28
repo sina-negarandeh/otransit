@@ -154,7 +154,35 @@ back brings its pin with it.
 
 Most of the work here went into the data, not the interface.
 
-### Two sources
+### Detours
+
+Picking a route shows what OC Transpo has published about it:
+
+```
+ ⚠ Detour: Routes 19, 42, 44, 48 during Terminal Avenue bridge closure
+
+
+ ❯ │ toward Billings Bridge            62 trips today
+   │ toward Hurdman                    61 trips today
+──────────────────────────────────────────────────────────────────────
+ Which way?   Bus ›  44                          ↑↓ · ↵ · esc · q
+```
+
+This does not come from GTFS-Realtime. That specification has a ServiceAlerts
+feed and the API does not serve one: `ServiceAlerts` and `VehiclePositions` both
+answer 404, and only `TripUpdates` exists. The detours are published as RSS on
+the developer page instead, tagged with the routes they affect.
+
+It is the weakest of the three sources here. The other two are specified
+formats; this is a CMS emitting RSS, where `affectedRoutes-19, 42, 44, 48` is a
+convention rather than a contract. `otransit probe` reports how many parsed, so
+a change in shape shows up as a number rather than as a quiet week.
+
+Route-level only. The feed names stops too, but in prose, mixed in with the
+alternate stops it is telling you to use instead, so there is no safe way to say
+"your stop is closed" rather than "your stop is the detour".
+
+### Three sources
 
 GTFS static is a 109 MB zip: 6.3 million `stop_times` rows, 156k trips, 5,859
 stops. Public, unauthenticated, republished daily.
@@ -169,12 +197,18 @@ parsed      362 trips, feed built 3s ago
 predictions 352/362 first stops resolved (97%)
 static join 353/362 trip_ids in the cache (98%)
 O-Train     0 trips (expected 0; rail has no realtime)
+alerts      13 detours and route changes
 ```
 
-That command exists because a shape change in the realtime feed is silent. The
-parser returns zero arrivals, every row falls back to `sched`, and the board
-looks like a quiet Sunday. The endpoint has `beta` in its URL, so it will move
-eventually.
+That command exists because a shape change in either live feed is silent. The
+realtime parser returns zero arrivals, every row falls back to `sched`, and the
+board looks like a quiet Sunday. The endpoint has `beta` in its URL, so it will
+move eventually.
+
+The updates feed is the third source, and the shakiest: RSS from a CMS, where
+the `affectedRoutes-` tag every detour is found by is a convention rather than
+a contract. Its line in `probe` is there for the same reason — a feed that
+stopped tagging routes would read as a city with no detours in it.
 
 ### Five things that will bite
 

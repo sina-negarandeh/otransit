@@ -25,9 +25,13 @@ pub fn dump(app: &mut App, want: &str, stop_query: Option<&str>) -> Result<()> {
         stop: stop_query,
         ..Shot::default()
     };
-    for (label, mode_row) in [("BUS", 0usize), ("O-TRAIN", 1usize)] {
+    for mode in [app::Mode::Bus, app::Mode::Train] {
         app.focus_search()?;
-        app.state.select(Some(mode_row));
+        let label = mode.label().to_uppercase();
+        let Some(row) = mode_row(app, mode) else {
+            continue;
+        };
+        app.state.select(Some(row));
         app.enter()?;
 
         let routes = app.rows();
@@ -118,6 +122,7 @@ pub struct Shot<'a> {
 /// Render each screen in turn and print the terminal buffer as text.
 pub fn screenshot(app: &mut App, shot: &Shot) -> Result<()> {
     app.block_on_realtime(30);
+    app.block_on_alerts(10);
     let mut term = Terminal::new(TestBackend::new(shot.w, shot.h))?;
     let mut frame = |app: &mut App, label: &str| -> Result<()> {
         // The event loop does this once a frame, so a screenshot that skipped
@@ -146,15 +151,15 @@ pub fn screenshot(app: &mut App, shot: &Shot) -> Result<()> {
 
     // Drill-down path: one frame per level, entering between them.
     let steps = [
-        ("1. mode", if shot.train { 1 } else { 0 }),
-        ("2. routes", 0),
-        ("3. directions", 0),
-        ("4. stops", 0),
-        ("5. departures", 0),
+        "1. mode",
+        "2. routes",
+        "3. directions",
+        "4. stops",
+        "5. departures",
     ];
-    for (label, default) in steps {
+    for label in steps {
         let aimed = aim(app, shot)?;
-        app.state.select(Some(aimed.unwrap_or(default)));
+        app.state.select(Some(aimed.unwrap_or(0)));
         frame(app, label)?;
         if !matches!(app.screen, app::Screen::Departures(_)) {
             app.enter()?;
@@ -163,10 +168,28 @@ pub fn screenshot(app: &mut App, shot: &Shot) -> Result<()> {
     Ok(())
 }
 
+/// Which row a mode is on, on a first screen that may open with pins above it.
+///
+/// Not a fixed index. Pins sit above the modes, so a hardcoded 0 walks into
+/// whatever the machine running this happens to have pinned.
+fn mode_row(app: &App, want: app::Mode) -> Option<usize> {
+    app.rows()
+        .iter()
+        .position(|r| matches!(r, app::Row::Mode(m, _) if *m == want))
+}
+
 /// Which row the caller asked for on this screen, if any.
 fn aim(app: &mut App, shot: &Shot) -> Result<Option<usize>> {
     let lower = |s: &str| s.to_lowercase();
     match (&app.screen, shot.route, shot.stop) {
+        (app::Screen::Mode, _, _) => Ok(mode_row(
+            app,
+            if shot.train {
+                app::Mode::Train
+            } else {
+                app::Mode::Bus
+            },
+        )),
         (app::Screen::Routes { .. }, Some(want), _) => {
             Ok(app.rows().iter().position(|r| r.primary() == want))
         }
@@ -330,5 +353,75 @@ pub fn probe(app: &App) -> Result<()> {
         println!("            ^ the cache is stale: run `otransit update`");
     }
     println!("O-Train     {rail} trips (expected 0; rail has no realtime)");
+
+    // The updates feed is a CMS emitting RSS, not a specified format. If it
+    // stops tagging routes the way it does today, every screen quietly reports
+    // no detours, which looks exactly like a calm week. This is where that
+    // becomes visible.
+    app.block_on_alerts(10);
+    let n = app.alert_count();
+    println!("alerts      {n} detours and route changes");
+    if n == 0 {
+        println!("            ^ none parsed: the updates feed may have changed shape");
+    }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::TestGtfs;
+    use chrono::NaiveDate;
+
+    /// A cache with one bus route and one stop, and that stop pinned.
+    fn pinned_app(dir: &std::path::Path) -> App {
+        let _ = std::fs::remove_dir_all(dir);
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(dir.join("pins"), "S1\t1902\tBANK / SOMERSET W\n").unwrap();
+        let g = TestGtfs::new()
+            .route("7", "7", 3, "0057B8")
+            .always("S")
+            .trip("t1", "7", "S", "St-Laurent")
+            .stop("S1", "1902", "BANK / SOMERSET W")
+            .stop_time("t1", "S1", 1, "10:00:00");
+        App::offline(
+            g.into_conn(),
+            NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            Some(dir.join("pins")),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn the_walk_finds_the_modes_below_a_pin_rather_than_at_a_fixed_row() {
+        // Both tools used to select row 0 for "Bus" and row 1 for "O-Train".
+        // Since pins were added, row 0 is a pin, so on any machine with one
+        // the walk entered a departures board and printed every frame below it
+        // under a label it no longer matched -- "3. directions" over a board.
+        let dir = std::env::temp_dir().join("otransit-dev-mode");
+        let app = pinned_app(&dir);
+
+        assert_eq!(
+            mode_row(&app, app::Mode::Bus),
+            Some(1),
+            "one pin sits above the modes, so Bus is not row 0: {:?}",
+            app.rows().iter().map(app::Row::primary).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn the_walk_reaches_the_route_list_and_not_a_board() {
+        // The consequence the test above only implies: what the first `enter`
+        // actually lands on.
+        let dir = std::env::temp_dir().join("otransit-dev-walk");
+        let mut app = pinned_app(&dir);
+
+        app.state.select(mode_row(&app, app::Mode::Bus));
+        app.enter().unwrap();
+        assert!(
+            matches!(app.screen, app::Screen::Routes { .. }),
+            "entered a board instead of the route list"
+        );
+    }
 }
