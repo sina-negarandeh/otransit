@@ -205,10 +205,10 @@ realtime parser returns zero arrivals, every row falls back to `sched`, and the
 board looks like a quiet Sunday. The endpoint has `beta` in its URL, so it will
 move eventually.
 
-The updates feed is the third source, and the shakiest: RSS from a CMS, where
-the `affectedRoutes-` tag every detour is found by is a convention rather than
-a contract. Its line in `probe` is there for the same reason — a feed that
-stopped tagging routes would read as a city with no detours in it.
+The updates feed is the third source, and the shakiest. It is RSS from a CMS.
+Every detour carries an `affectedRoutes-` tag, and that tag is a convention, not
+a contract. `probe` counts them for the same reason. A feed that stopped tagging
+routes would read as a city with no detours in it.
 
 ### Five things that will bite
 
