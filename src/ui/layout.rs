@@ -4,7 +4,7 @@
 //! it looks like; the one thing that asks the screen a question is the gutter,
 //! whose whole subject is which route the rows below it belong to.
 
-use super::palette::{ACCENT, DIM, FG, NOTE_W, RULE, badge, hex, reads_as_a_rule, status, urgency};
+use super::palette::{ACCENT, Cells, DIM, FG, NOTE_W, RULE, badge, cells, hex, reads_as_a_rule};
 use crate::app::{Row, Screen, WAIT_W, tidy_stop_name as tidy};
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -39,17 +39,6 @@ pub(super) fn truncate(s: &str, max: usize) -> String {
 
 pub(super) const MARKER_W: usize = 3;
 
-/// A rule down the left, in the route's own colour.
-///
-/// The stop list is in travel order and nothing else on screen says so, and
-/// neither list says which route it belongs to. Two cells, no rows, and it
-/// holds at any length — unlike a route diagram, whose termini are off screen
-/// for most of the directions in this feed and which degrades to decoration
-/// once they are.
-///
-/// Both screens below a route belong to it: the ways it runs, and the stops
-/// along one of them. The rule says so once, down the side, instead of a badge
-/// repeating the same number on every row.
 /// The screens that sit below exactly one route: the ways it runs, and the
 /// stops along one of them.
 ///
@@ -62,6 +51,17 @@ pub(super) fn below_a_route(screen: &Screen) -> bool {
     matches!(screen, Screen::Stops { .. } | Screen::Directions { .. })
 }
 
+/// A rule down the left, in the route's own colour.
+///
+/// The stop list is in travel order and nothing else on screen says so, and
+/// neither list says which route it belongs to. Two cells, no rows, and it
+/// holds at any length — unlike a route diagram, whose termini are off screen
+/// for most of the directions in this feed and which degrades to decoration
+/// once they are.
+///
+/// Both screens below a route belong to it: the ways it runs, and the stops
+/// along one of them. The rule says so once, down the side, instead of a badge
+/// repeating the same number on every row.
 pub(super) fn gutter(screen: &Screen) -> Option<Span<'static>> {
     if !below_a_route(screen) {
         return None;
@@ -200,7 +200,12 @@ fn pin_line(p: &crate::app::Pinned, c: &PinCols, now: i32) -> Line<'static> {
     };
     let mins = crate::app::mins_until(d.when(), now);
     let (bg, fg) = badge(&d.route_color);
-    let (note, note_style) = status(d);
+    // The clock time is the one cell a pin does not draw.
+    let Cells {
+        wait: (countdown, countdown_style),
+        note: (note, note_style),
+        ..
+    } = cells(d, mins);
     spans.extend([
         Span::styled(
             badge_label(&d.route_short),
@@ -212,10 +217,7 @@ fn pin_line(p: &crate::app::Pinned, c: &PinCols, now: i32) -> Line<'static> {
             Style::default().fg(DIM),
         ),
         Span::raw(" "),
-        Span::styled(
-            format!("{:>WAIT_W$}", crate::app::fmt_wait(mins)),
-            urgency(mins),
-        ),
+        Span::styled(format!("{countdown:>WAIT_W$}"), countdown_style),
         Span::raw("  "),
         Span::styled(note, note_style),
     ]);

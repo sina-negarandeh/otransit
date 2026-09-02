@@ -10,10 +10,10 @@ mod palette;
 
 pub use palette::RULE_RGB;
 
-use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait};
+use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm};
 use crate::pins::PinState;
 use layout::{Cols, badge_label, below_a_route, gutter, marker, truncate};
-use palette::{ACCENT, AMBER, DIM, FG, RULE, badge, hex, status, urgency};
+use palette::{ACCENT, AMBER, Cells, DIM, FG, RULE, badge, cells, hex};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -482,15 +482,11 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
             let when = d.when();
             let m = crate::app::mins_until(when, app.now());
 
-            let (note, note_style) = status(d);
-
-            let time_style = if d.canceled {
-                Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT)
-            } else if d.live.is_some() {
-                Style::default().fg(FG)
-            } else {
-                Style::default().fg(DIM)
-            };
+            let Cells {
+                time,
+                wait: (countdown, countdown_style),
+                note: (note, note_style),
+            } = cells(d, m);
 
             let (bg, fg) = badge(&d.route_color);
             let mut spans = vec![
@@ -509,23 +505,9 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
                 spans.push(Span::raw("  "));
             }
             spans.extend([
-                Span::styled(fmt_hm(when), time_style),
+                Span::styled(fmt_hm(when), time),
                 Span::raw("   "),
-                Span::styled(
-                    format!(
-                        "{:>WAIT_W$}",
-                        if d.canceled {
-                            "\u{2014}".to_string()
-                        } else {
-                            fmt_wait(m)
-                        }
-                    ),
-                    if d.canceled {
-                        Style::default().fg(DIM)
-                    } else {
-                        urgency(m)
-                    },
-                ),
+                Span::styled(format!("{countdown:>WAIT_W$}"), countdown_style),
                 Span::raw("   "),
                 Span::styled(format!("{note:<10}"), note_style),
                 Span::styled(

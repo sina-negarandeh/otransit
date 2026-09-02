@@ -7,23 +7,31 @@ use super::*;
 use crate::app::App;
 use crate::testing::TestGtfs;
 use chrono::NaiveDate;
-use ratatui::{Terminal, backend::TestBackend};
+use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
-/// Render one frame and return it as plain text rows.
-fn frame(app: &mut App, w: u16, h: u16) -> Vec<String> {
+/// Render one frame and keep the buffer.
+///
+/// `text` and `colours` are views over it rather than renderers of their own.
+/// A test that wants both used to draw twice and trust the two frames to agree
+/// about where every row sat, which is a property nothing stated and nothing
+/// enforced.
+fn render(app: &mut App, w: u16, h: u16) -> Buffer {
     let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
     term.draw(|f| draw(f, app)).unwrap();
-    let buf = term.backend().buffer().clone();
+    term.backend().buffer().clone()
+}
+
+/// The frame as plain text rows.
+fn text(buf: &Buffer) -> Vec<String> {
+    let (w, h) = (buf.area.width, buf.area.height);
     (0..h)
         .map(|y| (0..w).map(|x| buf[(x, y)].symbol()).collect::<String>())
         .collect()
 }
 
-/// Render one frame and return every cell's (foreground, background).
-fn colours(app: &mut App, w: u16, h: u16) -> Vec<Vec<(Color, Color)>> {
-    let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
-    term.draw(|f| draw(f, app)).unwrap();
-    let buf = term.backend().buffer().clone();
+/// Every cell's (foreground, background).
+fn colours(buf: &Buffer) -> Vec<Vec<(Color, Color)>> {
+    let (w, h) = (buf.area.width, buf.area.height);
     (0..h)
         .map(|y| {
             (0..w)
@@ -31,6 +39,11 @@ fn colours(app: &mut App, w: u16, h: u16) -> Vec<Vec<(Color, Color)>> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+/// Render and read the text, which is what most tests want.
+fn frame(app: &mut App, w: u16, h: u16) -> Vec<String> {
+    text(&render(app, w, h))
 }
 
 /// A small network: one busy stop with more departures than can be shown.
@@ -266,6 +279,117 @@ fn a_detour_does_not_push_a_direction_off_the_screen() {
     assert_eq!(drawn, ways, "a direction was pushed off: {shown:#?}");
 }
 
+/// A pinned stop whose next bus the feed has cancelled, and the directory the
+/// pins file lives in.
+///
+/// The directory comes back with the app because dropping it deletes the file.
+/// It is a fresh one per call rather than a shared name: three tests used one
+/// path and raced, one thread's cleanup deleting the file another was still
+/// writing.
+///
+/// The bus is four minutes out. That is the amber band, and a cancellation is
+/// dim grey — at sixty minutes both are dim and a test could not tell them
+/// apart.
+fn app_with_a_cancelled_pin() -> (App, tempfile::TempDir) {
+    let dir = tempfile::tempdir().expect("temp dir");
+    std::fs::write(dir.path().join("pins"), "s1\t0001\tBANK / SOMERSET W\n").unwrap();
+    let g = TestGtfs::new()
+        .route("5", "5", 3, "0057B8")
+        .always("A")
+        .trip("t5", "5", "A", "Elmvale")
+        .stop("s1", "0001", "BANK / SOMERSET W")
+        .stop_time("t5", "s1", 1, "09:04:00");
+    let mut app = App::offline(
+        g.into_conn(),
+        NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+        9 * 3600,
+        Some(dir.path().join("pins")),
+    )
+    .unwrap();
+
+    // ScheduleRelationship 3 with no stop list, which is what the live feed
+    // sends. It needs no epoch, so this test needs no clock arithmetic.
+    let payload = crate::testing::TestRt::new(0).canceled("t5").build();
+    *app.rt.lock().unwrap() = crate::app::RtState::Ready(crate::rt::parse(&payload).unwrap());
+    app.apply_realtime();
+    (app, dir)
+}
+
+/// The row a pinned stop draws, which must exist before anything is asserted
+/// about it. A screen with no pin on it satisfies every claim below by
+/// drawing nothing.
+fn pin_row(shown: &[String]) -> &String {
+    shown
+        .iter()
+        .find(|r| r.contains("BANK"))
+        .expect("no pin row: the fixture did not load")
+}
+
+#[test]
+fn a_cancelled_pin_shows_no_countdown() {
+    // The board replaces the countdown with an em dash, because a bus that is
+    // not coming has no "in 4 minutes" to give. A pin is a board one row long
+    // and was still printing the number.
+    let (mut app, _dir) = app_with_a_cancelled_pin();
+
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    let pin = pin_row(&shown);
+    // The em dash is enough, and is all this level should claim. Nothing else
+    // on the row draws one, so its presence proves `pin_line` asks `wait`.
+    // What `wait` then returns is settled in `palette`, against the function
+    // itself, where the assertion needs no fixture clock and no column
+    // arithmetic to go wrong.
+    assert!(pin.contains('\u{2014}'), "no em dash: {pin:?}");
+}
+
+#[test]
+fn a_cancelled_pin_does_not_wear_an_urgency_colour() {
+    // Amber is the palette's "off-nominal but not wrong", and beside the word
+    // "cancelled" it reads as a bus you can still catch. The colour has to
+    // agree with the text, because on this board the colour is read first.
+    let (mut app, _dir) = app_with_a_cancelled_pin();
+
+    // One render, two views of it, so the row index and the colours are read
+    // off the same frame rather than off two that are assumed to match.
+    let buf = render(&mut app, 74, VIEWPORT_H);
+    let y = text(&buf)
+        .iter()
+        .position(|r| r.contains("BANK"))
+        .expect("no pin row: the fixture did not load");
+    assert!(
+        colours(&buf)[y]
+            .iter()
+            .all(|(fg, _)| *fg != super::palette::AMBER),
+        "the countdown is still amber next to a cancelled bus"
+    );
+}
+
+#[test]
+fn a_cancelled_departure_shows_no_countdown_on_the_board_either() {
+    // The board has drawn the em dash since before the pin existed, and no
+    // test covered it. Both now ask one function, so a regression would take
+    // the board and the pin together.
+    let (mut app, _dir) = app_with_a_cancelled_pin();
+    // The pin by what it is, not by where the cursor happens to start. A fixed
+    // row 0 is what sent both dev tools into a board they then mislabelled.
+    let pin = app
+        .rows()
+        .iter()
+        .position(|r| matches!(r, Row::Pin(_)))
+        .expect("no pin row");
+    app.state.select(Some(pin));
+    app.enter().unwrap();
+
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    // The clock time is the column a pin does not have, so finding it proves
+    // this is the board and not the row we came from.
+    let row = shown
+        .iter()
+        .find(|r| r.contains("09:04"))
+        .expect("not on the board");
+    assert!(row.contains('\u{2014}'), "no em dash: {row:?}");
+}
+
 #[test]
 fn the_detour_is_amber_and_the_choices_below_it_are_not() {
     // It has to read as a warning at a glance, and the rows under it have to
@@ -273,7 +397,7 @@ fn the_detour_is_amber_and_the_choices_below_it_are_not() {
     // wait column, so this is the only amber on them.
     let mut app = app_with_a_detour("Detour: Route 44 during Terminal Avenue bridge closure");
 
-    let rows = colours(&mut app, 74, VIEWPORT_H);
+    let rows = colours(&render(&mut app, 74, VIEWPORT_H));
     let warn = &rows[0];
     assert!(
         warn.iter().any(|(fg, _)| *fg == super::palette::AMBER),
@@ -440,7 +564,7 @@ fn the_cursor_is_brand_red_and_the_rest_of_the_row_is_not() {
     // destination are the only things telling two sides of a corner apart.
     let mut app = busy_app();
     app.enter().unwrap(); // the route list, cursor on the first row
-    let rows = colours(&mut app, 70, VIEWPORT_H);
+    let rows = colours(&render(&mut app, 70, VIEWPORT_H));
     let cursor = rows
         .iter()
         .find(|r| r[1].0 == ACCENT)
@@ -458,7 +582,7 @@ fn the_marker_column_is_reserved_on_unselected_rows_too() {
     // cursor steps three columns left.
     let mut app = busy_app();
     app.enter().unwrap();
-    let starts: Vec<usize> = colours(&mut app, 70, VIEWPORT_H)
+    let starts: Vec<usize> = colours(&render(&mut app, 70, VIEWPORT_H))
         .iter()
         .filter_map(|r| r.iter().position(|(_, bg)| *bg != Color::Reset))
         .collect();
