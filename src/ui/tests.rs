@@ -7,23 +7,31 @@ use super::*;
 use crate::app::App;
 use crate::testing::TestGtfs;
 use chrono::NaiveDate;
-use ratatui::{Terminal, backend::TestBackend};
+use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
-/// Render one frame and return it as plain text rows.
-fn frame(app: &mut App, w: u16, h: u16) -> Vec<String> {
+/// Render one frame and keep the buffer.
+///
+/// `text` and `colours` are views over it rather than renderers of their own.
+/// A test that wants both used to draw twice and trust the two frames to agree
+/// about where every row sat, which is a property nothing stated and nothing
+/// enforced.
+fn render(app: &mut App, w: u16, h: u16) -> Buffer {
     let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
     term.draw(|f| draw(f, app)).unwrap();
-    let buf = term.backend().buffer().clone();
+    term.backend().buffer().clone()
+}
+
+/// The frame as plain text rows.
+fn text(buf: &Buffer) -> Vec<String> {
+    let (w, h) = (buf.area.width, buf.area.height);
     (0..h)
         .map(|y| (0..w).map(|x| buf[(x, y)].symbol()).collect::<String>())
         .collect()
 }
 
-/// Render one frame and return every cell's (foreground, background).
-fn colours(app: &mut App, w: u16, h: u16) -> Vec<Vec<(Color, Color)>> {
-    let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
-    term.draw(|f| draw(f, app)).unwrap();
-    let buf = term.backend().buffer().clone();
+/// Every cell's (foreground, background).
+fn colours(buf: &Buffer) -> Vec<Vec<(Color, Color)>> {
+    let (w, h) = (buf.area.width, buf.area.height);
     (0..h)
         .map(|y| {
             (0..w)
@@ -31,6 +39,11 @@ fn colours(app: &mut App, w: u16, h: u16) -> Vec<Vec<(Color, Color)>> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+/// Render and read the text, which is what most tests want.
+fn frame(app: &mut App, w: u16, h: u16) -> Vec<String> {
+    text(&render(app, w, h))
 }
 
 /// A small network: one busy stop with more departures than can be shown.
@@ -336,14 +349,17 @@ fn a_cancelled_pin_does_not_wear_an_urgency_colour() {
     // agree with the text, because on this board the colour is read first.
     let (mut app, _dir) = app_with_a_cancelled_pin();
 
-    let shown = frame(&mut app, 74, VIEWPORT_H);
-    let y = shown
+    // One render, two views of it, so the row index and the colours are read
+    // off the same frame rather than off two that are assumed to match.
+    let buf = render(&mut app, 74, VIEWPORT_H);
+    let y = text(&buf)
         .iter()
         .position(|r| r.contains("BANK"))
         .expect("no pin row: the fixture did not load");
-    let rows = colours(&mut app, 74, VIEWPORT_H);
     assert!(
-        rows[y].iter().all(|(fg, _)| *fg != super::palette::AMBER),
+        colours(&buf)[y]
+            .iter()
+            .all(|(fg, _)| *fg != super::palette::AMBER),
         "the countdown is still amber next to a cancelled bus"
     );
 }
@@ -381,7 +397,7 @@ fn the_detour_is_amber_and_the_choices_below_it_are_not() {
     // wait column, so this is the only amber on them.
     let mut app = app_with_a_detour("Detour: Route 44 during Terminal Avenue bridge closure");
 
-    let rows = colours(&mut app, 74, VIEWPORT_H);
+    let rows = colours(&render(&mut app, 74, VIEWPORT_H));
     let warn = &rows[0];
     assert!(
         warn.iter().any(|(fg, _)| *fg == super::palette::AMBER),
@@ -548,7 +564,7 @@ fn the_cursor_is_brand_red_and_the_rest_of_the_row_is_not() {
     // destination are the only things telling two sides of a corner apart.
     let mut app = busy_app();
     app.enter().unwrap(); // the route list, cursor on the first row
-    let rows = colours(&mut app, 70, VIEWPORT_H);
+    let rows = colours(&render(&mut app, 70, VIEWPORT_H));
     let cursor = rows
         .iter()
         .find(|r| r[1].0 == ACCENT)
@@ -566,7 +582,7 @@ fn the_marker_column_is_reserved_on_unselected_rows_too() {
     // cursor steps three columns left.
     let mut app = busy_app();
     app.enter().unwrap();
-    let starts: Vec<usize> = colours(&mut app, 70, VIEWPORT_H)
+    let starts: Vec<usize> = colours(&render(&mut app, 70, VIEWPORT_H))
         .iter()
         .filter_map(|r| r.iter().position(|(_, bg)| *bg != Color::Reset))
         .collect();

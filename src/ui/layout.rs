@@ -4,7 +4,7 @@
 //! it looks like; the one thing that asks the screen a question is the gutter,
 //! whose whole subject is which route the rows below it belong to.
 
-use super::palette::{ACCENT, DIM, FG, NOTE_W, RULE, badge, hex, reads_as_a_rule, status, wait};
+use super::palette::{ACCENT, Cells, DIM, FG, NOTE_W, RULE, badge, cells, hex, reads_as_a_rule};
 use crate::app::{Row, Screen, WAIT_W, tidy_stop_name as tidy};
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -200,8 +200,12 @@ fn pin_line(p: &crate::app::Pinned, c: &PinCols, now: i32) -> Line<'static> {
     };
     let mins = crate::app::mins_until(d.when(), now);
     let (bg, fg) = badge(&d.route_color);
-    let (note, note_style) = status(d);
-    let (countdown, countdown_style) = wait(d, mins);
+    // The clock time is the one cell a pin does not draw.
+    let Cells {
+        wait: (countdown, countdown_style),
+        note: (note, note_style),
+        ..
+    } = cells(d, mins);
     spans.extend([
         Span::styled(
             badge_label(&d.route_short),

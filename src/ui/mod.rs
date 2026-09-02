@@ -13,7 +13,7 @@ pub use palette::RULE_RGB;
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm};
 use crate::pins::PinState;
 use layout::{Cols, badge_label, below_a_route, gutter, marker, truncate};
-use palette::{ACCENT, AMBER, DIM, FG, RULE, badge, hex, status, time_style, wait};
+use palette::{ACCENT, AMBER, Cells, DIM, FG, RULE, badge, cells, hex};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -482,8 +482,11 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
             let when = d.when();
             let m = crate::app::mins_until(when, app.now());
 
-            let (note, note_style) = status(d);
-            let (countdown, countdown_style) = wait(d, m);
+            let Cells {
+                time,
+                wait: (countdown, countdown_style),
+                note: (note, note_style),
+            } = cells(d, m);
 
             let (bg, fg) = badge(&d.route_color);
             let mut spans = vec![
@@ -502,7 +505,7 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
                 spans.push(Span::raw("  "));
             }
             spans.extend([
-                Span::styled(fmt_hm(when), time_style(d)),
+                Span::styled(fmt_hm(when), time),
                 Span::raw("   "),
                 Span::styled(format!("{countdown:>WAIT_W$}"), countdown_style),
                 Span::raw("   "),
