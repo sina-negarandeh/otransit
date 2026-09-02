@@ -17,7 +17,7 @@ changing code that has one.
 
 ## Why this document exists
 
-Development found twenty-three real defects. Where they came from is the
+Development found twenty-four real defects. Where they came from is the
 argument for everything below.
 
 Five came from reviewing the fixes for the first ten. That is its own lesson. A
@@ -30,6 +30,12 @@ something that machine happened to provide.
 
 One came from using the app. No amount of review would have found it: two
 commands read the same cache and reported opposite things about it.
+
+One came from a partial extraction. A board draws a cancelled trip with three
+rules. Only one of them moved into a function the pin could share, so the pin
+printed the word "cancelled" and kept the amber countdown beside it. Extract a
+behaviour for a second caller, or leave it alone. Half of it is worse than
+neither, because the caller then looks correct.
 
 The last two came from checking a finished feature against the **live** source
 instead of its fixture. The fixture was a trimmed copy of the feed, so anything
@@ -63,6 +69,7 @@ source proves the fixture.
 | `update` called the cache current while the browser called it stale | `main.rs` | no |
 | A hand-listed entity table left `&#127752;` on screen, and decoded `&amp;lt;` twice | `alerts.rs` | yes, wrongly |
 | `dump` and `screenshot` walked into a pin and labelled it "directions" | `dev.rs` | no |
+| A cancelled pin kept its countdown, in amber, beside the word "cancelled" | `ui/layout.rs` | no |
 
 Each of the first ten was in a file with no coverage. The four tests that
 existed were on string formatting, which is the part least likely to break. The
@@ -90,7 +97,7 @@ holds, in the order the app moves through them:
 | `gtfs.rs` | ingest, `parse_hms`, CSV handling |
 | `fetch.rs` | 304 handling, empty bodies, feed freshness |
 | `rt.rs` | the realtime parser and its anomalies |
-| `ui/tests.rs` | the frame: sizing, the two-group screens, alignment, the cursor |
+| `ui/tests.rs` | the frame: sizing, the two-group screens, alignment, the cursor, a cancelled row |
 | `ui/layout.rs` | badges, column widths, the gutter |
 | `ui/palette.rs` | which colours can carry a rule |
 | `logo.rs` | the mark, both fallbacks, its ground line |

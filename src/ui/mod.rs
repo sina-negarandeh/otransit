@@ -10,10 +10,10 @@ mod palette;
 
 pub use palette::RULE_RGB;
 
-use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm, fmt_wait};
+use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm};
 use crate::pins::PinState;
 use layout::{Cols, badge_label, below_a_route, gutter, marker, truncate};
-use palette::{ACCENT, AMBER, DIM, FG, RULE, badge, hex, status, urgency};
+use palette::{ACCENT, AMBER, DIM, FG, RULE, badge, hex, status, wait};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -483,7 +483,9 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
             let m = crate::app::mins_until(when, app.now());
 
             let (note, note_style) = status(d);
+            let (countdown, countdown_style) = wait(d, m);
 
+            // Board-only: a pin has no scheduled-time column to strike out.
             let time_style = if d.canceled {
                 Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT)
             } else if d.live.is_some() {
@@ -511,21 +513,7 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
             spans.extend([
                 Span::styled(fmt_hm(when), time_style),
                 Span::raw("   "),
-                Span::styled(
-                    format!(
-                        "{:>WAIT_W$}",
-                        if d.canceled {
-                            "\u{2014}".to_string()
-                        } else {
-                            fmt_wait(m)
-                        }
-                    ),
-                    if d.canceled {
-                        Style::default().fg(DIM)
-                    } else {
-                        urgency(m)
-                    },
-                ),
+                Span::styled(format!("{countdown:>WAIT_W$}"), countdown_style),
                 Span::raw("   "),
                 Span::styled(format!("{note:<10}"), note_style),
                 Span::styled(

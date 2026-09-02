@@ -102,8 +102,24 @@ pub(super) fn status(d: &crate::db::Departure) -> (String, Style) {
     }
 }
 
+/// The countdown, and the colour it wears.
+///
+/// Shared by the board and by a pinned stop, for the same reason `status` is.
+/// A cancelled trip has no countdown to give, so the em dash says so and the
+/// urgency colours must not fire. Amber means "off-nominal but not wrong"
+/// everywhere else here, and beside the word "cancelled" it reads as a bus you
+/// can still catch — on this board the colour is read before the word.
+///
+/// The pin had only `status`, so it printed the word and kept the number.
+pub(super) fn wait(d: &crate::db::Departure, mins: i32) -> (String, Style) {
+    if d.canceled {
+        return ("\u{2014}".to_string(), Style::default().fg(DIM));
+    }
+    (crate::app::fmt_wait(mins), urgency(mins))
+}
+
 /// Colour by urgency: the board should be readable in peripheral vision.
-pub(super) fn urgency(mins: i32) -> Style {
+fn urgency(mins: i32) -> Style {
     match mins {
         m if m < 0 => Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT),
         m if m <= 2 => Style::default().fg(RED).add_modifier(Modifier::BOLD),

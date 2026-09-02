@@ -266,6 +266,88 @@ fn a_detour_does_not_push_a_direction_off_the_screen() {
     assert_eq!(drawn, ways, "a direction was pushed off: {shown:#?}");
 }
 
+/// A pinned stop whose next bus the feed has cancelled.
+///
+/// Scheduled four minutes out, so an urgency colour would be amber and bold
+/// rather than the dim grey a distant bus already wears. A cancellation that
+/// leaked the wrong colour at 60 minutes would be invisible to a test.
+fn app_with_a_cancelled_pin() -> App {
+    let dir = std::env::temp_dir().join("otransit-ui-cancelled");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("pins"), "s1\t0001\tBANK / SOMERSET W\n").unwrap();
+    let g = TestGtfs::new()
+        .route("5", "5", 3, "0057B8")
+        .always("A")
+        .trip("t5", "5", "A", "Elmvale")
+        .stop("s1", "0001", "BANK / SOMERSET W")
+        .stop_time("t5", "s1", 1, "09:04:00");
+    let mut app = App::offline(
+        g.into_conn(),
+        NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+        9 * 3600,
+        Some(dir.join("pins")),
+    )
+    .unwrap();
+
+    // ScheduleRelationship 3 with no stop list, which is what the live feed
+    // sends. It needs no epoch, so this test needs no clock arithmetic.
+    let payload = crate::testing::TestRt::new(0).canceled("t5").build();
+    *app.rt.lock().unwrap() = crate::app::RtState::Ready(crate::rt::parse(&payload).unwrap());
+    app.apply_realtime();
+    app
+}
+
+#[test]
+fn a_cancelled_pin_shows_no_countdown() {
+    // The board replaces the countdown with an em dash, because a bus that is
+    // not coming has no "in 4 minutes" to give. A pin is a board one row long
+    // and was still printing the number.
+    let mut app = app_with_a_cancelled_pin();
+
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    let pin = shown
+        .iter()
+        .find(|r| r.contains("BANK"))
+        .expect("no pin row");
+    assert!(pin.contains('\u{2014}'), "no em dash: {pin:?}");
+    assert!(!pin.contains("4 min"), "still counting down: {pin:?}");
+}
+
+#[test]
+fn a_cancelled_departure_shows_no_countdown_on_the_board_either() {
+    // The board has drawn the em dash since before the pin existed, and no
+    // test covered it. Both now ask one function, so a regression would take
+    // the board and the pin together.
+    let mut app = app_with_a_cancelled_pin();
+    app.enter().unwrap(); // the pinned stop's own board
+
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    // The scheduled time is the column a pin does not have, so finding it
+    // proves this is the board and not the row we came from.
+    let row = shown
+        .iter()
+        .find(|r| r.contains("09:04"))
+        .expect("not on the board");
+    assert!(row.contains('\u{2014}'), "no em dash: {row:?}");
+    assert!(!row.contains("4 min"), "still counting down: {row:?}");
+}
+
+#[test]
+fn a_cancelled_pin_does_not_wear_an_urgency_colour() {
+    // Amber is the palette's "off-nominal but not wrong", and beside the word
+    // "cancelled" it reads as a bus you can still catch. The colour has to
+    // agree with the text, because on this board the colour is read first.
+    let mut app = app_with_a_cancelled_pin();
+
+    let rows = colours(&mut app, 74, VIEWPORT_H);
+    assert!(
+        rows.iter()
+            .all(|r| r.iter().all(|(fg, _)| *fg != super::palette::AMBER)),
+        "the countdown is still amber next to a cancelled bus"
+    );
+}
+
 #[test]
 fn the_detour_is_amber_and_the_choices_below_it_are_not() {
     // It has to read as a warning at a glance, and the rows under it have to
