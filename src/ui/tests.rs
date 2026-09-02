@@ -266,16 +266,20 @@ fn a_detour_does_not_push_a_direction_off_the_screen() {
     assert_eq!(drawn, ways, "a direction was pushed off: {shown:#?}");
 }
 
-/// A pinned stop whose next bus the feed has cancelled.
+/// A pinned stop whose next bus the feed has cancelled, and the directory the
+/// pins file lives in.
 ///
-/// Scheduled four minutes out, so an urgency colour would be amber and bold
-/// rather than the dim grey a distant bus already wears. A cancellation that
-/// leaked the wrong colour at 60 minutes would be invisible to a test.
-fn app_with_a_cancelled_pin() -> App {
-    let dir = std::env::temp_dir().join("otransit-ui-cancelled");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("pins"), "s1\t0001\tBANK / SOMERSET W\n").unwrap();
+/// The directory comes back with the app because dropping it deletes the file.
+/// It is a fresh one per call rather than a shared name: three tests used one
+/// path and raced, one thread's cleanup deleting the file another was still
+/// writing.
+///
+/// The bus is four minutes out. That is the amber band, and a cancellation is
+/// dim grey — at sixty minutes both are dim and a test could not tell them
+/// apart.
+fn app_with_a_cancelled_pin() -> (App, tempfile::TempDir) {
+    let dir = tempfile::tempdir().expect("temp dir");
+    std::fs::write(dir.path().join("pins"), "s1\t0001\tBANK / SOMERSET W\n").unwrap();
     let g = TestGtfs::new()
         .route("5", "5", 3, "0057B8")
         .always("A")
@@ -286,7 +290,7 @@ fn app_with_a_cancelled_pin() -> App {
         g.into_conn(),
         NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
         9 * 3600,
-        Some(dir.join("pins")),
+        Some(dir.path().join("pins")),
     )
     .unwrap();
 
@@ -295,7 +299,17 @@ fn app_with_a_cancelled_pin() -> App {
     let payload = crate::testing::TestRt::new(0).canceled("t5").build();
     *app.rt.lock().unwrap() = crate::app::RtState::Ready(crate::rt::parse(&payload).unwrap());
     app.apply_realtime();
-    app
+    (app, dir)
+}
+
+/// The row a pinned stop draws, which must exist before anything is asserted
+/// about it. A screen with no pin on it satisfies every claim below by
+/// drawing nothing.
+fn pin_row(shown: &[String]) -> &String {
+    shown
+        .iter()
+        .find(|r| r.contains("BANK"))
+        .expect("no pin row: the fixture did not load")
 }
 
 #[test]
@@ -303,34 +317,16 @@ fn a_cancelled_pin_shows_no_countdown() {
     // The board replaces the countdown with an em dash, because a bus that is
     // not coming has no "in 4 minutes" to give. A pin is a board one row long
     // and was still printing the number.
-    let mut app = app_with_a_cancelled_pin();
+    let (mut app, _dir) = app_with_a_cancelled_pin();
 
     let shown = frame(&mut app, 74, VIEWPORT_H);
-    let pin = shown
-        .iter()
-        .find(|r| r.contains("BANK"))
-        .expect("no pin row");
+    let pin = pin_row(&shown);
+    // The em dash is enough, and is all this level should claim. Nothing else
+    // on the row draws one, so its presence proves `pin_line` asks `wait`.
+    // What `wait` then returns is settled in `palette`, against the function
+    // itself, where the assertion needs no fixture clock and no column
+    // arithmetic to go wrong.
     assert!(pin.contains('\u{2014}'), "no em dash: {pin:?}");
-    assert!(!pin.contains("4 min"), "still counting down: {pin:?}");
-}
-
-#[test]
-fn a_cancelled_departure_shows_no_countdown_on_the_board_either() {
-    // The board has drawn the em dash since before the pin existed, and no
-    // test covered it. Both now ask one function, so a regression would take
-    // the board and the pin together.
-    let mut app = app_with_a_cancelled_pin();
-    app.enter().unwrap(); // the pinned stop's own board
-
-    let shown = frame(&mut app, 74, VIEWPORT_H);
-    // The scheduled time is the column a pin does not have, so finding it
-    // proves this is the board and not the row we came from.
-    let row = shown
-        .iter()
-        .find(|r| r.contains("09:04"))
-        .expect("not on the board");
-    assert!(row.contains('\u{2014}'), "no em dash: {row:?}");
-    assert!(!row.contains("4 min"), "still counting down: {row:?}");
 }
 
 #[test]
@@ -338,14 +334,44 @@ fn a_cancelled_pin_does_not_wear_an_urgency_colour() {
     // Amber is the palette's "off-nominal but not wrong", and beside the word
     // "cancelled" it reads as a bus you can still catch. The colour has to
     // agree with the text, because on this board the colour is read first.
-    let mut app = app_with_a_cancelled_pin();
+    let (mut app, _dir) = app_with_a_cancelled_pin();
 
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    let y = shown
+        .iter()
+        .position(|r| r.contains("BANK"))
+        .expect("no pin row: the fixture did not load");
     let rows = colours(&mut app, 74, VIEWPORT_H);
     assert!(
-        rows.iter()
-            .all(|r| r.iter().all(|(fg, _)| *fg != super::palette::AMBER)),
+        rows[y].iter().all(|(fg, _)| *fg != super::palette::AMBER),
         "the countdown is still amber next to a cancelled bus"
     );
+}
+
+#[test]
+fn a_cancelled_departure_shows_no_countdown_on_the_board_either() {
+    // The board has drawn the em dash since before the pin existed, and no
+    // test covered it. Both now ask one function, so a regression would take
+    // the board and the pin together.
+    let (mut app, _dir) = app_with_a_cancelled_pin();
+    // The pin by what it is, not by where the cursor happens to start. A fixed
+    // row 0 is what sent both dev tools into a board they then mislabelled.
+    let pin = app
+        .rows()
+        .iter()
+        .position(|r| matches!(r, Row::Pin(_)))
+        .expect("no pin row");
+    app.state.select(Some(pin));
+    app.enter().unwrap();
+
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    // The clock time is the column a pin does not have, so finding it proves
+    // this is the board and not the row we came from.
+    let row = shown
+        .iter()
+        .find(|r| r.contains("09:04"))
+        .expect("not on the board");
+    assert!(row.contains('\u{2014}'), "no em dash: {row:?}");
 }
 
 #[test]

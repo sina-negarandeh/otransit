@@ -13,7 +13,7 @@ pub use palette::RULE_RGB;
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm};
 use crate::pins::PinState;
 use layout::{Cols, badge_label, below_a_route, gutter, marker, truncate};
-use palette::{ACCENT, AMBER, DIM, FG, RULE, badge, hex, status, wait};
+use palette::{ACCENT, AMBER, DIM, FG, RULE, badge, hex, status, time_style, wait};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -485,15 +485,6 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
             let (note, note_style) = status(d);
             let (countdown, countdown_style) = wait(d, m);
 
-            // Board-only: a pin has no scheduled-time column to strike out.
-            let time_style = if d.canceled {
-                Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT)
-            } else if d.live.is_some() {
-                Style::default().fg(FG)
-            } else {
-                Style::default().fg(DIM)
-            };
-
             let (bg, fg) = badge(&d.route_color);
             let mut spans = vec![
                 Span::raw("   "),
@@ -511,7 +502,7 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
                 spans.push(Span::raw("  "));
             }
             spans.extend([
-                Span::styled(fmt_hm(when), time_style),
+                Span::styled(fmt_hm(when), time_style(d)),
                 Span::raw("   "),
                 Span::styled(format!("{countdown:>WAIT_W$}"), countdown_style),
                 Span::raw("   "),

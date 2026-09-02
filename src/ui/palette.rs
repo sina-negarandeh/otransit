@@ -118,6 +118,26 @@ pub(super) fn wait(d: &crate::db::Departure, mins: i32) -> (String, Style) {
     (crate::app::fmt_wait(mins), urgency(mins))
 }
 
+/// How much to trust the clock time beside a departure.
+///
+/// The board's column only. A pin has no clock time, because the wait and the
+/// time say the same thing given the hour, and only one of them answers
+/// "should I leave now".
+///
+/// It lives here anyway, beside `status` and `wait`, because all three begin by
+/// asking whether the trip is cancelled. Kept apart, one of them gets updated
+/// and the others keep looking correct — which is the whole story of the bug
+/// that produced `wait`.
+pub(super) fn time_style(d: &crate::db::Departure) -> Style {
+    if d.canceled {
+        return Style::default().fg(DIM).add_modifier(Modifier::CROSSED_OUT);
+    }
+    if d.live.is_some() {
+        return Style::default().fg(FG);
+    }
+    Style::default().fg(DIM)
+}
+
 /// Colour by urgency: the board should be readable in peripheral vision.
 fn urgency(mins: i32) -> Style {
     match mins {
@@ -145,6 +165,60 @@ pub(super) fn reads_as_a_rule(colour: (u8, u8, u8)) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A departure four minutes out, running or cancelled.
+    ///
+    /// Four minutes because that is the amber band. At sixty the urgency
+    /// colour is already the same dim grey a cancellation wears, so a test
+    /// there could not tell the two apart.
+    fn departure(canceled: bool) -> crate::db::Departure {
+        crate::db::Departure {
+            secs: 9 * 3600 + 4 * 60,
+            trip_id: "t5".into(),
+            route_short: "5".into(),
+            route_color: "0057B8".into(),
+            headsign: "Elmvale".into(),
+            after_midnight: false,
+            live: None,
+            canceled,
+        }
+    }
+
+    #[test]
+    fn a_cancelled_trip_has_no_countdown_and_no_urgency_colour() {
+        // A pin printed "cancelled" and kept an amber "4 min" beside it. Amber
+        // means "off-nominal but not wrong", so the colour said the bus was
+        // catchable while the word said it was not.
+        let (text, style) = wait(&departure(true), 4);
+        assert_eq!(text, "\u{2014}", "a bus that is not coming has no wait");
+        assert_eq!(style.fg, Some(DIM), "wore an urgency colour");
+    }
+
+    #[test]
+    fn a_running_trip_keeps_its_countdown_and_its_urgency_colour() {
+        // The other half of the branch: suppressing the countdown for
+        // everything would pass the test above and break the whole board.
+        let (text, style) = wait(&departure(false), 4);
+        assert_eq!(text, crate::app::fmt_wait(4));
+        assert_eq!(style.fg, Some(AMBER), "four minutes is the amber band");
+    }
+
+    #[test]
+    fn a_cancelled_clock_time_is_struck_through() {
+        // The third rule a cancelled row follows, and the one that stays on
+        // the board because a pin has no clock column to strike.
+        assert!(
+            time_style(&departure(true))
+                .add_modifier
+                .contains(Modifier::CROSSED_OUT)
+        );
+        assert!(
+            !time_style(&departure(false))
+                .add_modifier
+                .contains(Modifier::CROSSED_OUT),
+            "struck through a bus that is running"
+        );
+    }
 
     #[test]
     fn brightness_is_not_the_test_for_a_gutter_colour() {

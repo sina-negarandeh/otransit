@@ -99,7 +99,7 @@ holds, in the order the app moves through them:
 | `rt.rs` | the realtime parser and its anomalies |
 | `ui/tests.rs` | the frame: sizing, the two-group screens, alignment, the cursor, a cancelled row |
 | `ui/layout.rs` | badges, column widths, the gutter |
-| `ui/palette.rs` | which colours can carry a rule |
+| `ui/palette.rs` | which colours can carry a rule, and what a cancelled row shows |
 | `logo.rs` | the mark, both fallbacks, its ground line |
 | `pins.rs` | the pin file: round trips, odd names, a hand-edited typo |
 | `alerts.rs` | the updates feed: which kinds count, where routes come from, references decoded |
