@@ -61,22 +61,24 @@ pub struct Pins {
 impl Pins {
     /// Read the file and rebuild each pin into the board it was made from.
     ///
-    /// `routes` is every route running today, by mode, which `App` has already
-    /// queried for its own counts. A pin naming a route that is not in it is
-    /// hidden, exactly as one naming a missing stop is: the stop or the route
-    /// can come back with the next export, and the line stays in the file.
+    /// Two lookups against the current export, one per half of a pin, because
+    /// `update` replaces the database wholesale and either half can go. A pin
+    /// whose stop or route does not come back is hidden, and its line is kept:
+    /// both can return with the next export.
     pub fn open(
         path: Option<PathBuf>,
         conn: &Connection,
         cap: usize,
-        routes: &[(Mode, Vec<db::Route>)],
+        services: &[String],
     ) -> Result<Self> {
         let stored = path.as_deref().map(load).unwrap_or_default();
         let ids: Vec<String> = stored.iter().map(|p| p.stop_id.clone()).collect();
+        let names: Vec<String> = stored.iter().filter_map(|p| p.route.clone()).collect();
         let stops = db::stops_by_id(conn, &ids)?;
+        let routes = db::routes_by_short_name(conn, &names, services)?;
         let live = stored
             .iter()
-            .filter_map(|p| p.board(&stops, routes))
+            .filter_map(|p| p.board(&stops, &routes))
             .collect();
         Ok(Self {
             live,
@@ -180,28 +182,23 @@ impl Pin {
     /// so can a route: `update` replaces the database wholesale, and a route
     /// that is not running today is not in `routes` at all. Either way the row
     /// is hidden and the line kept, because both can come back.
-    fn board(&self, stops: &[StopRow], routes: &[(Mode, Vec<db::Route>)]) -> Option<Board> {
+    fn board(&self, stops: &[StopRow], routes: &[db::Route]) -> Option<Board> {
         let stop = stops.iter().find(|s| s.stop_id == self.stop_id)?.clone();
         let (Some(want), Some(headsign)) = (&self.route, &self.headsign) else {
             return Some(Board::Stop { stop });
         };
-        // A short name found under both modes cannot be told apart from what
-        // the file stores, and picking the first would put a bus route behind a
-        // rail badge. Two matches resolve to nothing, which is the same answer
-        // this file gives for a stop it cannot find: hide the row, keep the
-        // line. Ottawa has no such collision today -- the lines are 1, 2 and 4
-        // and no bus shares those names -- so this is the guard, not the case.
-        let mut found = routes.iter().filter_map(|(mode, rs)| {
-            rs.iter()
-                .find(|r| r.short_name == *want)
-                .map(|r| (*mode, r.clone()))
-        });
-        let (mode, route) = found.next()?;
+        // Exactly one, or none. A short name carried by two route types cannot
+        // be told apart from what this file stores, and picking either would
+        // put a bus route behind a rail badge. Ottawa has no such collision --
+        // the lines are 1, 2 and 4 and no bus shares those names -- so this is
+        // the guard, not the case.
+        let mut found = routes.iter().filter(|r| r.short_name == *want);
+        let route = found.next()?.clone();
         if found.next().is_some() {
             return None;
         }
         Some(Board::Route {
-            mode,
+            mode: Mode::from_route_type(route.route_type)?,
             route,
             headsign: headsign.clone(),
             stop,
@@ -327,6 +324,40 @@ mod tests {
     }
 
     #[test]
+    fn a_stored_pin_and_its_board_agree_on_what_they_are() {
+        // `toggle` compares `Board::key` against `Pin::key`, and the two are
+        // written in different files. If one gains a component and the other
+        // does not, unpinning half-works: the row leaves the screen, the line
+        // stays in the file, and the pin is back on the next launch.
+        let stop = StopRow {
+            stop_id: "s1".into(),
+            code: "0001".into(),
+            name: "BANK / SOMERSET W".into(),
+        };
+        let drilled = Board::Route {
+            mode: Mode::Bus,
+            route: db::Route {
+                short_name: "44".into(),
+                long_name: "44".into(),
+                color: "0057B8".into(),
+                route_ids: vec!["44".into(), "44-1".into()],
+                route_type: 3,
+            },
+            headsign: "Billings Bridge".into(),
+            stop: stop.clone(),
+        };
+        let searched = Board::Stop { stop };
+
+        for board in [&drilled, &searched] {
+            assert_eq!(
+                Pin::of(board).key(),
+                board.key(),
+                "a board and the pin it makes disagree: {board:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_route_name_under_both_modes_resolves_to_neither() {
         // Guessing would put a bus route behind a rail badge, and the file has
         // nothing that says which was meant. So the pin hides, exactly as one
@@ -337,25 +368,23 @@ mod tests {
             code: "0001".into(),
             name: "BANK / SOMERSET W".into(),
         };
-        let route = |colour: &str| db::Route {
+        let route = |mode: Mode| db::Route {
             short_name: "1".into(),
             long_name: "1".into(),
-            color: colour.into(),
+            color: "0057B8".into(),
             route_ids: vec!["1".into()],
+            route_type: mode.route_type(),
         };
         let pin = scoped("s1", "1", "Blair");
 
-        let both = [
-            (Mode::Bus, vec![route("0057B8")]),
-            (Mode::Train, vec![route("D62408")]),
-        ];
+        let both = [route(Mode::Bus), route(Mode::Train)];
         assert!(
             pin.board(std::slice::from_ref(&stop), &both).is_none(),
             "picked a mode the file never named"
         );
 
         // One mode alone is not ambiguous, so it still resolves.
-        let rail_only = [(Mode::Train, vec![route("D62408")])];
+        let rail_only = [route(Mode::Train)];
         assert!(pin.board(&[stop], &rail_only).is_some());
     }
 

@@ -151,15 +151,10 @@ impl App {
         let yday_date = today_date.pred_opt().unwrap_or(today_date);
         let today = db::active_services(&conn, today_date)?;
         let yesterday = db::active_services(&conn, yday_date)?;
-        // Kept rather than counted, because the pins need them too: a pin
-        // naming a route resolves against what is running today, and this is
-        // already that query.
-        let routes = [Mode::Bus, Mode::Train]
-            .map(|m| db::routes_for_type(&conn, m.route_type(), &today).map(|r| (m, r)));
-        let [bus, rail] = routes;
-        let (bus, rail) = (bus?, rail?);
-        let (n_bus, n_rail) = (bus.1.len(), rail.1.len());
-        let pins = crate::pins::Pins::open(pins_path, &conn, crate::ui::MAX_PINS, &[bus, rail])?;
+        let count = |m: Mode| db::routes_for_type(&conn, m.route_type(), &today).map(|r| r.len());
+        let n_bus = count(Mode::Bus)?;
+        let n_rail = count(Mode::Train)?;
+        let pins = crate::pins::Pins::open(pins_path, &conn, crate::ui::MAX_PINS, &today)?;
 
         let mut state = ListState::default();
         state.select(Some(0));
@@ -698,15 +693,19 @@ impl App {
             Contents::List(rows) => {
                 for row in rows {
                     let Row::Pin(p) = row else { continue };
-                    for d in &mut p.upcoming {
+                    // Taken apart rather than reached through `Pinned::stop`,
+                    // which borrows the whole pin and so collides with the
+                    // mutable loop over its departures.
+                    let Pinned { board, upcoming } = p;
+                    for d in upcoming.iter_mut() {
                         d.canceled = rt.is_canceled(&d.trip_id);
                         d.live = rt
-                            .arrival(&d.trip_id, &p.board.stop().stop_id)
+                            .arrival(&d.trip_id, &board.stop().stop_id)
                             .and_then(|e| epoch_to_service_secs(e, date));
                     }
                     // Same reason as the board: without this the pin shows the
                     // scheduled-earliest bus, not the one that arrives first.
-                    db::sort_by_actual_arrival(&mut p.upcoming);
+                    db::sort_by_actual_arrival(upcoming);
                 }
             }
         }

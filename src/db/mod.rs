@@ -17,8 +17,8 @@ mod calendar;
 mod search;
 
 pub use browse::{
-    Narrow, departures, directions_for_route, routes_for_type, sort_by_actual_arrival, stops_by_id,
-    stops_for_direction,
+    Narrow, departures, directions_for_route, routes_by_short_name, routes_for_type,
+    sort_by_actual_arrival, stops_by_id, stops_for_direction,
 };
 pub use calendar::active_services;
 pub use search::{search_stops, strip_platform};
@@ -33,6 +33,10 @@ pub struct Route {
     /// All route_ids sharing this short_name that run on the chosen date.
     /// OC Transpo publishes one per booking period ("7" and "7-1").
     pub route_ids: Vec<String>,
+    /// GTFS route_type: 3 is bus, 0 is tram. Carried so a caller that looked a
+    /// route up by name can tell which mode it belongs to without asking the
+    /// question a second way.
+    pub route_type: i64,
 }
 
 #[derive(Debug, Clone)]

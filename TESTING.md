@@ -96,7 +96,7 @@ holds, in the order the app moves through them:
 | `app/tests.rs` | navigation, typing, pins, board scope and refresh |
 | `app/clock.rs` | the service day, lateness, the wait column |
 | `app/poll.rs` | poll cadence and failure policy |
-| `db/browse.rs` | routes, directions, boards, ordering |
+| `db/browse.rs` | routes, directions, boards, ordering, resolving a pin by name |
 | `db/search.rs` | search, ranking, platform stripping |
 | `db/calendar.rs` | service days and their exceptions |
 | `gtfs.rs` | ingest, `parse_hms`, CSV handling |
@@ -106,7 +106,7 @@ holds, in the order the app moves through them:
 | `ui/layout.rs` | badges, column widths, the gutter |
 | `ui/palette.rs` | which colours can carry a rule, and what a cancelled row shows |
 | `logo.rs` | the mark, both fallbacks, its ground line |
-| `pins.rs` | the pin file: round trips, odd names, a hand-edited typo, an older file, an ambiguous route |
+| `pins.rs` | the pin file: round trips, odd names, a typo, an older file, an ambiguous route, the fingerprint |
 | `alerts.rs` | the updates feed: which kinds count, where routes come from, references decoded |
 | `dev.rs` | that the headless walk finds the modes rather than a fixed row |
 | `main.rs` | which keys reach the filter and which act |
