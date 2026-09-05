@@ -75,6 +75,16 @@ pub struct App {
 
     /// Stops pinned to the first screen, in the order they were pinned.
     pins: crate::pins::Pins,
+
+    /// Where `back` goes, when the shape of the screen cannot say.
+    ///
+    /// The drill-down keeps no history because every screen's parent is
+    /// derivable: a stop list belongs to a direction, a direction to a route.
+    /// A pin is the one jump in the app — it lands you under a route you never
+    /// walked to — so it is the one arrival that has to be remembered. Any
+    /// other move through `goto` clears it, because every other move is one
+    /// step and its parent is where it came from.
+    returning_to: Option<Screen>,
     /// Published detours, filled in by a background thread.
     ///
     /// Shared the way realtime is, and for the same reason: the browser must
@@ -167,6 +177,7 @@ impl App {
             n_bus,
             n_rail,
             pins,
+            returning_to: None,
             alerts,
         };
         app.contents = app.load(&Screen::Mode)?;
@@ -403,7 +414,15 @@ impl App {
             Row::Hit(hit) => self.goto(Screen::Departures(Board::Stop { stop: hit.into() }))?,
             // A pin is the same destination as a search result, reached
             // without the search.
-            Row::Pin(p) => self.goto(Screen::Departures(p.board))?,
+            Row::Pin(p) => {
+                // The one jump. Recorded after `goto`, which clears it, and
+                // taken from the screen rather than assumed to be the first
+                // one: a pin is only drawn there today, and a claim about
+                // where you were should not depend on that staying true.
+                let from = self.screen.clone();
+                self.goto(Screen::Departures(p.board))?;
+                self.returning_to = Some(from);
+            }
             Row::Mode(mode, _) => self.goto(Screen::routes(mode))?,
             Row::Route(route) => {
                 let Some(mode) = self.screen.mode() else {
@@ -514,6 +533,8 @@ impl App {
     /// Move to a screen: load what it shows, put the cursor back at the top,
     /// and fill in any live predictions we already have.
     fn goto(&mut self, screen: Screen) -> Result<()> {
+        // One step, so the screen's own shape says where back goes.
+        self.returning_to = None;
         self.contents = self.load(&screen)?;
         self.screen = screen;
         self.reset_cursor();
@@ -555,6 +576,9 @@ impl App {
     /// query, and taking the screen apart first would leave the app on `Mode`
     /// with the real one already dropped.
     pub fn back(&mut self) -> Result<()> {
+        if let Some(screen) = self.returning_to.take() {
+            return self.goto(screen);
+        }
         let previous = match &self.screen {
             Screen::Mode => {
                 self.quit = true;

@@ -200,6 +200,48 @@ fn a_pin_shows_only_the_route_it_was_made_from() {
 }
 
 #[test]
+fn back_from_a_pin_lands_where_you_jumped_from() {
+    // A pin is the one jump in this app: it drops you under a route without
+    // walking the drill path. Structural `back` then unwinds a path you never
+    // took, so leaving a route pin cost four presses of esc and leaving a stop
+    // pin cost one -- two behaviours for one gesture.
+    let dir = tmp("back-from-pin");
+    let mut app = app_with_two_routes(&dir);
+
+    // A pin made by drilling, which lands on a route board.
+    drill_to_board(&mut app, "44");
+    app.toggle_pin();
+    app.goto(Screen::Mode).unwrap();
+    app.state.select(Some(0));
+    app.enter().unwrap();
+    app.back().unwrap();
+    assert!(
+        matches!(app.screen, Screen::Mode),
+        "esc left a route pin on {:?}",
+        app.screen
+    );
+
+    // And one made from a search board, which lands on a stop board. Both are
+    // pins, so both answer esc the same way.
+    open_stop(&mut app, "via44", "0044", "RIVERSIDE / SMYTH");
+    app.toggle_pin();
+    app.goto(Screen::Mode).unwrap();
+    let stop_pin = app
+        .rows()
+        .iter()
+        .position(|r| matches!(r, Row::Pin(p) if p.board.stop().stop_id == "via44"))
+        .expect("no stop pin");
+    app.state.select(Some(stop_pin));
+    app.enter().unwrap();
+    app.back().unwrap();
+    assert!(
+        matches!(app.screen, Screen::Mode),
+        "esc left a stop pin on {:?}",
+        app.screen
+    );
+}
+
+#[test]
 fn a_pin_is_still_scoped_to_its_route_after_a_restart() {
     // Pinning pushes the board straight into the live list, so a test that
     // pins and reads in one session never exercises the resolver. Only a

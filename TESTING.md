@@ -123,6 +123,14 @@ path that answers 301, and worked only because ureq follows redirects. To assert
 that a URL answers 200, a test must use the network, and rule 3 forbids that.
 A person checks it with `otransit probe` instead.
 
+A sixth is defensive and cannot fail today. `goto` clears `returning_to`, the
+screen a pin jumped from. A pin is only drawn on the first screen, so the
+recorded screen is always `Screen::Mode`, and the structural answer for every
+screen you can reach next is also `Screen::Mode`. A stale flag and a correct one
+point at the same place. The line is there so that stays true if a pin is ever
+drawn somewhere else, and a test for it would assert on a field rather than on
+anything a person could see.
+
 ## Three rules
 
 ### 1. Write the test first
