@@ -170,7 +170,7 @@ pub enum Screen {
     Stops {
         mode: Mode,
         route: Route,
-        dir: Direction,
+        headsign: String,
         filter: String,
     },
     Departures(Board),
@@ -181,10 +181,16 @@ pub enum Screen {
 #[derive(Clone, Debug)]
 pub enum Board {
     /// Drilled down: one route in one direction.
+    ///
+    /// The direction is a headsign, not a `Direction`. That type also carries a
+    /// trip count, which belongs to the directions list and which a pin rebuilt
+    /// from a file has no way to know -- so carrying it here meant inventing a
+    /// number, and a field named `trips` holding an invented number is the kind
+    /// of confidently-wrong fact this app is built to avoid.
     Route {
         mode: Mode,
         route: Route,
-        dir: Direction,
+        headsign: String,
         stop: StopRow,
     },
     /// Searched: everything calling at the stop.
@@ -198,13 +204,37 @@ impl Board {
         }
     }
 
+    /// What makes two boards the same board: the stop, and the route and
+    /// direction narrowing it.
+    ///
+    /// Borrowed rather than owned because `board_pin` asks this once a frame,
+    /// against every pin, and building a value to answer it allocated a handful
+    /// of strings each time for a comparison that needs none.
+    pub fn key(&self) -> (&str, Option<&str>, Option<&str>) {
+        match self {
+            Board::Route {
+                route,
+                headsign,
+                stop,
+                ..
+            } => (
+                &stop.stop_id,
+                Some(&route.short_name),
+                Some(headsign.as_str()),
+            ),
+            Board::Stop { stop } => (&stop.stop_id, None, None),
+        }
+    }
+
     /// Which departures belong on this board: one route and direction when you
     /// drilled down to it, everything calling at the stop when you searched.
     pub(super) fn narrow(&self) -> db::Narrow<'_> {
         match self {
-            Board::Route { route, dir, .. } => db::Narrow::Route {
+            Board::Route {
+                route, headsign, ..
+            } => db::Narrow::Route {
                 route_ids: &route.route_ids,
-                headsign: &dir.headsign,
+                headsign,
             },
             Board::Stop { .. } => db::Narrow::Everything,
         }
@@ -227,11 +257,11 @@ impl Screen {
         }
     }
 
-    pub(super) fn stops(mode: Mode, route: Route, dir: Direction) -> Self {
+    pub(super) fn stops(mode: Mode, route: Route, headsign: String) -> Self {
         Screen::Stops {
             mode,
             route,
-            dir,
+            headsign,
             filter: String::new(),
         }
     }

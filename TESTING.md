@@ -17,7 +17,7 @@ changing code that has one.
 
 ## Why this document exists
 
-Development found twenty-four real defects. Where they came from is the
+Development found twenty-five real defects. Where they came from is the
 argument for everything below.
 
 Five came from reviewing the fixes for the first ten. That is its own lesson. A
@@ -28,8 +28,12 @@ Two came from the first CI run, which is a sharper version of the same lesson.
 Both were tests that passed for months on one machine, because each read
 something that machine happened to provide.
 
-One came from using the app. No amount of review would have found it: two
-commands read the same cache and reported opposite things about it.
+Two came from using the app, and no amount of review would have found either.
+Two commands read the same cache and reported opposite things about it. And
+`esc` from a route-scoped pin unwound a drill path the user never walked, so
+leaving a pin took four presses where opening it took one. Both were found by a
+person doing the thing, not by anyone reading the diff -- including the two
+reviews that had already passed over the second one.
 
 One came from a partial extraction. A board draws a cancelled trip with three
 rules. Only one of them moved into a function the pin could share, so the pin
@@ -70,6 +74,7 @@ source proves the fixture.
 | A hand-listed entity table left `&#127752;` on screen, and decoded `&amp;lt;` twice | `alerts.rs` | yes, wrongly |
 | `dump` and `screenshot` walked into a pin and labelled it "directions" | `dev.rs` | no |
 | A cancelled pin kept its countdown, in amber, beside the word "cancelled" | `ui/layout.rs` | no |
+| `esc` from a route-scoped pin unwound a drill path nobody walked | `app/mod.rs` | no |
 
 Each of the first ten was in a file with no coverage. The four tests that
 existed were on string formatting, which is the part least likely to break. The
@@ -101,7 +106,7 @@ holds, in the order the app moves through them:
 | `ui/layout.rs` | badges, column widths, the gutter |
 | `ui/palette.rs` | which colours can carry a rule, and what a cancelled row shows |
 | `logo.rs` | the mark, both fallbacks, its ground line |
-| `pins.rs` | the pin file: round trips, odd names, a hand-edited typo, an older file |
+| `pins.rs` | the pin file: round trips, odd names, a hand-edited typo, an older file, an ambiguous route |
 | `alerts.rs` | the updates feed: which kinds count, where routes come from, references decoded |
 | `dev.rs` | that the headless walk finds the modes rather than a fixed row |
 | `main.rs` | which keys reach the filter and which act |

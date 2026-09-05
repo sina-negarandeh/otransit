@@ -200,6 +200,31 @@ fn a_pin_shows_only_the_route_it_was_made_from() {
 }
 
 #[test]
+fn entering_a_route_pin_opens_the_board_it_was_pinned_from() {
+    // Not just the right departures -- the right screen. A pin that opened an
+    // unfiltered stop board would still show the right rows, because the row
+    // itself is already narrowed, while the breadcrumb, the route gutter and
+    // the detour line all quietly changed to a different screen's answers.
+    let dir = tmp("enter-route-pin");
+    let mut app = app_with_two_routes(&dir);
+    drill_to_board(&mut app, "44");
+    app.toggle_pin();
+
+    app.goto(Screen::Mode).unwrap();
+    app.state.select(Some(0));
+    app.enter().unwrap();
+
+    let Screen::Departures(Board::Route {
+        route, headsign, ..
+    }) = &app.screen
+    else {
+        panic!("a route pin opened {:?}", app.screen)
+    };
+    assert_eq!(route.short_name, "44");
+    assert_eq!(headsign, "Billings Bridge");
+}
+
+#[test]
 fn back_from_a_pin_lands_where_you_jumped_from() {
     // A pin is the one jump in this app: it drops you under a route without
     // walking the drill path. Structural `back` then unwinds a path you never
@@ -662,7 +687,7 @@ fn a_board_you_drilled_down_to_shows_only_that_route_and_direction() {
     for _ in 0..4 {
         app.enter().unwrap(); // bus -> route 5 -> a direction -> first stop
     }
-    let Screen::Departures(Board::Route { dir, stop, .. }) = &app.screen else {
+    let Screen::Departures(Board::Route { headsign, stop, .. }) = &app.screen else {
         panic!("expected a drilled-down board, got {:?}", app.screen);
     };
     assert_eq!(stop.name, "BANK / SOMERSET W");
@@ -670,7 +695,7 @@ fn a_board_you_drilled_down_to_shows_only_that_route_and_direction() {
     // board that ignored how it was reached would carry three rows.
     assert_eq!(board(&app).len(), 1, "{:?}", board(&app));
     assert_eq!(deps(&app)[0].route_short, "5");
-    assert_eq!(deps(&app)[0].headsign, dir.headsign);
+    assert_eq!(deps(&app)[0].headsign, *headsign);
 }
 
 #[test]

@@ -381,10 +381,7 @@ mod tests {
             gutter(&Screen::Stops {
                 mode: Mode::Bus,
                 route: r,
-                dir: Direction {
-                    headsign: "Elmvale".into(),
-                    trips: 7,
-                },
+                headsign: "Elmvale".into(),
                 filter: String::new(),
             })
             .is_some(),

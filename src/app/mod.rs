@@ -6,7 +6,7 @@
 //! process, and they live in their own file rather than in the cache, which
 //! `update` replaces wholesale.
 
-use crate::db::{self, Departure, Direction, ServiceDay, StopRow};
+use crate::db::{self, Departure, ServiceDay, StopRow};
 use crate::rt;
 use anyhow::Result;
 use chrono::{Local, NaiveDate};
@@ -73,7 +73,7 @@ pub struct App {
     n_bus: usize,
     n_rail: usize,
 
-    /// Stops pinned to the first screen, in the order they were pinned.
+    /// Boards pinned to the first screen, in the order they were pinned.
     pins: crate::pins::Pins,
 
     /// Where `back` goes, when the shape of the screen cannot say.
@@ -239,12 +239,12 @@ impl App {
                     .map(Row::Direction)
                     .collect()
             }
-            Screen::Stops { route, dir, .. } => {
-                db::stops_for_direction(&self.conn, &route.route_ids, &self.today, &dir.headsign)?
-                    .into_iter()
-                    .map(Row::Stop)
-                    .collect()
-            }
+            Screen::Stops {
+                route, headsign, ..
+            } => db::stops_for_direction(&self.conn, &route.route_ids, &self.today, headsign)?
+                .into_iter()
+                .map(Row::Stop)
+                .collect(),
             Screen::Departures(board) => {
                 return Ok(Contents::Board(db::departures(
                     &self.conn,
@@ -412,8 +412,9 @@ impl App {
             // A search result goes straight to the stop's board, skipping route
             // and direction entirely.
             Row::Hit(hit) => self.goto(Screen::Departures(Board::Stop { stop: hit.into() }))?,
-            // A pin is the same destination as a search result, reached
-            // without the search.
+            // A pin is a board you saved, reopened without the walk. Which
+            // board depends on how you made it -- a route in one direction, or
+            // a whole stop.
             Row::Pin(p) => {
                 // The one jump. Recorded after `goto`, which clears it, and
                 // taken from the screen rather than assumed to be the first
@@ -435,11 +436,14 @@ impl App {
                 else {
                     return Ok(());
                 };
-                self.goto(Screen::stops(mode, route, dir))?;
+                self.goto(Screen::stops(mode, route, dir.headsign))?;
             }
             Row::Stop(stop) => {
                 let Screen::Stops {
-                    mode, route, dir, ..
+                    mode,
+                    route,
+                    headsign,
+                    ..
                 } = self.screen.clone()
                 else {
                     return Ok(());
@@ -447,7 +451,7 @@ impl App {
                 self.goto(Screen::Departures(Board::Route {
                     mode,
                     route,
-                    dir,
+                    headsign,
                     stop,
                 }))?;
             }
@@ -503,16 +507,20 @@ impl App {
         Some(self.pins.state(self.screen.board()?))
     }
 
-    /// Pin the stop on screen, or unpin it if it is already pinned.
+    /// Pin the board on screen, or unpin it if it is already pinned.
     ///
     /// Only from a board, because a board is the only screen where a letter is
     /// free -- everywhere else typing narrows a list -- and because it is the
-    /// screen that just showed you whether the stop is worth keeping.
+    /// screen that just showed you whether this is worth keeping.
     ///
-    /// A drilled-down board is filtered to one route, but what gets pinned is
-    /// the stop: it is the durable half, and "everything calling here" is the
-    /// better answer to whether to leave now. The status bar names what is
-    /// pinned so that is visible at the moment of pressing.
+    /// The whole board is pinned, not just its stop. Drill to a route and you
+    /// pin that route in that direction; press `p` on a search result and you
+    /// pin everything calling there, because you never said where you were
+    /// going. "Everything calling here" was once the answer for both, and it is
+    /// wrong for the first: 44 and 48 both end at Billings Bridge by roads that
+    /// never meet, so a pin that offered either would send you to a bus that
+    /// does not serve your stop. The status bar names what is pinned, so that
+    /// is visible at the moment of pressing.
     pub fn toggle_pin(&mut self) {
         // Taken once, so there is no invariant to assert between two lookups.
         let Some(board) = self.screen.board().cloned() else {
@@ -592,8 +600,11 @@ impl App {
             Screen::Directions { mode, .. } => Screen::routes(*mode),
             Screen::Stops { mode, route, .. } => Screen::directions(*mode, route.clone()),
             Screen::Departures(Board::Route {
-                mode, route, dir, ..
-            }) => Screen::stops(*mode, route.clone(), dir.clone()),
+                mode,
+                route,
+                headsign,
+                ..
+            }) => Screen::stops(*mode, route.clone(), headsign.clone()),
         };
         self.goto(previous)
     }
@@ -618,7 +629,7 @@ impl App {
 
     /// Everything chosen so far, as one flat trail.
     pub fn crumbs(&self) -> Vec<Crumb> {
-        let toward = |d: &Direction| Crumb::Plain(format!("toward {}", d.headsign));
+        let toward = |h: &str| Crumb::Plain(format!("toward {h}"));
         let stop = |s: &StopRow| Crumb::Plain(tidy_stop_name(&s.name));
         match &self.screen {
             Screen::Mode | Screen::Search { .. } => vec![],
@@ -627,21 +638,24 @@ impl App {
                 vec![Crumb::Plain(mode.label().into()), Crumb::route(route)]
             }
             Screen::Stops {
-                mode, route, dir, ..
+                mode,
+                route,
+                headsign,
+                ..
             } => vec![
                 Crumb::Plain(mode.label().into()),
                 Crumb::route(route),
-                toward(dir),
+                toward(headsign),
             ],
             Screen::Departures(Board::Route {
                 mode,
                 route,
-                dir,
+                headsign,
                 stop: s,
             }) => vec![
                 Crumb::Plain(mode.label().into()),
                 Crumb::route(route),
-                toward(dir),
+                toward(headsign),
                 stop(s),
             ],
             // Reached by search: the pole number and the stop are the whole trail.

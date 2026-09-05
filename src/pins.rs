@@ -1,9 +1,14 @@
-//! Pinned stops: the small file that survives between runs.
+//! Pinned boards: the small file that survives between runs.
 //!
 //! The rest of the app is stateless by design — every launch starts at the top.
 //! This is the one exception, and it is deliberately the smallest one that
-//! works: a handful of lines naming stops you check often, so the cursor lands
-//! on the answer instead of on the first question.
+//! works: a handful of lines naming the boards you check often, so the cursor
+//! lands on the answer instead of on the first question.
+//!
+//! A line names a stop, and the route and direction if you pinned by drilling.
+//! Both halves matter: two routes can call at one platform and end at one
+//! terminus while serving different stops in between, so a pin scoped to the
+//! stop alone would offer a bus that does not go where you are going.
 //!
 //! It lives beside the config, not beside the cache. The cache is safe to
 //! delete and deleting it is a documented way to recover from a bad ingest;
@@ -25,8 +30,8 @@ pub enum PinState {
     Full,
 }
 
-/// The pinned stops: what the file remembers, what the cache can still resolve,
-/// and where changes are written back.
+/// The pinned boards: what the file remembers, what the cache can still
+/// resolve, and where changes are written back.
 ///
 /// One type rather than three fields on `App`, because the first two have to
 /// move together. Every add and every removal touches both, and the invariant
@@ -92,8 +97,7 @@ impl Pins {
     /// cache cannot resolve are not shown, and counting them would report
     /// "pins full" over a list with room in it and no way to see why.
     pub fn state(&self, board: &Board) -> PinState {
-        let want = Pin::of(board);
-        if self.live.iter().any(|b| Pin::of(b).key() == want.key()) {
+        if self.live.iter().any(|b| b.key() == board.key()) {
             PinState::Pinned
         } else if self.live.len() >= self.cap {
             PinState::Full
@@ -108,15 +112,15 @@ impl Pins {
     /// config directory is not worth ending one over, and nothing else here
     /// treats an unusable side channel as fatal.
     pub fn toggle(&mut self, board: &Board) {
-        let want = Pin::of(board);
+        let want = board.key();
         match self.state(board) {
             PinState::Pinned => {
-                self.stored.retain(|p| p.key() != want.key());
-                self.live.retain(|b| Pin::of(b).key() != want.key());
+                self.stored.retain(|p| p.key() != want);
+                self.live.retain(|b| b.key() != want);
             }
             PinState::Full => return,
             PinState::Unpinned => {
-                self.stored.push(want);
+                self.stored.push(Pin::of(board));
                 // Pinnable means on screen, which means it already resolves.
                 self.live.push(board.clone());
             }
@@ -155,9 +159,9 @@ impl Pin {
     fn of(board: &Board) -> Self {
         let stop = board.stop();
         let (route, headsign) = match board {
-            Board::Route { route, dir, .. } => {
-                (Some(route.short_name.clone()), Some(dir.headsign.clone()))
-            }
+            Board::Route {
+                route, headsign, ..
+            } => (Some(route.short_name.clone()), Some(headsign.clone())),
             Board::Stop { .. } => (None, None),
         };
         Self {
@@ -181,21 +185,25 @@ impl Pin {
         let (Some(want), Some(headsign)) = (&self.route, &self.headsign) else {
             return Some(Board::Stop { stop });
         };
-        let (mode, route) = routes.iter().find_map(|(mode, rs)| {
+        // A short name found under both modes cannot be told apart from what
+        // the file stores, and picking the first would put a bus route behind a
+        // rail badge. Two matches resolve to nothing, which is the same answer
+        // this file gives for a stop it cannot find: hide the row, keep the
+        // line. Ottawa has no such collision today -- the lines are 1, 2 and 4
+        // and no bus shares those names -- so this is the guard, not the case.
+        let mut found = routes.iter().filter_map(|(mode, rs)| {
             rs.iter()
                 .find(|r| r.short_name == *want)
                 .map(|r| (*mode, r.clone()))
-        })?;
+        });
+        let (mode, route) = found.next()?;
+        if found.next().is_some() {
+            return None;
+        }
         Some(Board::Route {
             mode,
             route,
-            // `trips` counts a direction's trips for the directions screen. A
-            // pin never draws that number, and inventing one here would be a
-            // fact this file does not have.
-            dir: db::Direction {
-                headsign: headsign.clone(),
-                trips: 0,
-            },
+            headsign: headsign.clone(),
             stop,
         })
     }
@@ -316,6 +324,39 @@ mod tests {
             headsign: Some(headsign.into()),
             ..pin(id)
         }
+    }
+
+    #[test]
+    fn a_route_name_under_both_modes_resolves_to_neither() {
+        // Guessing would put a bus route behind a rail badge, and the file has
+        // nothing that says which was meant. So the pin hides, exactly as one
+        // naming a stop the cache lost does, and the line stays in the file so
+        // it comes back if the collision goes away.
+        let stop = StopRow {
+            stop_id: "s1".into(),
+            code: "0001".into(),
+            name: "BANK / SOMERSET W".into(),
+        };
+        let route = |colour: &str| db::Route {
+            short_name: "1".into(),
+            long_name: "1".into(),
+            color: colour.into(),
+            route_ids: vec!["1".into()],
+        };
+        let pin = scoped("s1", "1", "Blair");
+
+        let both = [
+            (Mode::Bus, vec![route("0057B8")]),
+            (Mode::Train, vec![route("D62408")]),
+        ];
+        assert!(
+            pin.board(std::slice::from_ref(&stop), &both).is_none(),
+            "picked a mode the file never named"
+        );
+
+        // One mode alone is not ambiguous, so it still resolves.
+        let rail_only = [(Mode::Train, vec![route("D62408")])];
+        assert!(pin.board(&[stop], &rail_only).is_some());
     }
 
     #[test]
