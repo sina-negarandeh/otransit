@@ -99,6 +99,195 @@ fn tmp(label: &str) -> std::path::PathBuf {
 
 // ---------- pins ----------
 
+/// One platform, two routes, both ending at Billings Bridge, taking different
+/// roads to get there.
+///
+/// This is the real shape of stop 7581: 44 and 48 share a headsign and do not
+/// share a path — the 48 runs a Canterbury corridor the 44 never touches. Two
+/// buses to the same terminus are not two buses to the same place, so the app
+/// must not offer one when you pinned the other.
+fn app_with_two_routes(dir: &std::path::Path) -> App {
+    let g = TestGtfs::new()
+        .route("44", "44", 3, "0057B8")
+        .route("48", "48", 3, "D30F1D")
+        .always("A")
+        .trip("t44", "44", "A", "Billings Bridge")
+        .trip("t48", "48", "A", "Billings Bridge")
+        .stop("s1", "0001", "TRANSITWAY / TERMINAL")
+        .stop("via44", "0044", "RIVERSIDE / SMYTH")
+        .stop("via48", "0048", "CANTERBURY / ARCH")
+        .stop_time("t44", "s1", 1, "10:00:00")
+        .stop_time("t44", "via44", 2, "10:10:00")
+        .stop_time("t48", "s1", 1, "10:04:00")
+        .stop_time("t48", "via48", 2, "10:14:00");
+    App::offline(
+        g.into_conn(),
+        NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+        9 * 3600,
+        Some(dir.join("pins")),
+    )
+    .unwrap()
+}
+
+/// Drill Bus -> `route` -> its only direction -> the first stop, and stop there.
+fn drill_to_board(app: &mut App, route: &str) {
+    app.goto(Screen::Mode).unwrap();
+    let bus = app
+        .rows()
+        .iter()
+        .position(|r| matches!(r, Row::Mode(Mode::Bus, _)))
+        .expect("no Bus row");
+    app.state.select(Some(bus));
+    app.enter().unwrap();
+    let want = app
+        .rows()
+        .iter()
+        .position(|r| r.primary() == route)
+        .unwrap_or_else(|| panic!("route {route} not running"));
+    app.state.select(Some(want));
+    app.enter().unwrap(); // directions
+    app.state.select(Some(0));
+    app.enter().unwrap(); // stops
+    app.state.select(Some(0));
+    app.enter().unwrap(); // the board
+}
+
+#[test]
+fn two_routes_from_one_stop_can_both_be_pinned() {
+    // Both end at Billings Bridge and both call here, but they serve different
+    // stops after it. Pinning one must not stand in for the other, and pinning
+    // the second must not replace the first.
+    let dir = tmp("two-routes");
+    let mut app = app_with_two_routes(&dir);
+
+    drill_to_board(&mut app, "44");
+    app.toggle_pin();
+    drill_to_board(&mut app, "48");
+    app.toggle_pin();
+
+    app.goto(Screen::Mode).unwrap();
+    let pinned: Vec<String> = app
+        .rows()
+        .iter()
+        .filter_map(|r| match r {
+            Row::Pin(p) => Some(p.next()?.route_short.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(pinned, ["44", "48"], "both routes should hold a pin");
+}
+
+#[test]
+fn a_pin_shows_only_the_route_it_was_made_from() {
+    // The 48 leaves four minutes after the 44 from this platform. A pin on the
+    // 44 that reported the 48 would be sending you to a bus that does not
+    // serve the stop you are going to.
+    let dir = tmp("one-route");
+    let mut app = app_with_two_routes(&dir);
+
+    drill_to_board(&mut app, "44");
+    app.toggle_pin();
+
+    app.goto(Screen::Mode).unwrap();
+    let Some(Row::Pin(p)) = app.rows().first().cloned() else {
+        panic!("no pin row")
+    };
+    let shown: Vec<&str> = p.upcoming.iter().map(|d| d.route_short.as_str()).collect();
+    assert!(
+        shown.iter().all(|r| *r == "44"),
+        "the pin offered another route: {shown:?}"
+    );
+}
+
+#[test]
+fn entering_a_route_pin_opens_the_board_it_was_pinned_from() {
+    // Not just the right departures -- the right screen. A pin that opened an
+    // unfiltered stop board would still show the right rows, because the row
+    // itself is already narrowed, while the breadcrumb, the route gutter and
+    // the detour line all quietly changed to a different screen's answers.
+    let dir = tmp("enter-route-pin");
+    let mut app = app_with_two_routes(&dir);
+    drill_to_board(&mut app, "44");
+    app.toggle_pin();
+
+    app.goto(Screen::Mode).unwrap();
+    app.state.select(Some(0));
+    app.enter().unwrap();
+
+    let Screen::Departures(Board::Route {
+        route, headsign, ..
+    }) = &app.screen
+    else {
+        panic!("a route pin opened {:?}", app.screen)
+    };
+    assert_eq!(route.short_name, "44");
+    assert_eq!(headsign, "Billings Bridge");
+}
+
+#[test]
+fn back_from_a_pin_lands_where_you_jumped_from() {
+    // A pin is the one jump in this app: it drops you under a route without
+    // walking the drill path. Structural `back` then unwinds a path you never
+    // took, so leaving a route pin cost four presses of esc and leaving a stop
+    // pin cost one -- two behaviours for one gesture.
+    let dir = tmp("back-from-pin");
+    let mut app = app_with_two_routes(&dir);
+
+    // A pin made by drilling, which lands on a route board.
+    drill_to_board(&mut app, "44");
+    app.toggle_pin();
+    app.goto(Screen::Mode).unwrap();
+    app.state.select(Some(0));
+    app.enter().unwrap();
+    app.back().unwrap();
+    assert!(
+        matches!(app.screen, Screen::Mode),
+        "esc left a route pin on {:?}",
+        app.screen
+    );
+
+    // And one made from a search board, which lands on a stop board. Both are
+    // pins, so both answer esc the same way.
+    open_stop(&mut app, "via44", "0044", "RIVERSIDE / SMYTH");
+    app.toggle_pin();
+    app.goto(Screen::Mode).unwrap();
+    let stop_pin = app
+        .rows()
+        .iter()
+        .position(|r| matches!(r, Row::Pin(p) if p.board.stop().stop_id == "via44"))
+        .expect("no stop pin");
+    app.state.select(Some(stop_pin));
+    app.enter().unwrap();
+    app.back().unwrap();
+    assert!(
+        matches!(app.screen, Screen::Mode),
+        "esc left a stop pin on {:?}",
+        app.screen
+    );
+}
+
+#[test]
+fn a_pin_is_still_scoped_to_its_route_after_a_restart() {
+    // Pinning pushes the board straight into the live list, so a test that
+    // pins and reads in one session never exercises the resolver. Only a
+    // restart reads the route back out of the file and looks it up again --
+    // which is where the `7`/`7-1` booking-period problem lives.
+    let dir = tmp("scoped-restart");
+    let mut app = app_with_two_routes(&dir);
+    drill_to_board(&mut app, "44");
+    app.toggle_pin();
+
+    let fresh = app_with_two_routes(&dir);
+    let Some(Row::Pin(p)) = fresh.rows().first().cloned() else {
+        panic!("no pin row after a restart")
+    };
+    let shown: Vec<&str> = p.upcoming.iter().map(|d| d.route_short.as_str()).collect();
+    assert!(
+        shown.iter().all(|r| *r == "44"),
+        "the pin came back unscoped: {shown:?}"
+    );
+}
+
 #[test]
 fn a_pin_survives_a_restart() {
     // The one piece of state the app keeps. If it does not outlive the
@@ -111,7 +300,7 @@ fn a_pin_survives_a_restart() {
     let fresh = app_with_pins(&dir);
     let first = fresh.rows().first().cloned();
     assert!(
-        matches!(&first, Some(Row::Pin(p)) if p.stop.stop_id == "s2"),
+        matches!(&first, Some(Row::Pin(p)) if p.board.stop().stop_id == "s2"),
         "the pin is not the first row after a restart: {first:?}"
     );
 }
@@ -174,7 +363,7 @@ s2	0002	BANK / GLADSTONE
         .rows()
         .iter()
         .filter_map(|r| match r {
-            Row::Pin(p) => Some(p.stop.stop_id.clone()),
+            Row::Pin(p) => Some(p.board.stop().stop_id.clone()),
             _ => None,
         })
         .collect();
@@ -362,7 +551,7 @@ fn pins_keep_the_order_they_were_pinned_in_not_the_cache_s() {
         .rows()
         .iter()
         .filter_map(|r| match r {
-            Row::Pin(p) => Some(p.stop.stop_id.clone()),
+            Row::Pin(p) => Some(p.board.stop().stop_id.clone()),
             _ => None,
         })
         .collect();
@@ -498,7 +687,7 @@ fn a_board_you_drilled_down_to_shows_only_that_route_and_direction() {
     for _ in 0..4 {
         app.enter().unwrap(); // bus -> route 5 -> a direction -> first stop
     }
-    let Screen::Departures(Board::Route { dir, stop, .. }) = &app.screen else {
+    let Screen::Departures(Board::Route { headsign, stop, .. }) = &app.screen else {
         panic!("expected a drilled-down board, got {:?}", app.screen);
     };
     assert_eq!(stop.name, "BANK / SOMERSET W");
@@ -506,7 +695,7 @@ fn a_board_you_drilled_down_to_shows_only_that_route_and_direction() {
     // board that ignored how it was reached would carry three rows.
     assert_eq!(board(&app).len(), 1, "{:?}", board(&app));
     assert_eq!(deps(&app)[0].route_short, "5");
-    assert_eq!(deps(&app)[0].headsign, dir.headsign);
+    assert_eq!(deps(&app)[0].headsign, *headsign);
 }
 
 #[test]

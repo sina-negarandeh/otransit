@@ -185,12 +185,16 @@ impl Cols {
 fn pin_line(p: &crate::app::Pinned, c: &PinCols, now: i32) -> Line<'static> {
     let mut spans = vec![
         Span::styled(
-            format!("{:<w$}", truncate(&tidy(&p.stop.name), c.name), w = c.name),
+            format!(
+                "{:<w$}",
+                truncate(&tidy(&p.stop().name), c.name),
+                w = c.name
+            ),
             Style::default().fg(FG),
         ),
         Span::raw(" "),
         Span::styled(
-            format!("{:<w$}", format!("#{}", p.stop.code), w = POLE_W),
+            format!("{:<w$}", format!("#{}", p.stop().code), w = POLE_W),
             Style::default().fg(RULE),
         ),
     ];
@@ -347,6 +351,7 @@ mod tests {
             long_name: "x".into(),
             color: colour.into(),
             route_ids: vec!["75".into()],
+            route_type: 3,
         }
     }
 
@@ -377,10 +382,7 @@ mod tests {
             gutter(&Screen::Stops {
                 mode: Mode::Bus,
                 route: r,
-                dir: Direction {
-                    headsign: "Elmvale".into(),
-                    trips: 7,
-                },
+                headsign: "Elmvale".into(),
                 filter: String::new(),
             })
             .is_some(),

@@ -6,7 +6,7 @@
 //! process, and they live in their own file rather than in the cache, which
 //! `update` replaces wholesale.
 
-use crate::db::{self, Departure, Direction, ServiceDay, StopRow};
+use crate::db::{self, Departure, ServiceDay, StopRow};
 use crate::rt;
 use anyhow::Result;
 use chrono::{Local, NaiveDate};
@@ -73,8 +73,18 @@ pub struct App {
     n_bus: usize,
     n_rail: usize,
 
-    /// Stops pinned to the first screen, in the order they were pinned.
+    /// Boards pinned to the first screen, in the order they were pinned.
     pins: crate::pins::Pins,
+
+    /// Where `back` goes, when the shape of the screen cannot say.
+    ///
+    /// The drill-down keeps no history because every screen's parent is
+    /// derivable: a stop list belongs to a direction, a direction to a route.
+    /// A pin is the one jump in the app — it lands you under a route you never
+    /// walked to — so it is the one arrival that has to be remembered. Any
+    /// other move through `goto` clears it, because every other move is one
+    /// step and its parent is where it came from.
+    returning_to: Option<Screen>,
     /// Published detours, filled in by a background thread.
     ///
     /// Shared the way realtime is, and for the same reason: the browser must
@@ -144,7 +154,7 @@ impl App {
         let count = |m: Mode| db::routes_for_type(&conn, m.route_type(), &today).map(|r| r.len());
         let n_bus = count(Mode::Bus)?;
         let n_rail = count(Mode::Train)?;
-        let pins = crate::pins::Pins::open(pins_path, &conn, crate::ui::MAX_PINS)?;
+        let pins = crate::pins::Pins::open(pins_path, &conn, crate::ui::MAX_PINS, &today)?;
 
         let mut state = ListState::default();
         state.select(Some(0));
@@ -162,6 +172,7 @@ impl App {
             n_bus,
             n_rail,
             pins,
+            returning_to: None,
             alerts,
         };
         app.contents = app.load(&Screen::Mode)?;
@@ -175,23 +186,29 @@ impl App {
         let rows: Vec<Row> = match screen {
             Screen::Mode => {
                 // Above the modes, so the cursor lands on the answer rather
-                // than on the first question. Pins whose stop is no longer in
-                // the cache are left out: a row that cannot be opened is worse
+                // than on the first question. Pins the cache can no longer
+                // resolve are left out: a row that cannot be opened is worse
                 // than no row, and the stored line survives to come back with
-                // the stop.
+                // the stop or the route.
                 let mut rows = Vec::new();
-                for stop in self.pins.live().to_vec() {
+                for board in self.pins.live().to_vec() {
                     // One row each, so the answer is on screen before anything
                     // is pressed. Six of these measure ~12ms against the real
                     // cache, which is what makes showing them affordable at all.
+                    //
+                    // The board says which departures are its own. A pin made
+                    // by drilling shows that route in that direction, because
+                    // two routes to one terminus are not two routes to one
+                    // place; a pin made from a search shows everything calling
+                    // here, because you never said where you were going.
                     let upcoming = db::departures(
                         &self.conn,
-                        &stop.stop_id,
-                        db::Narrow::Everything,
+                        &board.stop().stop_id,
+                        board.narrow(),
                         &self.service_day(),
                         crate::ui::PIN_FETCH,
                     )?;
-                    rows.push(Row::Pin(Pinned { stop, upcoming }));
+                    rows.push(Row::Pin(Pinned { board, upcoming }));
                 }
                 rows.extend([
                     Row::Mode(Mode::Bus, self.n_bus),
@@ -217,12 +234,12 @@ impl App {
                     .map(Row::Direction)
                     .collect()
             }
-            Screen::Stops { route, dir, .. } => {
-                db::stops_for_direction(&self.conn, &route.route_ids, &self.today, &dir.headsign)?
-                    .into_iter()
-                    .map(Row::Stop)
-                    .collect()
-            }
+            Screen::Stops {
+                route, headsign, ..
+            } => db::stops_for_direction(&self.conn, &route.route_ids, &self.today, headsign)?
+                .into_iter()
+                .map(Row::Stop)
+                .collect(),
             Screen::Departures(board) => {
                 return Ok(Contents::Board(db::departures(
                     &self.conn,
@@ -390,9 +407,18 @@ impl App {
             // A search result goes straight to the stop's board, skipping route
             // and direction entirely.
             Row::Hit(hit) => self.goto(Screen::Departures(Board::Stop { stop: hit.into() }))?,
-            // A pin is the same destination as a search result, reached
-            // without the search.
-            Row::Pin(p) => self.goto(Screen::Departures(Board::Stop { stop: p.stop }))?,
+            // A pin is a board you saved, reopened without the walk. Which
+            // board depends on how you made it -- a route in one direction, or
+            // a whole stop.
+            Row::Pin(p) => {
+                // The one jump. Recorded after `goto`, which clears it, and
+                // taken from the screen rather than assumed to be the first
+                // one: a pin is only drawn there today, and a claim about
+                // where you were should not depend on that staying true.
+                let from = self.screen.clone();
+                self.goto(Screen::Departures(p.board))?;
+                self.returning_to = Some(from);
+            }
             Row::Mode(mode, _) => self.goto(Screen::routes(mode))?,
             Row::Route(route) => {
                 let Some(mode) = self.screen.mode() else {
@@ -405,11 +431,14 @@ impl App {
                 else {
                     return Ok(());
                 };
-                self.goto(Screen::stops(mode, route, dir))?;
+                self.goto(Screen::stops(mode, route, dir.headsign))?;
             }
             Row::Stop(stop) => {
                 let Screen::Stops {
-                    mode, route, dir, ..
+                    mode,
+                    route,
+                    headsign,
+                    ..
                 } = self.screen.clone()
                 else {
                     return Ok(());
@@ -417,7 +446,7 @@ impl App {
                 self.goto(Screen::Departures(Board::Route {
                     mode,
                     route,
-                    dir,
+                    headsign,
                     stop,
                 }))?;
             }
@@ -470,26 +499,29 @@ impl App {
 
     /// Whether the board on screen is pinned. `None` when this is not a board.
     pub fn board_pin(&self) -> Option<crate::pins::PinState> {
-        Some(self.pins.state(&self.screen.board()?.stop().stop_id))
+        Some(self.pins.state(self.screen.board()?))
     }
 
-    /// Pin the stop on screen, or unpin it if it is already pinned.
+    /// Pin the board on screen, or unpin it if it is already pinned.
     ///
     /// Only from a board, because a board is the only screen where a letter is
     /// free -- everywhere else typing narrows a list -- and because it is the
-    /// screen that just showed you whether the stop is worth keeping.
+    /// screen that just showed you whether this is worth keeping.
     ///
-    /// A drilled-down board is filtered to one route, but what gets pinned is
-    /// the stop: it is the durable half, and "everything calling here" is the
-    /// better answer to whether to leave now. The status bar names what is
-    /// pinned so that is visible at the moment of pressing.
+    /// The whole board is pinned, not just its stop. Drill to a route and you
+    /// pin that route in that direction; press `p` on a search result and you
+    /// pin everything calling there, because you never said where you were
+    /// going. "Everything calling here" was once the answer for both, and it is
+    /// wrong for the first: 44 and 48 both end at Billings Bridge by roads that
+    /// never meet, so a pin that offered either would send you to a bus that
+    /// does not serve your stop. The status bar names what is pinned, so that
+    /// is visible at the moment of pressing.
     pub fn toggle_pin(&mut self) {
         // Taken once, so there is no invariant to assert between two lookups.
-        let Some(board) = self.screen.board() else {
+        let Some(board) = self.screen.board().cloned() else {
             return;
         };
-        let stop = board.stop().clone();
-        self.pins.toggle(&stop);
+        self.pins.toggle(&board);
     }
 
     /// Re-read the wall clock, so a board left open keeps counting down.
@@ -504,6 +536,8 @@ impl App {
     /// Move to a screen: load what it shows, put the cursor back at the top,
     /// and fill in any live predictions we already have.
     fn goto(&mut self, screen: Screen) -> Result<()> {
+        // One step, so the screen's own shape says where back goes.
+        self.returning_to = None;
         self.contents = self.load(&screen)?;
         self.screen = screen;
         self.reset_cursor();
@@ -545,6 +579,9 @@ impl App {
     /// query, and taking the screen apart first would leave the app on `Mode`
     /// with the real one already dropped.
     pub fn back(&mut self) -> Result<()> {
+        if let Some(screen) = self.returning_to.take() {
+            return self.goto(screen);
+        }
         let previous = match &self.screen {
             Screen::Mode => {
                 self.quit = true;
@@ -558,8 +595,11 @@ impl App {
             Screen::Directions { mode, .. } => Screen::routes(*mode),
             Screen::Stops { mode, route, .. } => Screen::directions(*mode, route.clone()),
             Screen::Departures(Board::Route {
-                mode, route, dir, ..
-            }) => Screen::stops(*mode, route.clone(), dir.clone()),
+                mode,
+                route,
+                headsign,
+                ..
+            }) => Screen::stops(*mode, route.clone(), headsign.clone()),
         };
         self.goto(previous)
     }
@@ -584,7 +624,7 @@ impl App {
 
     /// Everything chosen so far, as one flat trail.
     pub fn crumbs(&self) -> Vec<Crumb> {
-        let toward = |d: &Direction| Crumb::Plain(format!("toward {}", d.headsign));
+        let toward = |h: &str| Crumb::Plain(format!("toward {h}"));
         let stop = |s: &StopRow| Crumb::Plain(tidy_stop_name(&s.name));
         match &self.screen {
             Screen::Mode | Screen::Search { .. } => vec![],
@@ -593,21 +633,24 @@ impl App {
                 vec![Crumb::Plain(mode.label().into()), Crumb::route(route)]
             }
             Screen::Stops {
-                mode, route, dir, ..
+                mode,
+                route,
+                headsign,
+                ..
             } => vec![
                 Crumb::Plain(mode.label().into()),
                 Crumb::route(route),
-                toward(dir),
+                toward(headsign),
             ],
             Screen::Departures(Board::Route {
                 mode,
                 route,
-                dir,
+                headsign,
                 stop: s,
             }) => vec![
                 Crumb::Plain(mode.label().into()),
                 Crumb::route(route),
-                toward(dir),
+                toward(headsign),
                 stop(s),
             ],
             // Reached by search: the pole number and the stop are the whole trail.
@@ -650,15 +693,19 @@ impl App {
             Contents::List(rows) => {
                 for row in rows {
                     let Row::Pin(p) = row else { continue };
-                    for d in &mut p.upcoming {
+                    // Taken apart rather than reached through `Pinned::stop`,
+                    // which borrows the whole pin and so collides with the
+                    // mutable loop over its departures.
+                    let Pinned { board, upcoming } = p;
+                    for d in upcoming.iter_mut() {
                         d.canceled = rt.is_canceled(&d.trip_id);
                         d.live = rt
-                            .arrival(&d.trip_id, &p.stop.stop_id)
+                            .arrival(&d.trip_id, &board.stop().stop_id)
                             .and_then(|e| epoch_to_service_secs(e, date));
                     }
                     // Same reason as the board: without this the pin shows the
                     // scheduled-earliest bus, not the one that arrives first.
-                    db::sort_by_actual_arrival(&mut p.upcoming);
+                    db::sort_by_actual_arrival(upcoming);
                 }
             }
         }

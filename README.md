@@ -146,9 +146,16 @@ list holds as many pins as fit above the modes without scrolling. It lives in a
 `pins` file beside your config, not in the cache, so a rebuild of the schedule
 does not touch it.
 
-A pinned stop that disappears from a new export is hidden rather than shown as
-a row that cannot be opened. The line stays in the file, so a stop that comes
-back brings its pin with it.
+A pin remembers the board you pinned, not just the stop. Drill to a route and
+you pin that route in that direction; press `p` on a search result and you pin
+everything calling there, because you never said where you were going. So one
+platform can hold two pins, which it needs to: at `TRANSITWAY / TERMINAL` a
+single pole is served by nine routes running to eight destinations, and 44 and
+48 both end at Billings Bridge by roads that do not meet in between.
+
+A pin that a new export can no longer resolve — the stop is gone, or the route
+is not running — is hidden rather than shown as a row that cannot be opened.
+The line stays in the file, so a stop that comes back brings its pin with it.
 
 ## The feed
 

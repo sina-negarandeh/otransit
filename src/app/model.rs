@@ -34,11 +34,18 @@ pub enum Row {
 /// reads the front of it.
 #[derive(Clone, Debug)]
 pub struct Pinned {
-    pub stop: StopRow,
+    /// The board this pin was made from, rebuilt against today's cache.
+    pub board: Board,
     pub upcoming: Vec<crate::db::Departure>,
 }
 
 impl Pinned {
+    /// The stop this pin is at. A shorthand for the reach through the board,
+    /// which six call sites were spelling out.
+    pub fn stop(&self) -> &StopRow {
+        self.board.stop()
+    }
+
     /// The one departure this pin shows: whichever arrives first.
     pub fn next(&self) -> Option<&crate::db::Departure> {
         self.upcoming.first()
@@ -53,7 +60,7 @@ impl Row {
             Row::Route(r) => r.short_name.clone(),
             Row::Direction(d) => format!("toward {}", d.headsign),
             Row::Stop(s) => tidy_stop_name(&s.name),
-            Row::Pin(p) => tidy_stop_name(&p.stop.name),
+            Row::Pin(p) => tidy_stop_name(&p.stop().name),
             Row::Hit(h) => crate::db::strip_platform(&h.name, &h.platform),
         }
     }
@@ -66,7 +73,7 @@ impl Row {
             Row::Route(r) => r.long_name.clone(),
             Row::Direction(d) => format!("{} trips today", d.trips),
             Row::Stop(s) => format!("#{}", s.code),
-            Row::Pin(p) => format!("#{}", p.stop.code),
+            Row::Pin(p) => format!("#{}", p.stop().code),
             Row::Hit(h) => h.routes.join(", "),
         }
     }
@@ -83,7 +90,7 @@ impl Row {
             Row::Route(r) => hit(&r.short_name) || hit(&r.long_name),
             Row::Direction(d) => hit(&d.headsign),
             Row::Stop(s) => hit(&s.name) || hit(&s.code),
-            Row::Pin(p) => hit(&p.stop.name) || hit(&p.stop.code),
+            Row::Pin(p) => hit(&p.stop().name) || hit(&p.stop().code),
             Row::Mode(..) | Row::Hit(_) => true,
         }
     }
@@ -134,6 +141,18 @@ impl Mode {
         }
     }
 
+    /// The inverse, for a route looked up by name rather than by mode.
+    ///
+    /// `None` for a type this app does not browse, which is every other value
+    /// GTFS defines. A pin naming one hides rather than guessing a mode.
+    pub fn from_route_type(route_type: i64) -> Option<Self> {
+        match route_type {
+            3 => Some(Mode::Bus),
+            0 => Some(Mode::Train),
+            _ => None,
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Mode::Bus => "Bus",
@@ -169,7 +188,7 @@ pub enum Screen {
     Stops {
         mode: Mode,
         route: Route,
-        dir: Direction,
+        headsign: String,
         filter: String,
     },
     Departures(Board),
@@ -180,10 +199,16 @@ pub enum Screen {
 #[derive(Clone, Debug)]
 pub enum Board {
     /// Drilled down: one route in one direction.
+    ///
+    /// The direction is a headsign, not a `Direction`. That type also carries a
+    /// trip count, which belongs to the directions list and which a pin rebuilt
+    /// from a file has no way to know -- so carrying it here meant inventing a
+    /// number, and a field named `trips` holding an invented number is the kind
+    /// of confidently-wrong fact this app is built to avoid.
     Route {
         mode: Mode,
         route: Route,
-        dir: Direction,
+        headsign: String,
         stop: StopRow,
     },
     /// Searched: everything calling at the stop.
@@ -197,13 +222,37 @@ impl Board {
         }
     }
 
+    /// What makes two boards the same board: the stop, and the route and
+    /// direction narrowing it.
+    ///
+    /// Borrowed rather than owned because `board_pin` asks this once a frame,
+    /// against every pin, and building a value to answer it allocated a handful
+    /// of strings each time for a comparison that needs none.
+    pub fn key(&self) -> (&str, Option<&str>, Option<&str>) {
+        match self {
+            Board::Route {
+                route,
+                headsign,
+                stop,
+                ..
+            } => (
+                &stop.stop_id,
+                Some(&route.short_name),
+                Some(headsign.as_str()),
+            ),
+            Board::Stop { stop } => (&stop.stop_id, None, None),
+        }
+    }
+
     /// Which departures belong on this board: one route and direction when you
     /// drilled down to it, everything calling at the stop when you searched.
     pub(super) fn narrow(&self) -> db::Narrow<'_> {
         match self {
-            Board::Route { route, dir, .. } => db::Narrow::Route {
+            Board::Route {
+                route, headsign, ..
+            } => db::Narrow::Route {
                 route_ids: &route.route_ids,
-                headsign: &dir.headsign,
+                headsign,
             },
             Board::Stop { .. } => db::Narrow::Everything,
         }
@@ -226,11 +275,11 @@ impl Screen {
         }
     }
 
-    pub(super) fn stops(mode: Mode, route: Route, dir: Direction) -> Self {
+    pub(super) fn stops(mode: Mode, route: Route, headsign: String) -> Self {
         Screen::Stops {
             mode,
             route,
-            dir,
+            headsign,
             filter: String::new(),
         }
     }

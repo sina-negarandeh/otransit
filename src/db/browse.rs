@@ -40,11 +40,63 @@ pub fn routes_for_type(
                     .split('\x1f')
                     .map(std::string::ToString::to_string)
                     .collect(),
+                route_type,
             })
         })?
         .collect::<std::result::Result<_, _>>()?;
     out.sort_by_key(|r| natural_key(&r.short_name));
     Ok(out)
+}
+
+/// The routes running today under these short names, whatever their mode.
+///
+/// The sibling of `stops_by_id`, and there for the same caller: a pin stores a
+/// route's short name, and the name has to be resolved against the current
+/// export because `update` replaces the database wholesale.
+///
+/// Grouped by short name *and* route type. Grouping by name alone would merge
+/// a bus and a rail line that shared one into a single row with both sets of
+/// route_ids, which is a wrong answer rather than an ambiguous one. Two rows
+/// come back instead, and the caller decides what to do about it.
+pub fn routes_by_short_name(
+    conn: &Connection,
+    names: &[String],
+    services: &[String],
+) -> Result<Vec<Route>> {
+    if names.is_empty() || services.is_empty() {
+        return Ok(vec![]);
+    }
+    let sql = format!(
+        "SELECT r.short_name, r.route_type,
+                MIN(r.long_name), MIN(r.color),
+                GROUP_CONCAT(r.route_id, '\x1f')
+           FROM routes r
+          WHERE r.short_name IN ({})
+            AND EXISTS (SELECT 1 FROM trips t
+                         WHERE t.route_id = r.route_id
+                           AND t.service_id IN ({}))
+          GROUP BY r.short_name, r.route_type",
+        placeholders(names.len()),
+        placeholders(services.len())
+    );
+    let mut st = conn.prepare(&sql)?;
+    let mut args: Vec<String> = names.to_vec();
+    args.extend(services.iter().cloned());
+    Ok(st
+        .query_map(params_from_iter(args.iter()), |r| {
+            Ok(Route {
+                short_name: r.get(0)?,
+                route_type: r.get(1)?,
+                long_name: r.get(2)?,
+                color: r.get(3)?,
+                route_ids: r
+                    .get::<_, String>(4)?
+                    .split('\x1f')
+                    .map(std::string::ToString::to_string)
+                    .collect(),
+            })
+        })?
+        .collect::<std::result::Result<_, _>>()?)
 }
 
 /// Level 2: the distinct headsigns for a route, most-used first.
