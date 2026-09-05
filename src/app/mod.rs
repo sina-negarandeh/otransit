@@ -141,10 +141,15 @@ impl App {
         let yday_date = today_date.pred_opt().unwrap_or(today_date);
         let today = db::active_services(&conn, today_date)?;
         let yesterday = db::active_services(&conn, yday_date)?;
-        let count = |m: Mode| db::routes_for_type(&conn, m.route_type(), &today).map(|r| r.len());
-        let n_bus = count(Mode::Bus)?;
-        let n_rail = count(Mode::Train)?;
-        let pins = crate::pins::Pins::open(pins_path, &conn, crate::ui::MAX_PINS)?;
+        // Kept rather than counted, because the pins need them too: a pin
+        // naming a route resolves against what is running today, and this is
+        // already that query.
+        let routes = [Mode::Bus, Mode::Train]
+            .map(|m| db::routes_for_type(&conn, m.route_type(), &today).map(|r| (m, r)));
+        let [bus, rail] = routes;
+        let (bus, rail) = (bus?, rail?);
+        let (n_bus, n_rail) = (bus.1.len(), rail.1.len());
+        let pins = crate::pins::Pins::open(pins_path, &conn, crate::ui::MAX_PINS, &[bus, rail])?;
 
         let mut state = ListState::default();
         state.select(Some(0));
@@ -175,23 +180,29 @@ impl App {
         let rows: Vec<Row> = match screen {
             Screen::Mode => {
                 // Above the modes, so the cursor lands on the answer rather
-                // than on the first question. Pins whose stop is no longer in
-                // the cache are left out: a row that cannot be opened is worse
+                // than on the first question. Pins the cache can no longer
+                // resolve are left out: a row that cannot be opened is worse
                 // than no row, and the stored line survives to come back with
-                // the stop.
+                // the stop or the route.
                 let mut rows = Vec::new();
-                for stop in self.pins.live().to_vec() {
+                for board in self.pins.live().to_vec() {
                     // One row each, so the answer is on screen before anything
                     // is pressed. Six of these measure ~12ms against the real
                     // cache, which is what makes showing them affordable at all.
+                    //
+                    // The board says which departures are its own. A pin made
+                    // by drilling shows that route in that direction, because
+                    // two routes to one terminus are not two routes to one
+                    // place; a pin made from a search shows everything calling
+                    // here, because you never said where you were going.
                     let upcoming = db::departures(
                         &self.conn,
-                        &stop.stop_id,
-                        db::Narrow::Everything,
+                        &board.stop().stop_id,
+                        board.narrow(),
                         &self.service_day(),
                         crate::ui::PIN_FETCH,
                     )?;
-                    rows.push(Row::Pin(Pinned { stop, upcoming }));
+                    rows.push(Row::Pin(Pinned { board, upcoming }));
                 }
                 rows.extend([
                     Row::Mode(Mode::Bus, self.n_bus),
@@ -392,7 +403,7 @@ impl App {
             Row::Hit(hit) => self.goto(Screen::Departures(Board::Stop { stop: hit.into() }))?,
             // A pin is the same destination as a search result, reached
             // without the search.
-            Row::Pin(p) => self.goto(Screen::Departures(Board::Stop { stop: p.stop }))?,
+            Row::Pin(p) => self.goto(Screen::Departures(p.board))?,
             Row::Mode(mode, _) => self.goto(Screen::routes(mode))?,
             Row::Route(route) => {
                 let Some(mode) = self.screen.mode() else {
@@ -470,7 +481,7 @@ impl App {
 
     /// Whether the board on screen is pinned. `None` when this is not a board.
     pub fn board_pin(&self) -> Option<crate::pins::PinState> {
-        Some(self.pins.state(&self.screen.board()?.stop().stop_id))
+        Some(self.pins.state(self.screen.board()?))
     }
 
     /// Pin the stop on screen, or unpin it if it is already pinned.
@@ -485,11 +496,10 @@ impl App {
     /// pinned so that is visible at the moment of pressing.
     pub fn toggle_pin(&mut self) {
         // Taken once, so there is no invariant to assert between two lookups.
-        let Some(board) = self.screen.board() else {
+        let Some(board) = self.screen.board().cloned() else {
             return;
         };
-        let stop = board.stop().clone();
-        self.pins.toggle(&stop);
+        self.pins.toggle(&board);
     }
 
     /// Re-read the wall clock, so a board left open keeps counting down.
@@ -653,7 +663,7 @@ impl App {
                     for d in &mut p.upcoming {
                         d.canceled = rt.is_canceled(&d.trip_id);
                         d.live = rt
-                            .arrival(&d.trip_id, &p.stop.stop_id)
+                            .arrival(&d.trip_id, &p.board.stop().stop_id)
                             .and_then(|e| epoch_to_service_secs(e, date));
                     }
                     // Same reason as the board: without this the pin shows the

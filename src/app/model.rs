@@ -34,7 +34,8 @@ pub enum Row {
 /// reads the front of it.
 #[derive(Clone, Debug)]
 pub struct Pinned {
-    pub stop: StopRow,
+    /// The board this pin was made from, rebuilt against today's cache.
+    pub board: Board,
     pub upcoming: Vec<crate::db::Departure>,
 }
 
@@ -53,7 +54,7 @@ impl Row {
             Row::Route(r) => r.short_name.clone(),
             Row::Direction(d) => format!("toward {}", d.headsign),
             Row::Stop(s) => tidy_stop_name(&s.name),
-            Row::Pin(p) => tidy_stop_name(&p.stop.name),
+            Row::Pin(p) => tidy_stop_name(&p.board.stop().name),
             Row::Hit(h) => crate::db::strip_platform(&h.name, &h.platform),
         }
     }
@@ -66,7 +67,7 @@ impl Row {
             Row::Route(r) => r.long_name.clone(),
             Row::Direction(d) => format!("{} trips today", d.trips),
             Row::Stop(s) => format!("#{}", s.code),
-            Row::Pin(p) => format!("#{}", p.stop.code),
+            Row::Pin(p) => format!("#{}", p.board.stop().code),
             Row::Hit(h) => h.routes.join(", "),
         }
     }
@@ -83,7 +84,7 @@ impl Row {
             Row::Route(r) => hit(&r.short_name) || hit(&r.long_name),
             Row::Direction(d) => hit(&d.headsign),
             Row::Stop(s) => hit(&s.name) || hit(&s.code),
-            Row::Pin(p) => hit(&p.stop.name) || hit(&p.stop.code),
+            Row::Pin(p) => hit(&p.board.stop().name) || hit(&p.board.stop().code),
             Row::Mode(..) | Row::Hit(_) => true,
         }
     }

@@ -185,12 +185,16 @@ impl Cols {
 fn pin_line(p: &crate::app::Pinned, c: &PinCols, now: i32) -> Line<'static> {
     let mut spans = vec![
         Span::styled(
-            format!("{:<w$}", truncate(&tidy(&p.stop.name), c.name), w = c.name),
+            format!(
+                "{:<w$}",
+                truncate(&tidy(&p.board.stop().name), c.name),
+                w = c.name
+            ),
             Style::default().fg(FG),
         ),
         Span::raw(" "),
         Span::styled(
-            format!("{:<w$}", format!("#{}", p.stop.code), w = POLE_W),
+            format!("{:<w$}", format!("#{}", p.board.stop().code), w = POLE_W),
             Style::default().fg(RULE),
         ),
     ];
