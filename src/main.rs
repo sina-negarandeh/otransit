@@ -2,6 +2,7 @@ mod alerts;
 mod app;
 mod db;
 mod dev;
+mod feeds;
 mod fetch;
 mod gtfs;
 mod logo;
@@ -10,6 +11,7 @@ mod rt;
 #[cfg(test)]
 mod testing;
 mod ui;
+mod weather;
 
 use anyhow::{Result, bail};
 use app::App;
@@ -105,8 +107,11 @@ fn main() -> Result<()> {
         Some("logo") => {
             let w = crossterm::terminal::size().map(|(w, _)| w).unwrap_or(80);
             match arg(2) {
-                Some("test") => logo::selftest(),
-                _ => logo::print(w),
+                Some("test") => {
+                    logo::selftest();
+                    ui::print_symbols();
+                }
+                _ => logo::print_alone(w),
             }
         }
         Some("-h" | "--help") => print!("{USAGE}"),

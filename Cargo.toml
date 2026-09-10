@@ -26,6 +26,9 @@ ureq = "2"
 zip = "2"
 
 [dev-dependencies]
+# Only the glyph-width test uses this. ratatui consults the same table when it
+# lays out a cell, and a double-width glyph would silently break alignment.
+unicode-width = "0.2"
 # Ingest reads real files, so its tests need a real directory to read from.
 tempfile = "3"
 # The terminal integration test drives the real binary through a pty: that is

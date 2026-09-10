@@ -1,6 +1,10 @@
 //! Startup mark: the circle-on-a-pole you look for at an O-Train entrance,
 //! with the name set beside it.
 //!
+//! The rule the pole stands on is not drawn here. It is the top edge of the
+//! viewport, so it repaints, carries the weather, and stays on screen after
+//! the mark itself has scrolled away.
+//!
 //! Cells are painted as *background colour on a space*, never as block glyphs.
 //! SF Mono's U+2588 doesn't fill the cell and it has no shade characters at
 //! all, so macOS falls back to a font with different metrics and the art
@@ -23,8 +27,6 @@ type Rgb = (u8, u8, u8);
 const RED: Rgb = (0xDA, 0x38, 0x39);
 const POLE: Rgb = (0x6d, 0x6e, 0x70);
 const MUTED: Rgb = (0x6d, 0x6e, 0x70);
-/// The ground the pole stands on: the same rule that sits above the status
-/// bar, taken from there rather than restated, so the two cannot drift apart.
 const GROUND: Rgb = crate::ui::RULE_RGB;
 const NAME: &str = "otransit";
 const TAGLINE: &str = "OC Transpo schedules in your terminal";
@@ -112,31 +114,47 @@ pub fn selftest() {
     );
 
     println!("\n  E · a ring, painted (what the big logo uses)");
-    print(200);
+    print_alone(200);
+
     println!("  If B has lines through it, your terminal's line height is above");
     println!("  1.0. Block art cannot be solid until that is 1.0.");
     println!("  If C is broken but B is fine, it is the font's block glyph.\n");
 }
 
-/// The ground line the pole stands on, full width.
+/// The circle-and-pole mark, for the banner above the viewport.
 ///
-/// A pylon needs something to stand on, and the app that opens below gets a
-/// top edge to match the rule above its status bar — the pair bracket it
-/// without enclosing it. Nothing separates it from the app: the line is the
-/// separator, and a blank row under it would break the bracket.
+/// No rule: the viewport's top edge is what the pole stands on, and it draws
+/// itself directly under this.
+pub fn print(term_width: u16) {
+    print!("{}", render(term_width));
+}
+
+/// The mark with nothing after it, so it draws the rule itself.
 ///
-/// Costs one line of scrollback, printed once: it is not part of the viewport,
-/// so it takes no rows away from the board.
+/// `otransit logo` and the self-test open no viewport, so nothing else will
+/// draw the line. Without this the pylon ends in mid-air, which is the whole
+/// design failing quietly on the one command whose only job is to show it.
+pub fn print_alone(term_width: u16) {
+    print!("{}", render_alone(term_width));
+}
+
+/// The mark and its rule, as they will appear. Separate from `print_alone` for
+/// the same reason `render` is separate from `print`: this goes to stdout, so
+/// nothing else can see it.
+fn render_alone(term_width: u16) -> String {
+    format!("{}{}", render(term_width), ground(term_width))
+}
+
+/// The rule the pole stands on, full width.
+///
+/// The same colour as the two rules the app draws, taken from there rather
+/// than restated: a mark that stood on a different grey would not look like it
+/// was standing on the app.
 fn ground(width: u16) -> String {
     if width == 0 {
         return String::new();
     }
     format!("{}{}\x1b[0m\n", fg(GROUND), "─".repeat(width as usize))
-}
-
-/// The circle-and-pole mark. Falls back to one line on narrow terminals.
-pub fn print(term_width: u16) {
-    print!("{}", render(term_width));
 }
 
 /// The mark as it will appear, escapes and all.
@@ -151,10 +169,9 @@ fn render(term_width: u16) -> String {
 
     if (term_width as usize) < needed {
         return format!(
-            "\n{}\x1b[1m{NAME}\x1b[0m  {}{TAGLINE_SHORT}\x1b[0m\n{}",
+            "\n{}\x1b[1m{NAME}\x1b[0m  {}{TAGLINE_SHORT}\x1b[0m\n",
             fg(RED),
-            fg(MUTED),
-            ground(term_width)
+            fg(MUTED)
         );
     }
 
@@ -191,7 +208,6 @@ fn render(term_width: u16) -> String {
         out.push_str(&line);
         out.push('\n');
     }
-    out.push_str(&ground(term_width));
     out
 }
 
@@ -200,56 +216,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_pole_touches_the_ground_line_with_nothing_between() {
-        // The point of the line is that the pylon stands on it. Both other
-        // tests pass with a blank row inserted between the two, so without
-        // this one the feature's whole premise is unasserted.
-        // Checked on the raw string: the ring is background colour painted on
+    fn the_mark_on_its_own_draws_the_rule_it_stands_on() {
+        // `otransit logo` and the self-test open no viewport, so nothing else
+        // will draw the line. Moving the rule into the viewport once left this
+        // command showing a pylon standing on nothing, which is the whole
+        // design failing on the one command whose only job is to show it.
+        for width in [40u16, 200] {
+            let out = render_alone(width);
+            let rule = format!("{}\x1b[0m\n", "─".repeat(width as usize));
+            assert!(
+                out.ends_with(&rule),
+                "width {width}: the mark does not end on its rule"
+            );
+            // And the banner form must not, or the viewport would draw a second.
+            assert!(
+                !render(width).ends_with(&rule),
+                "width {width}: the banner drew a rule the viewport also draws"
+            );
+        }
+    }
+
+    #[test]
+    fn the_mark_ends_flush_so_the_app_opens_against_it() {
+        // The pole still stands on a rule, but the rule is the viewport's top
+        // edge now, and the viewport opens at the cursor. So the half the mark
+        // still owns is this one: end on a painted row, because a blank row
+        // here would put a gap under the pylon and break the bracket.
+        //
+        // Checked on the raw string. The ring is background colour painted on
         // spaces, so a view with the escapes stripped cannot tell a mark row
-        // from a blank one.
-        for width in [40u16, 200] {
-            let out = render(width);
-            let starts_the_rule = format!("\n{}", fg(GROUND));
-            assert!(
-                out.contains(&starts_the_rule),
-                "width {width}: no ground line at the start of a row"
-            );
-            assert!(
-                !out.contains(&format!("\n{starts_the_rule}")),
-                "width {width}: a blank row sits between the mark and its ground line"
-            );
-        }
-    }
-
-    #[test]
-    fn the_app_opens_directly_against_the_ground_line() {
-        // The inline viewport opens at the cursor. The ground line is the
-        // separator, so a blank row under it would put a gap between the mark
-        // and the app and break the bracket the two rules make.
-        for width in [40u16, 200] {
+        // from an empty one.
+        for width in [40u16, 70, 200] {
             let out = render(width);
             assert!(
-                out.ends_with("─\x1b[0m\n"),
-                "width {width}: something sits between the ground line and the app"
-            );
-        }
-    }
-
-    #[test]
-    fn the_pole_stands_on_a_ground_line_the_width_of_the_terminal() {
-        // The app's own rule sits above its status bar at the same width, so
-        // the two bracket it. A ground line of the wrong width breaks that,
-        // and a missing one leaves the pylon floating.
-        for width in [40u16, 70, 100] {
-            let rule = "─".repeat(width as usize);
-            let out = render(width);
-            assert!(
-                out.contains(&rule),
-                "width {width}: no ground line the width of the terminal"
+                out.ends_with('\n'),
+                "width {width}: nothing to open against"
             );
             assert!(
-                !out.contains(&format!("{rule}─")),
-                "width {width}: the ground line overruns the terminal"
+                !out.ends_with("\n\n"),
+                "width {width}: a blank row sits between the mark and the app"
             );
         }
     }

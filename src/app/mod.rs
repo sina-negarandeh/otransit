@@ -85,16 +85,9 @@ pub struct App {
     /// other move through `goto` clears it, because every other move is one
     /// step and its parent is where it came from.
     returning_to: Option<Screen>,
-    /// Published detours, filled in by a background thread.
-    ///
-    /// Shared the way realtime is, and for the same reason: the browser must
-    /// not wait on a third network call to draw its first screen.
-    ///
-    /// `None` while the fetch is still out, exactly as `RtState::Loading`
-    /// means "not yet". A feed that publishes nothing route-tagged is a real
-    /// answer and has to be distinguishable from one that has not arrived, or
-    /// anything waiting on it waits out its whole timeout on a quiet week.
-    alerts: Arc<Mutex<Option<crate::alerts::Alerts>>>,
+    /// The two feeds fetched once at launch. Their own module, because
+    /// neither is about the drill-down this one is named for.
+    feeds: crate::feeds::Feeds,
 }
 
 impl App {
@@ -110,7 +103,7 @@ impl App {
             today,
             now_secs(today),
             pins,
-            spawn_alerts(),
+            crate::feeds::Feeds::start(),
         )
     }
 
@@ -136,7 +129,7 @@ impl App {
             today,
             now,
             pins,
-            Arc::new(Mutex::new(Some(crate::alerts::Alerts::default()))),
+            crate::feeds::Feeds::none(),
         )
     }
 
@@ -146,7 +139,7 @@ impl App {
         today_date: NaiveDate,
         now: i32,
         pins_path: Option<std::path::PathBuf>,
-        alerts: Arc<Mutex<Option<crate::alerts::Alerts>>>,
+        feeds: crate::feeds::Feeds,
     ) -> Result<Self> {
         let yday_date = today_date.pred_opt().unwrap_or(today_date);
         let today = db::active_services(&conn, today_date)?;
@@ -173,7 +166,7 @@ impl App {
             n_rail,
             pins,
             returning_to: None,
-            alerts,
+            feeds,
         };
         app.contents = app.load(&Screen::Mode)?;
         Ok(app)
@@ -460,9 +453,7 @@ impl App {
     /// The lock is held only long enough to copy the headline: this is asked
     /// once a frame while a background thread may be replacing the list.
     pub fn route_alert(&self) -> Option<String> {
-        let route = self.screen.route()?;
-        let guard = self.alerts.lock().ok()?;
-        Some(guard.as_ref()?.for_route(&route.short_name)?.title.clone())
+        self.feeds.alert(&self.screen.route()?.short_name)
     }
 
     /// Wait for the alerts fetch to settle, or `secs` to pass.
@@ -472,16 +463,39 @@ impl App {
     /// the full timeout on both. Only the headless tools wait at all; the
     /// browser draws without them and picks them up on a later frame.
     pub fn block_on_alerts(&self, secs: u64) {
-        block_until(secs, || self.alerts.lock().is_ok_and(|g| g.is_some()));
+        block_until(secs, || self.feeds.alerts_settled());
     }
 
     /// How many alerts landed, for `probe`. A feed that quietly stops naming
     /// routes reads as "no detours anywhere", which is worth being able to see.
     pub fn alert_count(&self) -> usize {
-        self.alerts
-            .lock()
-            .map(|g| g.as_ref().map_or(0, crate::alerts::Alerts::len))
-            .unwrap_or(0)
+        self.feeds.alert_count()
+    }
+
+    /// The one line of weather, if it has landed.
+    ///
+    /// The lock is held only long enough to build the label: this is asked once
+    /// a frame while a background thread may be filling the slot.
+    pub fn weather(&self) -> Option<String> {
+        self.feeds.weather()
+    }
+
+    /// Wait for every background fetch to settle, or `secs` to pass.
+    ///
+    /// One deadline for all three, because all three are already in flight.
+    /// Waiting on them one after another turned three timeouts into their sum:
+    /// an offline screenshot spent forty-two seconds before it drew a frame.
+    pub fn block_on_feeds(&self, secs: u64) {
+        block_until(secs, || {
+            self.rt.lock().is_ok_and(|g| g.settled()) && self.feeds.settled()
+        });
+    }
+
+    /// Put weather on screen without a network call. `App::offline` never
+    /// fetches, so this is the only way a test reaches the rule that draws it.
+    #[cfg(test)]
+    pub(crate) fn set_weather(&mut self, w: crate::weather::Weather) {
+        self.feeds.set_weather(w);
     }
 
     /// Put alerts on screen without a network call.
@@ -491,10 +505,7 @@ impl App {
     /// XML so a caller can build one stop-gap alert without a fixture.
     #[cfg(test)]
     pub(crate) fn set_alerts(&mut self, alerts: crate::alerts::Alerts) {
-        *self
-            .alerts
-            .lock()
-            .expect("no other thread holds this in a test") = Some(alerts);
+        self.feeds.set_alerts(alerts);
     }
 
     /// Whether the board on screen is pinned. `None` when this is not a board.
@@ -714,11 +725,7 @@ impl App {
     /// Block until the background fetch settles, or `secs` elapse.
     /// Only used by the headless tools; the TUI never waits.
     pub fn block_on_realtime(&self, secs: u64) {
-        block_until(secs, || {
-            self.rt
-                .lock()
-                .is_ok_and(|g| !matches!(*g, RtState::Loading))
-        });
+        block_until(secs, || self.rt.lock().is_ok_and(|g| g.settled()));
     }
 
     /// A one-line note about the feed, for the status bar.
@@ -774,25 +781,6 @@ fn block_until(secs: u64, settled: impl Fn() -> bool) {
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
-}
-
-/// Fetch the published detours in the background.
-///
-/// Started at launch and never repeated: a detour lasts days and a browser
-/// session lasts a minute. Failure settles on an empty list, which reads as
-/// "no alerts" — the honest answer when the feed could not be reached, since
-/// an alert you cannot download is one you cannot act on. It settles either
-/// way, so that anything waiting knows the attempt is over.
-fn spawn_alerts() -> Arc<Mutex<Option<crate::alerts::Alerts>>> {
-    let slot: Arc<Mutex<Option<crate::alerts::Alerts>>> = Arc::default();
-    let fill = Arc::clone(&slot);
-    std::thread::spawn(move || {
-        let found = crate::alerts::fetch().unwrap_or_default();
-        if let Ok(mut g) = fill.lock() {
-            *g = Some(found);
-        }
-    });
-    slot
 }
 
 /// Station names repeat the direction we already picked:

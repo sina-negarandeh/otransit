@@ -30,8 +30,14 @@ use ratatui::{
 /// can tolerate.
 const MAX_ROWS: u16 = 8;
 
-/// Tallest the inline viewport ever needs to be: options + rule + status bar.
-pub const VIEWPORT_H: u16 = MAX_ROWS + 2;
+/// Tallest the inline viewport ever needs to be: two rules, the options
+/// between them, and the status bar.
+///
+/// The top rule is the one the logo's pole stands on. It used to be printed
+/// with the logo, into scrollback, where it could not be repainted and scrolled
+/// away after two screens. Drawn here it brackets the app on every screen and
+/// has somewhere to put the weather, at the cost of one terminal row.
+pub const VIEWPORT_H: u16 = MAX_ROWS + 3;
 
 /// How many rows this screen wants. `draw` computes the row list itself and
 /// calls `height_for` directly; this exists so tests can ask the question
@@ -59,7 +65,7 @@ fn rows_for(items: usize) -> u16 {
 /// otherwise ask for the height and subtract the chrome back off, leaving the
 /// same 2 written twice with opposite signs and nothing tying them together.
 fn height_for(rows: usize) -> u16 {
-    rows_for(rows) + 2 // rule + status
+    rows_for(rows) + 3 // two rules + status
 }
 
 /// Two groups with the space between them: one against the top of `area`, one
@@ -146,14 +152,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         height_for(count).min(area.height)
     };
 
-    // Everything hugs the bottom; the space above is left to scrollback.
-    let [_, panel] = Layout::vertical([Constraint::Min(0), Constraint::Length(want)]).areas(area);
-    let [body, rule, status] = Layout::vertical([
-        Constraint::Min(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
-    ])
-    .areas(panel);
+    let Panel {
+        ground,
+        body,
+        rule,
+        status,
+    } = panel(area, want);
 
     // The message takes the top of the body and the list keeps the bottom,
     // where it sits on every other screen. Only the message moves.
@@ -174,14 +178,67 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(pins) => menu(f, body, app, &rows, pins),
         None => list(f, body, app, &rows),
     }
-    f.render_widget(
-        Paragraph::new(Span::styled(
-            "─".repeat(rule.width as usize),
-            Style::default().fg(RULE),
-        )),
-        rule,
-    );
+    // The top one carries the weather, held against its right end. The left is
+    // where every row's content starts, so the ambient column is the right --
+    // the same side the status bar keeps its key hints on.
+    rule_line(f, ground, app.weather().as_deref());
+    rule_line(f, rule, None);
     status_bar(f, status, app, &rows);
+}
+
+/// The four bands every screen draws into, top to bottom.
+struct Panel {
+    /// The rule the logo's pole stands on, and where the weather sits.
+    ground: Rect,
+    body: Rect,
+    rule: Rect,
+    status: Rect,
+}
+
+/// Split the viewport into them.
+///
+/// The top rule belongs to the frame, not to the panel: it is what the logo's
+/// pole stands on, so it stays at the top of the viewport however few rows the
+/// screen below it needs. Inside it, everything still hugs the bottom and the
+/// space above is left to scrollback.
+fn panel(area: Rect, want: u16) -> Panel {
+    let [ground, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
+    let [_, filled] = Layout::vertical([
+        Constraint::Min(0),
+        Constraint::Length(want.saturating_sub(1)),
+    ])
+    .areas(rest);
+    let [body, rule, status] = Layout::vertical([
+        Constraint::Min(1),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .areas(filled);
+    Panel {
+        ground,
+        body,
+        rule,
+        status,
+    }
+}
+
+/// A full-width rule, with an optional note held against its right end.
+///
+/// One function for both rules, so the pair that brackets the app cannot drift
+/// apart. The note is dropped rather than truncated when it will not fit: half
+/// a temperature is worse than none, and the rule then looks exactly as it did
+/// before there was anything to say.
+fn rule_line(f: &mut Frame, area: Rect, note: Option<&str>) {
+    let width = area.width as usize;
+    let note = note.filter(|n| n.chars().count() + 2 <= width);
+    let fill = width - note.map_or(0, |n| n.chars().count() + 1);
+    let mut spans = vec![Span::styled("─".repeat(fill), Style::default().fg(RULE))];
+    if let Some(n) = note {
+        // Brighter than the rule it sits on: the line should recede and the
+        // reading should not.
+        spans.push(Span::styled(format!(" {n}"), Style::default().fg(DIM)));
+    }
+    f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 /// The question, the whole trail of choices, and the key hints — one line,
@@ -528,3 +585,47 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
 
 #[cfg(test)]
 mod tests;
+
+/// Print every symbol the app draws, each between two rails.
+///
+/// Not a logo test: the mark is one ring, and everything below belongs to the
+/// screens this module renders. It lived beside the block-art self-test for a
+/// while, which made `logo.rs` import the weather module for the sake of a
+/// diagnostic — a dependency with no idea behind it.
+///
+/// The rails are the point. Every glyph here must occupy one cell, because
+/// `truncate` and `rule_line` both measure in `chars`; one that is two cells
+/// wide shifts everything after it and nothing else would say so.
+pub fn print_symbols() {
+    let row = |g: char, what: &str| println!("      |{g}|  {what}");
+    println!("  F · every symbol the app draws, each between two rails.");
+    println!("      The right rail should line up down the column. One that");
+    println!("      sits a column further out is two cells wide, and would");
+    println!("      push everything after it out of alignment.\n");
+    for (glyph, means) in crate::weather::legend() {
+        row(glyph, &format!("weather: {means}"));
+    }
+    for (glyph, what) in [
+        ('\u{26A0}', "a detour on the route you picked"),
+        ('\u{276F}', "the cursor"),
+        ('\u{2502}', "the gutter, in the route's colour"),
+        ('\u{2500}', "the two rules"),
+        ('\u{203A}', "the trail of choices"),
+        ('\u{00B7}', "the separator"),
+        ('\u{2026}', "a label that had to be shortened"),
+        ('\u{2014}', "a cancelled bus, where its countdown would be"),
+        ('\u{00B0}', "degrees"),
+        ('\u{2191}', "up"),
+        ('\u{2193}', "down"),
+        ('\u{21B5}', "select"),
+    ] {
+        row(glyph, what);
+    }
+    println!("\n      These two are known to be two cells wide, and are");
+    println!("      deliberately unused. They are here as a control: if they");
+    println!("      line up with the rest, your terminal is not measuring");
+    println!("      width the way this test assumes.");
+    row('\u{26C5}', "sun behind cloud (unused)");
+    row('\u{26A1}', "lightning (unused)");
+    println!();
+}

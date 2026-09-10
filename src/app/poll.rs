@@ -13,6 +13,17 @@ pub enum RtState {
     Failed(String),
 }
 
+impl RtState {
+    /// Whether the first fetch is over, however it went.
+    ///
+    /// Named here rather than pattern-matched at the call site, so that the
+    /// three feeds a caller can wait on all answer the same question the same
+    /// way. `Off` counts as settled: no key means nothing is coming.
+    pub fn settled(&self) -> bool {
+        !matches!(self, RtState::Loading)
+    }
+}
+
 /// Start the background fetch, or report that there is no key to fetch with.
 ///
 /// The thread owns everything it touches, which is what `'static` on `spawn`
