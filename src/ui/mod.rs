@@ -585,3 +585,47 @@ fn departures(f: &mut Frame, area: Rect, app: &App) {
 
 #[cfg(test)]
 mod tests;
+
+/// Print every symbol the app draws, each between two rails.
+///
+/// Not a logo test: the mark is one ring, and everything below belongs to the
+/// screens this module renders. It lived beside the block-art self-test for a
+/// while, which made `logo.rs` import the weather module for the sake of a
+/// diagnostic — a dependency with no idea behind it.
+///
+/// The rails are the point. Every glyph here must occupy one cell, because
+/// `truncate` and `rule_line` both measure in `chars`; one that is two cells
+/// wide shifts everything after it and nothing else would say so.
+pub fn print_symbols() {
+    let row = |g: char, what: &str| println!("      |{g}|  {what}");
+    println!("  F · every symbol the app draws, each between two rails.");
+    println!("      The right rail should line up down the column. One that");
+    println!("      sits a column further out is two cells wide, and would");
+    println!("      push everything after it out of alignment.\n");
+    for (glyph, means) in crate::weather::legend() {
+        row(glyph, &format!("weather: {means}"));
+    }
+    for (glyph, what) in [
+        ('\u{26A0}', "a detour on the route you picked"),
+        ('\u{276F}', "the cursor"),
+        ('\u{2502}', "the gutter, in the route's colour"),
+        ('\u{2500}', "the two rules"),
+        ('\u{203A}', "the trail of choices"),
+        ('\u{00B7}', "the separator"),
+        ('\u{2026}', "a label that had to be shortened"),
+        ('\u{2014}', "a cancelled bus, where its countdown would be"),
+        ('\u{00B0}', "degrees"),
+        ('\u{2191}', "up"),
+        ('\u{2193}', "down"),
+        ('\u{21B5}', "select"),
+    ] {
+        row(glyph, what);
+    }
+    println!("\n      These two are known to be two cells wide, and are");
+    println!("      deliberately unused. They are here as a control: if they");
+    println!("      line up with the rest, your terminal is not measuring");
+    println!("      width the way this test assumes.");
+    row('\u{26C5}', "sun behind cloud (unused)");
+    row('\u{26A1}', "lightning (unused)");
+    println!();
+}

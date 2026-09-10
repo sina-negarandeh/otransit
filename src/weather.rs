@@ -123,6 +123,17 @@ impl Sky {
             Sky::Haze => '≈',
         }
     }
+
+    /// What it stands for, for the terminal self-test.
+    fn means(self) -> &'static str {
+        match self {
+            Sky::Clear => "sunny, clear",
+            Sky::Cloud => "cloud",
+            Sky::Rain => "rain, drizzle, showers",
+            Sky::Snow => "snow",
+            Sky::Haze => "fog, mist, smoke",
+        }
+    }
 }
 
 /// A code this does not know draws nothing rather than a placeholder. The
@@ -143,6 +154,22 @@ fn sky(icon: i64) -> Option<Sky> {
         20 | 23 | 24 | 44 => Sky::Haze,
         _ => return None,
     })
+}
+
+/// Every glyph this can draw, each with what it stands for.
+///
+/// Collected by asking `sky` over the codes rather than listed beside it, so
+/// the terminal self-test cannot show a set the parser would not produce.
+pub(crate) fn legend() -> Vec<(char, &'static str)> {
+    let mut seen: Vec<Sky> = Vec::new();
+    for code in 0..50 {
+        if let Some(s) = sky(code)
+            && !seen.contains(&s)
+        {
+            seen.push(s);
+        }
+    }
+    seen.into_iter().map(|s| (s.glyph(), s.means())).collect()
 }
 
 /// Fetch and read. Failure is not worth surfacing: weather you could not
@@ -236,6 +263,13 @@ mod tests {
             "invented a picture for a code it cannot read"
         );
         assert_eq!(w.label(), "ice crystals · -30°");
+    }
+
+    #[test]
+    fn the_legend_covers_every_sky_the_parser_can_return() {
+        // The self-test prints this. A `Sky` the codes can produce but the
+        // legend omits would be a symbol on screen with no entry explaining it.
+        assert_eq!(legend().len(), 5, "the legend changed: {:?}", legend());
     }
 
     #[test]
