@@ -30,8 +30,14 @@ use ratatui::{
 /// can tolerate.
 const MAX_ROWS: u16 = 8;
 
-/// Tallest the inline viewport ever needs to be: options + rule + status bar.
-pub const VIEWPORT_H: u16 = MAX_ROWS + 2;
+/// Tallest the inline viewport ever needs to be: two rules, the options
+/// between them, and the status bar.
+///
+/// The top rule is the one the logo's pole stands on. It used to be printed
+/// with the logo, into scrollback, where it could not be repainted and scrolled
+/// away after two screens. Drawn here it brackets the app on every screen and
+/// has somewhere to put the weather, at the cost of one terminal row.
+pub const VIEWPORT_H: u16 = MAX_ROWS + 3;
 
 /// How many rows this screen wants. `draw` computes the row list itself and
 /// calls `height_for` directly; this exists so tests can ask the question
@@ -59,7 +65,7 @@ fn rows_for(items: usize) -> u16 {
 /// otherwise ask for the height and subtract the chrome back off, leaving the
 /// same 2 written twice with opposite signs and nothing tying them together.
 fn height_for(rows: usize) -> u16 {
-    rows_for(rows) + 2 // rule + status
+    rows_for(rows) + 3 // two rules + status
 }
 
 /// Two groups with the space between them: one against the top of `area`, one
@@ -146,14 +152,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         height_for(count).min(area.height)
     };
 
-    // Everything hugs the bottom; the space above is left to scrollback.
-    let [_, panel] = Layout::vertical([Constraint::Min(0), Constraint::Length(want)]).areas(area);
-    let [body, rule, status] = Layout::vertical([
-        Constraint::Min(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
-    ])
-    .areas(panel);
+    let Panel {
+        ground,
+        body,
+        rule,
+        status,
+    } = panel(area, want);
 
     // The message takes the top of the body and the list keeps the bottom,
     // where it sits on every other screen. Only the message moves.
@@ -174,14 +178,67 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(pins) => menu(f, body, app, &rows, pins),
         None => list(f, body, app, &rows),
     }
-    f.render_widget(
-        Paragraph::new(Span::styled(
-            "─".repeat(rule.width as usize),
-            Style::default().fg(RULE),
-        )),
-        rule,
-    );
+    // The top one carries the weather, held against its right end. The left is
+    // where every row's content starts, so the ambient column is the right --
+    // the same side the status bar keeps its key hints on.
+    rule_line(f, ground, None);
+    rule_line(f, rule, None);
     status_bar(f, status, app, &rows);
+}
+
+/// The four bands every screen draws into, top to bottom.
+struct Panel {
+    /// The rule the logo's pole stands on, and where the weather sits.
+    ground: Rect,
+    body: Rect,
+    rule: Rect,
+    status: Rect,
+}
+
+/// Split the viewport into them.
+///
+/// The top rule belongs to the frame, not to the panel: it is what the logo's
+/// pole stands on, so it stays at the top of the viewport however few rows the
+/// screen below it needs. Inside it, everything still hugs the bottom and the
+/// space above is left to scrollback.
+fn panel(area: Rect, want: u16) -> Panel {
+    let [ground, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
+    let [_, filled] = Layout::vertical([
+        Constraint::Min(0),
+        Constraint::Length(want.saturating_sub(1)),
+    ])
+    .areas(rest);
+    let [body, rule, status] = Layout::vertical([
+        Constraint::Min(1),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .areas(filled);
+    Panel {
+        ground,
+        body,
+        rule,
+        status,
+    }
+}
+
+/// A full-width rule, with an optional note held against its right end.
+///
+/// One function for both rules, so the pair that brackets the app cannot drift
+/// apart. The note is dropped rather than truncated when it will not fit: half
+/// a temperature is worse than none, and the rule then looks exactly as it did
+/// before there was anything to say.
+fn rule_line(f: &mut Frame, area: Rect, note: Option<&str>) {
+    let width = area.width as usize;
+    let note = note.filter(|n| n.chars().count() + 2 <= width);
+    let fill = width - note.map_or(0, |n| n.chars().count() + 1);
+    let mut spans = vec![Span::styled("─".repeat(fill), Style::default().fg(RULE))];
+    if let Some(n) = note {
+        // Brighter than the rule it sits on: the line should recede and the
+        // reading should not.
+        spans.push(Span::styled(format!(" {n}"), Style::default().fg(DIM)));
+    }
+    f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 /// The question, the whole trail of choices, and the key hints — one line,

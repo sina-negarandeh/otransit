@@ -255,8 +255,12 @@ fn a_detour_takes_the_top_and_leaves_the_choices_at_the_bottom() {
     let warn = shown.iter().position(|r| r.contains('⚠')).unwrap();
     let first = shown.iter().position(|r| r.contains("toward")).unwrap();
     let last = shown.iter().rposition(|r| r.contains("toward")).unwrap();
-    let rule = shown.iter().position(|r| r.starts_with('─')).unwrap();
-    assert_eq!(warn, 0, "the detour is not at the top: {shown:#?}");
+    let rule = shown.iter().rposition(|r| r.starts_with('─')).unwrap();
+    assert_eq!(
+        warn,
+        body_top(&shown),
+        "the detour is not against the top rule: {shown:#?}"
+    );
     assert_eq!(last, rule - 1, "the choices left the bottom: {shown:#?}");
     assert!(
         shown[warn + 1..first].iter().all(|r| r.trim().is_empty()),
@@ -313,6 +317,16 @@ fn app_with_a_cancelled_pin() -> (App, tempfile::TempDir) {
     *app.rt.lock().unwrap() = crate::app::RtState::Ready(crate::rt::parse(&payload).unwrap());
     app.apply_realtime();
     (app, dir)
+}
+
+/// The first row of the body: directly under the rule the logo's pole stands
+/// on, which is the top edge of the viewport rather than row zero.
+fn body_top(shown: &[String]) -> usize {
+    shown
+        .iter()
+        .position(|r| r.starts_with('─'))
+        .expect("no top rule")
+        + 1
 }
 
 /// The row a pinned stop draws, which must exist before anything is asserted
@@ -397,17 +411,23 @@ fn the_detour_is_amber_and_the_choices_below_it_are_not() {
     // wait column, so this is the only amber on them.
     let mut app = app_with_a_detour("Detour: Route 44 during Terminal Avenue bridge closure");
 
-    let rows = colours(&render(&mut app, 74, VIEWPORT_H));
-    let warn = &rows[0];
+    let buf = render(&mut app, 74, VIEWPORT_H);
+    let shown = text(&buf);
+    let y = shown
+        .iter()
+        .position(|r| r.contains('⚠'))
+        .expect("no detour row: the fixture did not load");
+    let rows = colours(&buf);
     assert!(
-        warn.iter().any(|(fg, _)| *fg == super::palette::AMBER),
+        rows[y].iter().any(|(fg, _)| *fg == super::palette::AMBER),
         "the detour is not amber"
     );
     assert!(
-        rows[1..]
-            .iter()
-            .all(|r| r.iter().all(|(fg, _)| *fg != super::palette::AMBER)),
-        "amber leaked onto the choices below"
+        rows.iter()
+            .enumerate()
+            .filter(|(i, _)| *i != y)
+            .all(|(_, r)| r.iter().all(|(fg, _)| *fg != super::palette::AMBER)),
+        "amber leaked off the detour row"
     );
 }
 
@@ -440,8 +460,12 @@ fn a_pinned_first_screen_puts_the_answers_at_the_top_and_the_ways_in_at_the_bott
     let shown = frame(&mut app, 74, VIEWPORT_H);
     let first = shown.iter().position(|r| r.contains("BANK")).unwrap();
     let modes = shown.iter().position(|r| r.contains("Bus")).unwrap();
-    let rule = shown.iter().position(|r| r.starts_with('─')).unwrap();
-    assert_eq!(first, 0, "the pin is not at the top: {shown:#?}");
+    let rule = shown.iter().rposition(|r| r.starts_with('─')).unwrap();
+    assert_eq!(
+        first,
+        body_top(&shown),
+        "the pin is not against the top rule: {shown:#?}"
+    );
     assert_eq!(modes, rule - 2, "the modes left the bottom: {shown:#?}");
     assert!(
         shown[first + 1..modes].iter().all(|r| r.trim().is_empty()),

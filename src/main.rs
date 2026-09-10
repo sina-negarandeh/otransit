@@ -106,7 +106,7 @@ fn main() -> Result<()> {
             let w = crossterm::terminal::size().map(|(w, _)| w).unwrap_or(80);
             match arg(2) {
                 Some("test") => logo::selftest(),
-                _ => logo::print(w),
+                _ => logo::print_alone(w),
             }
         }
         Some("-h" | "--help") => print!("{USAGE}"),
