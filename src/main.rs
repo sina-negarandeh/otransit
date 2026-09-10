@@ -2,6 +2,7 @@ mod alerts;
 mod app;
 mod db;
 mod dev;
+mod feeds;
 mod fetch;
 mod gtfs;
 mod logo;
@@ -10,6 +11,7 @@ mod rt;
 #[cfg(test)]
 mod testing;
 mod ui;
+mod weather;
 
 use anyhow::{Result, bail};
 use app::App;

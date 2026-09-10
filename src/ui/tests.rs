@@ -319,6 +319,59 @@ fn app_with_a_cancelled_pin() -> (App, tempfile::TempDir) {
     (app, dir)
 }
 
+fn light_rain() -> crate::weather::Weather {
+    crate::weather::Weather {
+        glyph: Some('⛆'),
+        condition: "light rain".into(),
+        temp: 21,
+    }
+}
+
+#[test]
+fn the_weather_sits_against_the_right_end_of_the_top_rule() {
+    // Left is where every row's content starts, so the ambient column is the
+    // right -- the same side the status bar keeps its key hints on.
+    let mut app = busy_app();
+    app.set_weather(light_rain());
+
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    let top = &shown[0];
+    assert!(top.starts_with('─'), "the rule lost its left end: {top:?}");
+    assert!(
+        top.ends_with("⛆ light rain · 21°"),
+        "the weather is not against the right end: {top:?}"
+    );
+    // The rule and the reading together fill the row. A `fill` one too small
+    // leaves a blank column between them, which every other assertion here
+    // would still pass.
+    assert_eq!(top.chars().count(), 74, "the rule does not span the width");
+}
+
+#[test]
+fn a_rule_with_no_weather_draws_exactly_as_it_did_before() {
+    // The fetch is a background thread, so the first frames have nothing to
+    // show. Nothing is the old appearance, not a gap where a reading goes.
+    let mut app = busy_app();
+
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    assert_eq!(
+        shown[0],
+        "─".repeat(74),
+        "an empty slot left something on the rule"
+    );
+}
+
+#[test]
+fn weather_too_wide_for_the_terminal_is_dropped_rather_than_cut() {
+    // Half a temperature is worse than none, and a rule with a stub of text on
+    // it reads as damage. The line just goes back to being a line.
+    let mut app = busy_app();
+    app.set_weather(light_rain());
+
+    let shown = frame(&mut app, 12, VIEWPORT_H);
+    assert_eq!(shown[0], "─".repeat(12), "a cut reading reached the rule");
+}
+
 /// The first row of the body: directly under the rule the logo's pole stands
 /// on, which is the top edge of the viewport rather than row zero.
 fn body_top(shown: &[String]) -> usize {

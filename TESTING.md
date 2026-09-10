@@ -102,11 +102,13 @@ holds, in the order the app moves through them:
 | `gtfs.rs` | ingest, `parse_hms`, CSV handling |
 | `fetch.rs` | 304 handling, empty bodies, feed freshness |
 | `rt.rs` | the realtime parser and its anomalies |
-| `ui/tests.rs` | the frame: sizing, the two-group screens, alignment, the cursor, a cancelled row |
+| `ui/tests.rs` | the frame: sizing, the two-group screens, alignment, the cursor, a cancelled row, the weather rule |
 | `ui/layout.rs` | badges, column widths, the gutter |
 | `ui/palette.rs` | which colours can carry a rule, and what a cancelled row shows |
-| `logo.rs` | the mark, both fallbacks, its ground line |
+| `logo.rs` | the mark, both fallbacks, that it ends flush for the app below |
+| `feeds.rs` | (no tests: two threads and two slots, all of it the shell) |
 | `pins.rs` | the pin file: round trips, odd names, a typo, an older file, an ambiguous route, the fingerprint |
+| `weather.rs` | the conditions feed: rounding, the icon codes, the fields it refuses |
 | `alerts.rs` | the updates feed: which kinds count, where routes come from, references decoded |
 | `dev.rs` | that the headless walk finds the modes rather than a fixed row |
 | `main.rs` | which keys reach the filter and which act |

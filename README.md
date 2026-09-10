@@ -147,7 +147,7 @@ list holds as many pins as fit above the modes without scrolling. It lives in a
 does not touch it.
 
 A pin remembers the board you pinned, not just the stop. Drill to a route and
-you pin that route in that direction; press `p` on a search result and you pin
+you pin that route in that direction. Press `p` on a search result and you pin
 everything calling there, because you never said where you were going. So one
 platform can hold two pins, which it needs to: at `TRANSITWAY / TERMINAL` a
 single pole is served by nine routes running to eight destinations, and 44 and
@@ -188,6 +188,31 @@ a change of shape appears as a number instead of as a quiet week.
 The detours are route-level only. The feed names stops as well, but it names
 them in prose, together with the alternate stops it tells you to use. There is
 no safe way to separate "your stop is closed" from "your stop is on the detour".
+
+### Weather
+
+The rule the logo stands on carries the current conditions, held against its
+right end:
+
+```
+──────────────────────────────────────────────── ⛆ light rain · 21°
+   UOTTAWA               #3021   1   Tunney's Pasture   3 min  sched
+```
+
+The app already knows how long you will stand outside. This is the other half
+of whether that is fine. It is one glyph, one condition and one temperature,
+not a forecast, because a forecast is a different program.
+
+It comes from Environment and Climate Change Canada's citypage collection,
+which needs no key. Two fields in it are deliberately not read. Ottawa served
+`windChill: -2` at 20.7 °C in light rain, quality-flagged as good, so a "feels
+like" drawn from that field would be a confident lie. The glyph comes from
+`iconCode` rather than from the condition text, for the same reason a detour's
+routes come from its tag: one of the two is a contract.
+
+ECCC labels the collection experimental, so it earns less trust than the three
+transit feeds and is given less to do. If the reading does not arrive, the rule
+draws plain.
 
 ### Three sources
 

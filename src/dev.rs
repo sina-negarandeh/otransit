@@ -121,8 +121,7 @@ pub struct Shot<'a> {
 
 /// Render each screen in turn and print the terminal buffer as text.
 pub fn screenshot(app: &mut App, shot: &Shot) -> Result<()> {
-    app.block_on_realtime(30);
-    app.block_on_alerts(10);
+    app.block_on_feeds(30);
     let mut term = Terminal::new(TestBackend::new(shot.w, shot.h))?;
     let mut frame = |app: &mut App, label: &str| -> Result<()> {
         // The event loop does this once a frame, so a screenshot that skipped

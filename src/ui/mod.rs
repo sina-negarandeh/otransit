@@ -181,7 +181,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // The top one carries the weather, held against its right end. The left is
     // where every row's content starts, so the ambient column is the right --
     // the same side the status bar keeps its key hints on.
-    rule_line(f, ground, None);
+    rule_line(f, ground, app.weather().as_deref());
     rule_line(f, rule, None);
     status_bar(f, status, app, &rows);
 }
