@@ -1,6 +1,6 @@
 # otransit
 
-[![CI](https://github.com/sina-negarandeh/otransit/actions/workflows/ci.yml/badge.svg)](https://github.com/sina-negarandeh/otransit/actions/workflows/ci.yml)
+[![CI](https://github.com/sina-negarandeh/otransit-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/sina-negarandeh/otransit-rust/actions/workflows/ci.yml)
 
 Live OC Transpo departures in the terminal.
 
@@ -39,7 +39,7 @@ improving my skills in Rust, TUIs, and GTFS. Also, this was fun!
 ## Install
 
 ```bash
-git clone https://github.com/sina-negarandeh/otransit && cd otransit
+git clone https://github.com/sina-negarandeh/otransit-rust && cd otransit-rust
 cargo run --release -- update
 ```
 
