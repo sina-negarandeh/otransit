@@ -13,10 +13,13 @@ timezone, on any day. That is the point. It is how you compare two builds, or
 two implementations of this app.
 
 ```bash
-otransit-rs replay conformance > rust.txt
-otransit-go replay conformance > go.txt
+otransit-rust/target/release/otransit replay conformance > rust.txt
+otransit-go/otransit replay conformance > go.txt
 diff rust.txt go.txt
 ```
+
+The repositories are named apart and the binaries are not. Each is `otransit`
+to the person running it, because that is the program's name in both.
 
 ## Three observations, compared independently
 

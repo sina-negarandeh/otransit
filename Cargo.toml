@@ -3,7 +3,7 @@ name = "otransit"
 version = "0.1.0"
 edition = "2024"
 description = "Live OC Transpo departures in the terminal"
-repository = "https://github.com/sina-negarandeh/otransit"
+repository = "https://github.com/sina-negarandeh/otransit-rust"
 # Personal project, not for crates.io. This also stops `cargo publish` working
 # by accident, and means no `license` field is expected.
 publish = false
