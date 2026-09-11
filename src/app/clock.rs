@@ -4,7 +4,149 @@
 //! `arrival_time` run past 24:00. Everything that turns those seconds into
 //! something a person reads lives here.
 
-use chrono::{DateTime, Duration, Local, NaiveDate, TimeZone};
+use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDate, TimeZone};
+
+/// Which zone a clock is read in, and with it whether the clock moves.
+///
+/// The browser uses the machine's, which is what a person standing at the stop
+/// means by "now". Anything reproducible names an offset instead: a fixture
+/// whose predictions moved with the reader's timezone would compare two
+/// implementations on where they were run rather than on what they do.
+///
+/// The two cases are the same distinction twice over, which is why they are one
+/// type. A clock on the machine's zone follows the machine's clock. A clock on a
+/// named offset is a named instant, and named instants do not move. `Clock`
+/// offers one constructor for each and nothing can build a mixture.
+///
+/// `Fixed` does not observe daylight saving, which is the point — a fixture
+/// picks an offset and gets the same seconds everywhere. `Here` keeps the
+/// changeover behaviour `service_day_start` exists for.
+#[derive(Clone, Copy, Debug)]
+enum Zone {
+    Here,
+    Fixed(FixedOffset),
+}
+
+/// The moment the app is showing, and the zone it is read in.
+///
+/// One value rather than four fields on `App`, because they move together.
+/// `now` and `epoch` are one instant in two units: the first counts from the
+/// start of the service day, to compare with `arrival_time`, and the second
+/// counts from 1970, to age a feed the agency stamped in UTC. Advancing one
+/// and leaving the other puts a stale feed age beside a fresh countdown, which
+/// is the confidently-wrong answer this app exists to avoid. Held here, a
+/// caller cannot get it half right.
+///
+/// The date and the zone belong with them because neither number means
+/// anything without both: the same epoch is a different number of seconds into
+/// a different service day, and a different zone moves where that day starts.
+#[derive(Clone, Copy, Debug)]
+pub struct Clock {
+    date: NaiveDate,
+    now: i32,
+    epoch: i64,
+    zone: Zone,
+}
+
+impl Clock {
+    /// The machine's clock, now, on `date`'s service day.
+    pub fn here(date: NaiveDate) -> Self {
+        let mut clock = Clock {
+            date,
+            now: 0,
+            epoch: 0,
+            zone: Zone::Here,
+        };
+        clock.tick();
+        clock
+    }
+
+    /// A clock stopped at `secs` into `date`, `offset` east of UTC.
+    ///
+    /// What a test and a replay are built on. Both want every frame to depend
+    /// on their inputs alone, and a clock that kept running is an input neither
+    /// of them supplied. It takes an offset rather than a `Zone` so that a held
+    /// clock on the machine's zone cannot be asked for: that combination would
+    /// tick, and would read as held.
+    pub fn held(date: NaiveDate, secs: i32, offset: FixedOffset) -> Self {
+        let mut clock = Clock {
+            date,
+            now: secs,
+            epoch: 0,
+            zone: Zone::Fixed(offset),
+        };
+        clock.epoch = clock.epoch_of(secs);
+        clock
+    }
+
+    /// Which service day. GTFS counts `arrival_time` from its start.
+    pub fn date(self) -> NaiveDate {
+        self.date
+    }
+
+    /// Seconds into that day. Comparable directly with `arrival_time`.
+    pub fn now(self) -> i32 {
+        self.now
+    }
+
+    /// The same instant as a UTC epoch, for anything the agency stamped in one.
+    pub fn epoch(self) -> i64 {
+        self.epoch
+    }
+
+    /// A realtime prediction onto the same axis as `Departure::secs`.
+    pub fn service_secs(self, epoch: i64) -> Option<i32> {
+        epoch_to_service_secs(epoch, self.date, self.zone)
+    }
+
+    /// The inverse: the instant at `secs` into this clock's service day.
+    ///
+    /// Anything that has to name a realtime prediction goes through here rather
+    /// than building the instant itself. A test that reached for `Local` would
+    /// be stating the prediction in the machine's zone and reading it back in
+    /// the app's, and the two agree only where the suite happens to run.
+    pub fn epoch_of(self, secs: i32) -> i64 {
+        let start = match self.zone {
+            Zone::Here => service_day_start_in(&Local, self.date).timestamp(),
+            Zone::Fixed(off) => service_day_start_in(&off, self.date).timestamp(),
+        };
+        start + i64::from(secs)
+    }
+
+    /// Move a held clock to `secs` into the same service day.
+    ///
+    /// How a test makes a bus depart without waiting for one to, and how a
+    /// script says time passed. It moves both units together, which is the
+    /// reason this is a method and not two field writes: a caller that left
+    /// `epoch` behind would produce a state the running app can never be in.
+    ///
+    /// The mirror of `tick`, and guarded the other way round. A live clock
+    /// follows the machine and cannot be told what time it is; a held clock is
+    /// told and never asks. Between them the two rules mean a `Clock` always
+    /// gets its time from exactly one place.
+    pub fn advance_to(&mut self, secs: i32) {
+        let Zone::Fixed(_) = self.zone else { return };
+        self.now = secs;
+        self.epoch = self.epoch_of(secs);
+    }
+
+    /// Re-read the machine, so a board left open keeps counting down.
+    ///
+    /// The only place the real clock enters the app after construction, and it
+    /// moves both units at once.
+    ///
+    /// A held clock does not move. That is what `held` means, and it is what
+    /// lets the headless tools drive the event loop's own frame step instead of
+    /// a reconstruction of it: the step can call this unconditionally, and a
+    /// fixture still gets the instant it named. Before, the tools left this out
+    /// and so carried their own opinion of what a frame is — an opinion that
+    /// was already missing `refresh`.
+    pub fn tick(&mut self) {
+        let Zone::Here = self.zone else { return };
+        self.now = secs_into_service_day(Local::now(), self.date);
+        self.epoch = crate::rt::now_epoch();
+    }
+}
 
 /// Start of a service day, as GTFS defines it: noon minus twelve hours.
 ///
@@ -42,17 +184,21 @@ fn secs_into_service_day(now: DateTime<Local>, date: NaiveDate) -> i32 {
     i32::try_from((now - service_day_start(date)).num_seconds()).unwrap_or(i32::MAX)
 }
 
-pub(super) fn now_secs(date: NaiveDate) -> i32 {
-    secs_into_service_day(Local::now(), date)
-}
-
 /// A realtime prediction (UTC epoch) onto the same axis as `Departure::secs`.
 ///
 /// UTC-to-local is never ambiguous, unlike local-to-UTC, so `single()` always
 /// resolves here even during the repeated hour at fall-back.
-pub fn epoch_to_service_secs(epoch: i64, date: NaiveDate) -> Option<i32> {
-    let dt = Local.timestamp_opt(epoch, 0).single()?;
-    Some(secs_into_service_day(dt, date))
+fn epoch_to_service_secs(epoch: i64, date: NaiveDate, zone: Zone) -> Option<i32> {
+    match zone {
+        Zone::Here => onto_axis(&Local, epoch, date),
+        Zone::Fixed(off) => onto_axis(&off, epoch, date),
+    }
+}
+
+fn onto_axis<Tz: TimeZone>(tz: &Tz, epoch: i64, date: NaiveDate) -> Option<i32> {
+    let dt = tz.timestamp_opt(epoch, 0).single()?;
+    let secs = (dt - service_day_start_in(tz, date)).num_seconds();
+    i32::try_from(secs).ok()
 }
 
 /// Minutes a trip is running late. Negative means early.
@@ -191,11 +337,50 @@ mod tests {
     }
 
     #[test]
+    fn a_held_clock_does_not_move_when_the_loop_ticks_it() {
+        // What lets the headless tools call the event loop's own frame step
+        // instead of rebuilding it. The step ticks unconditionally, so a held
+        // clock that moved would put the machine's time into every fixture and
+        // the frames would stop being a function of the directory.
+        let utc = FixedOffset::east_opt(0).expect("UTC is a real offset");
+        let mut clock = Clock::held(d(2026, 8, 21), 9 * 3600, utc);
+        let (before, epoch) = (clock.now(), clock.epoch());
+        for _ in 0..3 {
+            clock.tick();
+        }
+        assert_eq!(clock.now(), before, "a held clock moved");
+        assert_eq!(clock.epoch(), epoch, "a held clock's epoch moved");
+    }
+
+    #[test]
+    fn a_service_second_and_its_instant_are_inverses() {
+        // `epoch_of` states a realtime prediction and `service_secs` reads one
+        // back. A test that built the instant itself, in the machine's zone,
+        // would agree with the app only where the suite happened to run.
+        let utc = FixedOffset::east_opt(0).expect("UTC is a real offset");
+        for offset in [0, -4 * 3600, 5 * 3600 + 1800] {
+            let zone = FixedOffset::east_opt(offset).expect("a real offset");
+            let clock = Clock::held(d(2026, 8, 21), 9 * 3600, zone);
+            for secs in [0, 9 * 3600, 25 * 3600] {
+                assert_eq!(clock.service_secs(clock.epoch_of(secs)), Some(secs));
+            }
+        }
+        // And two zones disagree about the instant, which is the whole reason
+        // a fixture names one.
+        let ottawa = FixedOffset::east_opt(-4 * 3600).expect("a real offset");
+        let day = d(2026, 8, 21);
+        assert_eq!(
+            Clock::held(day, 0, ottawa).epoch_of(0) - Clock::held(day, 0, utc).epoch_of(0),
+            4 * 3600
+        );
+    }
+
+    #[test]
     fn a_live_prediction_maps_onto_the_same_axis() {
         let date = d(2026, 8, 22);
         let moment = service_day_start(date) + Duration::seconds(9 * 3600);
         assert_eq!(
-            epoch_to_service_secs(moment.timestamp(), date),
+            epoch_to_service_secs(moment.timestamp(), date, Zone::Here),
             Some(9 * 3600)
         );
     }

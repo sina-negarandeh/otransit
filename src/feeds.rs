@@ -54,18 +54,27 @@ impl Feeds {
         }
     }
 
-    /// Both settled with nothing, and no thread.
+    /// Both slots settled with what is given, and no thread.
     ///
-    /// For tests, and for the same reason `App::offline` exists: a test that
-    /// reached these would be reading whatever was published this morning.
-    /// Settled rather than pending, because nothing is coming — a caller that
-    /// waited would otherwise wait out the whole timeout.
+    /// For `replay` and for tests, and for the same reason `App::offline`
+    /// exists: anything that fetched here would be reading whatever was
+    /// published this morning. Settled rather than pending, because nothing is
+    /// coming — a caller that waited would otherwise wait out the whole
+    /// timeout.
+    pub fn ready(
+        alerts: Option<crate::alerts::Alerts>,
+        weather: Option<crate::weather::Weather>,
+    ) -> Self {
+        Self {
+            alerts: Arc::new(Mutex::new(Fetched::Done(alerts))),
+            weather: Arc::new(Mutex::new(Fetched::Done(weather))),
+        }
+    }
+
+    /// Both settled with nothing.
     #[cfg(test)]
     pub fn none() -> Self {
-        Self {
-            alerts: Arc::new(Mutex::new(Fetched::Done(None))),
-            weather: Arc::new(Mutex::new(Fetched::Done(None))),
-        }
+        Self::ready(None, None)
     }
 
     /// What is published about this route, if anything.

@@ -1,5 +1,7 @@
 mod alerts;
 mod app;
+#[cfg(test)]
+mod conformance;
 mod db;
 mod dev;
 mod feeds;
@@ -7,7 +9,9 @@ mod fetch;
 mod gtfs;
 mod logo;
 mod pins;
+mod replay;
 mod rt;
+mod semantic;
 #[cfg(test)]
 mod testing;
 mod ui;
@@ -104,6 +108,19 @@ fn main() -> Result<()> {
                 },
             )?;
         }
+        Some("replay") => {
+            let Some(dir) = arg(2) else {
+                anyhow::bail!("replay wants a fixture directory");
+            };
+            let asked = |name: &str| args.iter().any(|a| a == name);
+            replay::run(
+                std::path::Path::new(dir),
+                &replay::Show {
+                    styles: asked("styles"),
+                    semantic: asked("semantic"),
+                },
+            )?;
+        }
         Some("logo") => {
             let w = crossterm::terminal::size().map(|(w, _)| w).unwrap_or(80);
             match arg(2) {
@@ -127,6 +144,10 @@ otransit: browse OC Transpo schedules
     otransit update                download today's feed and rebuild the cache
     otransit ingest <gtfs-dir>     build the cache from a local unzipped feed
     otransit probe                 report on the live realtime feed
+    otransit replay <dir>          replay recorded sessions against fixed
+                                   inputs, and print every frame as plain text
+        [styles]                   add the colours, run by run
+        [semantic]                 add what the app decided, as JSON
     otransit dump <route> [stop]   headless walk of the query path
     otransit screenshot [w] [h]    render screens as text
                                    ('train', route=75, stop=WESTBORO, search=rideau)
@@ -336,12 +357,7 @@ type Term = Terminal<CrosstermBackend<std::io::Stdout>>;
 
 fn run(terminal: &mut Term, app: &mut App) -> Result<()> {
     while !app.quit {
-        // The clock moves and the background fetch lands: both show up here,
-        // once a frame, rather than only when a board is opened.
-        app.tick();
-        app.refresh()?;
-        app.apply_realtime();
-        terminal.draw(|f| ui::draw(f, app))?;
+        frame(terminal, app)?;
         if !event::poll(Duration::from_millis(250))? {
             continue;
         }
@@ -353,6 +369,31 @@ fn run(terminal: &mut Term, app: &mut App) -> Result<()> {
             _ => {}
         }
     }
+    Ok(())
+}
+
+/// One frame: everything that happens between two keypresses.
+///
+/// The clock moves and the background fetches land here, once a frame, rather
+/// than only when a board is opened.
+///
+/// Shared with the headless tools for the reason `handle_key` is: a tool that
+/// rebuilt this would be describing a program nobody runs. `screenshot` and
+/// `replay` used to call two of these four steps and leave out `refresh`, which
+/// was harmless only because a held clock never moves a departure into the
+/// past. The omission was still an opinion about what a frame is, held in the
+/// wrong place, and a fifth step added here would never have reached them.
+///
+/// Generic over the backend because that is the one thing the callers really
+/// differ in: a real terminal, or ratatui's test buffer.
+pub(crate) fn frame<B: ratatui::backend::Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+) -> Result<()> {
+    app.tick();
+    app.refresh()?;
+    app.apply_realtime();
+    terminal.draw(|f| ui::draw(f, app))?;
     Ok(())
 }
 
@@ -399,6 +440,50 @@ mod tests {
     /// A key press, as the event loop delivers it.
     fn press(app: &mut App, c: char) {
         handle_key(app, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)).unwrap();
+    }
+
+    #[test]
+    fn one_frame_does_every_step_the_event_loop_does() {
+        // `frame` is shared with the headless tools so that they drive the
+        // browser's own loop rather than a reconstruction of it. That is worth
+        // nothing unless the loop's steps are actually in here: the tools used
+        // to rebuild two of the four and leave out `refresh`, and the omission
+        // was invisible because a held clock never moves a departure into the
+        // past.
+        //
+        // So: hold the clock, open a board, move the clock past the first bus,
+        // and run one frame. Only `refresh` can take that row off the board.
+        let g = crate::testing::TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t1", "5", "A", "Elmvale")
+            .trip("t2", "5", "A", "Elmvale")
+            .stop("s1", "0001", "BANK / SOMERSET W")
+            .stop_time("t1", "s1", 1, "10:00:00")
+            .stop_time("t2", "s1", 1, "11:00:00");
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 8, 21).unwrap();
+        let mut app = App::offline(g.into_conn(), date, 9 * 3600, None).unwrap();
+        for _ in 0..4 {
+            app.enter().unwrap(); // bus -> 5 -> a direction -> the stop
+        }
+        let board = |a: &App| {
+            a.contents
+                .board()
+                .unwrap_or_default()
+                .iter()
+                .map(|d| d.secs)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(board(&app), vec![10 * 3600, 11 * 3600]);
+
+        let mut term = Terminal::new(ratatui::backend::TestBackend::new(100, 14)).unwrap();
+        app.advance_to(10 * 3600 + 60); // the first bus has gone
+        frame(&mut term, &mut app).unwrap();
+        assert_eq!(
+            board(&app),
+            vec![11 * 3600],
+            "one frame left a departed bus on the board: `frame` is missing a step"
+        );
     }
     use fetch::Freshness;
 

@@ -1,0 +1,36 @@
+# A stop code is not a stop, and a number in a name is not a platform.
+#
+# Two traps that have both bitten this app, and both are about reading more
+# into the data than it says.
+#
+# `3034` is one stop code over five stops: BILLINGS BRIDGE 3B, 3C, 4B, 4D and
+# BILLINGS BRIDGE / BANK. Four carry a platform, the fifth carries none. A
+# search for the code has to offer all five, because the code does not say
+# which platform you are standing on.
+#
+# `CANTERBURY / AD. 860` has no platform at all. The 860 is a municipal address
+# in the stop's name. An implementation that parsed a platform out of the name
+# would draw one here, and would be confidently wrong on 5,644 of the 5,859
+# stops in the real feed, which carry no platform either.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14
+
+# One code, five platforms. Typing goes straight to the filter from here, so
+# there is no key to press first.
+type 3034
+
+# Down one, to BILLINGS BRIDGE 3B, which does carry a platform. Its board says
+# so. Read it against the last frame, where the number is part of the name.
+down
+enter
+
+# esc from a board reached by search lands on the first screen, not back in the
+# results: the board's parent is the stop, and a search is not a level.
+esc
+
+# A number that is an address, not a platform.
+type canterbury
+enter

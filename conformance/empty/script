@@ -1,0 +1,27 @@
+# A day on which nothing runs.
+#
+# 2026-09-12 is a Saturday. The bus service in this slice runs Fridays and the
+# rail service runs weekdays, so both counts are zero and every list is empty.
+#
+# This is the shape a stale cache takes, and the shape a wrong service-date
+# calculation takes, and the shape a correct app takes on a real holiday. They
+# are indistinguishable from inside, which is why what the app draws here has
+# to be written down: zero routes on both modes, an empty list under each, and
+# a search that finds nothing rather than finding stops nothing calls at.
+cache ../cache.db
+date 2026-09-12
+time 08:00
+offset -04:00
+size 100 14
+
+# Both modes, each with nothing under it.
+enter
+esc
+down
+enter
+esc
+
+# And a search. The stops are still in the cache -- it is the service that is
+# not running -- so an implementation that searched stops without asking what
+# calls there would list them happily.
+type billings

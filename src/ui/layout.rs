@@ -39,18 +39,6 @@ pub(super) fn truncate(s: &str, max: usize) -> String {
 
 pub(super) const MARKER_W: usize = 3;
 
-/// The screens that sit below exactly one route: the ways it runs, and the
-/// stops along one of them.
-///
-/// One predicate rather than two matches, because two things are drawn on
-/// exactly these screens for exactly this reason — the gutter, which says
-/// which route you are under, and the detour, which is what is published
-/// about that route. A screen above a route has no single answer for either,
-/// and a board mixes routes. Kept together so they cannot drift apart.
-pub(super) fn below_a_route(screen: &Screen) -> bool {
-    matches!(screen, Screen::Stops { .. } | Screen::Directions { .. })
-}
-
 /// A rule down the left, in the route's own colour.
 ///
 /// The stop list is in travel order and nothing else on screen says so, and
@@ -63,7 +51,7 @@ pub(super) fn below_a_route(screen: &Screen) -> bool {
 /// along one of them. The rule says so once, down the side, instead of a badge
 /// repeating the same number on every row.
 pub(super) fn gutter(screen: &Screen) -> Option<Span<'static>> {
-    if !below_a_route(screen) {
+    if !screen.below_a_route() {
         return None;
     }
     let colour = screen

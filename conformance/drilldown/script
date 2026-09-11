@@ -1,0 +1,50 @@
+# A recorded session over a fixed world. Every frame this prints is a
+# function of this directory alone, so two builds -- or two implementations
+# -- can be compared with `diff`.
+#
+# The schedule, shared by every fixture here: one real slice, many sessions.
+cache ../cache.db
+# The Friday this fixture's service runs, at a time with departures ahead.
+date 2026-09-11
+time 08:00
+# Ottawa on that date. Named, so the frames do not move with the reader.
+offset -04:00
+size 100 14
+
+# The pin is row 0: its board, entered and left again. `esc` from a pin must
+# land on the first screen, not part-way up a drill path nobody walked.
+enter
+esc
+
+# Bus -> 44 -> a direction -> a stop -> its board. The detour rides along
+# from the route screen down, and 44 and 48 share this platform.
+down
+enter
+type 44
+enter
+enter
+enter
+enter
+
+# Back out to the top one level at a time.
+esc
+esc
+esc
+esc
+
+# The O-Train: rail has no realtime at all, so every row must read `sched`.
+down
+down
+enter
+enter
+enter
+enter
+esc
+esc
+esc
+esc
+
+# Search finds a stop by name, and its board mixes routes.
+key /
+type terminal
+enter

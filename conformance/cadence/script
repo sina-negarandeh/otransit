@@ -1,0 +1,79 @@
+# The realtime cadence, and what a refusal does to it.
+#
+# The other fixtures hold their clock still. This one lets it move, which is the
+# only way to see the app decide anything about time: when to ask the feed
+# again, how far to back off after a refusal, and what to keep on screen while
+# the feed is down.
+#
+# The script names the answers and never the moments. `feed` lines are a queue,
+# taken in order whenever the app's own policy says an attempt is due. A port
+# that polls twice as often runs out of them; one that never polls leaves them
+# unused. Either way the frames say so, and neither is compared against a
+# timetable this file invented.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14
+
+# Answer, refuse, refuse, answer.
+feed ok rt.json
+feed fail http status: 503
+feed fail http status: 503
+feed ok rt-later.json
+# Three more, for the long wait below.
+feed ok rt-later.json
+feed ok rt-later.json
+feed ok rt-later.json
+# A refusal after a success, which nothing else here reaches. A backoff that
+# survived its own recovery would double from the old value instead of starting
+# again at a minute, and only a second failure can show that.
+feed fail http status: 503
+
+# To the board at pole 1869, where all three of those trips call.
+type 1869
+enter
+
+# The normal cadence is 25 seconds. This crosses it, so the first refusal lands
+# and the board must keep the predictions it already has: a stale prediction
+# carrying an honest age beats no prediction at all, and the age is on screen.
+wait 30s
+
+# A first failure waits a minute. Thirty seconds is not a minute, so nothing is
+# asked here at all -- which is the point of the frame. `due_in` counts down
+# rather than resetting, and the age keeps climbing.
+wait 30s
+
+# Now the minute is up. The second refusal doubles the wait to two minutes.
+wait 40s
+
+# Not due yet: the backoff really did grow.
+wait 60s
+
+# And recovery. A fresh publication, and the cadence returns to 25 seconds
+# rather than staying backed off. Each attempt is recorded at the moment it came
+# due, not at the moment this script noticed, so the counts below are the ones a
+# running app would reach.
+wait 50s
+
+# A wait that spans several intervals at the recovered 25-second cadence. The
+# app would have polled at each of them, so three answers are taken, not one.
+# Serving a single answer per step made this read as one attempt and left
+# `due_in` back at 25 as though the cadence had been kept.
+wait 90s
+
+# The refusal above, taken after a recovery. The wait that follows must start at
+# a minute. A retained backoff would make it four.
+wait 30s
+
+# Nothing left in the queue. The cadence comes round, finds no answer, and the
+# attempt stays owed: `due_in` holds at zero and the request count stops. That
+# is what a feed gone quiet looks like from inside, and a port that polls more
+# often than this one arrives here sooner.
+wait 60s
+
+# Long enough for the first bus to go. A board loaded once keeps the departure
+# that has already left unless something re-queries it, and every other fixture
+# holds its clock still, so nothing was asking. The 08:26 row must be gone by
+# the time this frame is drawn.
+wait 1600s

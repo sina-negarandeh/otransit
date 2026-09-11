@@ -7,7 +7,6 @@
 //! `update` replaces wholesale.
 
 use crate::db::{self, Departure, ServiceDay, StopRow};
-use crate::rt;
 use anyhow::Result;
 use chrono::{Local, NaiveDate};
 use ratatui::widgets::ListState;
@@ -18,10 +17,9 @@ mod clock;
 mod model;
 mod poll;
 
-use clock::now_secs;
-pub use clock::{WAIT_W, epoch_to_service_secs, fmt_hm, fmt_wait, lateness, mins_until};
+pub use clock::{Clock, WAIT_W, fmt_hm, fmt_wait, lateness, mins_until};
 pub use model::{Board, Crumb, Mode, Pinned, Row, Screen};
-pub use poll::RtState;
+pub use poll::{Poll, RtState, apply_attempt};
 
 /// What the current screen is showing.
 ///
@@ -65,10 +63,11 @@ pub struct App {
     /// place (`load`) so entering and going back land on the same contents.
     pub contents: Contents,
 
-    /// Seconds into the service day. Written only by `tick`, so it is private
-    /// and read through `now()`.
-    now: i32,
-    pub service_date: NaiveDate,
+    /// What time it is, which service day that falls in, and the zone both are
+    /// read in. Its own type because those move together — see `clock::Clock`.
+    /// Carried rather than read at the point of use, so a replay's frames do
+    /// not change as the day goes on.
+    clock: Clock,
     pub quit: bool,
     n_bus: usize,
     n_rail: usize,
@@ -96,15 +95,28 @@ impl App {
         // Kick the realtime fetch off now — by the time anyone reaches the
         // departures board several keystrokes later it is usually done — and
         // then keep it fresh, so "live" keeps meaning live while you watch.
-        let today = Local::now().date_naive();
         Self::build(
             conn,
             poll::start(cache_dir),
-            today,
-            now_secs(today),
+            Clock::here(Local::now().date_naive()),
             pins,
             crate::feeds::Feeds::start(),
         )
+    }
+
+    /// An app with every input supplied: no thread, no clock, no network.
+    ///
+    /// What `replay` is built on. The only difference between a recorded
+    /// session and a live one should be where the inputs came from, so both
+    /// arrive at the same `build`.
+    pub fn fixed(
+        conn: Connection,
+        clock: Clock,
+        pins: Option<std::path::PathBuf>,
+        rt: RtState,
+        feeds: crate::feeds::Feeds,
+    ) -> Result<Self> {
+        Self::build(conn, Arc::new(Mutex::new(rt)), clock, pins, feeds)
     }
 
     /// An app with no realtime thread and a fixed clock.
@@ -123,12 +135,18 @@ impl App {
         // whatever OC Transpo published this morning. Settled rather than
         // pending, because nothing is coming -- a caller that waited on this
         // would otherwise wait for the whole timeout.
-        Self::build(
+        Self::fixed(
             conn,
-            Arc::new(Mutex::new(RtState::Off)),
-            today,
-            now,
+            // UTC, not the machine's zone. A test that read the machine would be
+            // asserting something about where the suite runs, which is a defect
+            // this codebase has already had once.
+            Clock::held(
+                today,
+                now,
+                chrono::FixedOffset::east_opt(0).expect("UTC is a real offset"),
+            ),
             pins,
+            RtState::Off,
             crate::feeds::Feeds::none(),
         )
     }
@@ -136,11 +154,11 @@ impl App {
     fn build(
         conn: Connection,
         rt_state: Arc<Mutex<RtState>>,
-        today_date: NaiveDate,
-        now: i32,
+        clock: Clock,
         pins_path: Option<std::path::PathBuf>,
         feeds: crate::feeds::Feeds,
     ) -> Result<Self> {
+        let today_date = clock.date();
         let yday_date = today_date.pred_opt().unwrap_or(today_date);
         let today = db::active_services(&conn, today_date)?;
         let yesterday = db::active_services(&conn, yday_date)?;
@@ -159,8 +177,7 @@ impl App {
             screen: Screen::Mode,
             state,
             contents: Contents::List(vec![]),
-            now,
-            service_date: today_date,
+            clock,
             quit: false,
             n_bus,
             n_rail,
@@ -287,7 +304,34 @@ impl App {
 
     /// Seconds into the service day, as of the last `tick`.
     pub fn now(&self) -> i32 {
-        self.now
+        self.clock.now()
+    }
+
+    /// Which service day the app is showing.
+    pub fn service_date(&self) -> NaiveDate {
+        self.clock.date()
+    }
+
+    /// Move a held clock on, for a test that needs a bus to have gone or a
+    /// script that says time passed. The real clock never enters either: this
+    /// is `tick` without the machine, and it does nothing to a live clock.
+    pub fn advance_to(&mut self, secs: i32) {
+        self.clock.advance_to(secs);
+    }
+
+    /// The epoch this app's clock is currently reading.
+    pub fn epoch(&self) -> i64 {
+        self.clock.epoch()
+    }
+
+    /// The instant at `secs` into the service day this app is showing.
+    ///
+    /// For a test that has to state a realtime prediction. Asked of the app
+    /// rather than built from `Local`, so the prediction is stated in the same
+    /// zone it will be read back in.
+    #[cfg(test)]
+    pub fn epoch_of(&self, secs: i32) -> i64 {
+        self.clock.epoch_of(secs)
     }
 
     /// The GTFS route_type of a trip, or None if the cache has never heard of
@@ -322,7 +366,7 @@ impl App {
         ServiceDay {
             today: &self.today,
             yesterday: &self.yesterday,
-            now: self.now,
+            now: self.clock.now(),
         }
     }
 
@@ -453,7 +497,14 @@ impl App {
     /// The lock is held only long enough to copy the headline: this is asked
     /// once a frame while a background thread may be replacing the list.
     pub fn route_alert(&self) -> Option<String> {
-        self.feeds.alert(&self.screen.route()?.short_name)
+        // Only the screens under one route. A board is under one too, and shows
+        // no detour: by then you have chosen, and the message belongs where the
+        // choosing happens. Gated here rather than at the one place that draws
+        // it, so anything else asking gets the same answer.
+        self.screen
+            .below_a_route()
+            .then(|| self.feeds.alert(&self.screen.route()?.short_name))
+            .flatten()
     }
 
     /// Wait for the alerts fetch to settle, or `secs` to pass.
@@ -541,7 +592,7 @@ impl App {
     /// real clock enters the app. Tests build an `App` with a pinned time and
     /// never call it, which is what keeps their schedule assertions fixed.
     pub fn tick(&mut self) {
-        self.now = now_secs(self.service_date);
+        self.clock.tick();
     }
 
     /// Move to a screen: load what it shows, put the cursor back at the top,
@@ -568,9 +619,9 @@ impl App {
         // had already gone, which is the defect the board itself has an entry
         // for in TESTING.md.
         let gone = match &self.contents {
-            Contents::Board(deps) => deps.first().is_some_and(|d| d.when() < self.now),
+            Contents::Board(deps) => deps.first().is_some_and(|d| d.when() < self.now()),
             Contents::List(rows) => rows.iter().any(|r| match r {
-                Row::Pin(p) => p.next().is_some_and(|d| d.when() < self.now),
+                Row::Pin(p) => p.next().is_some_and(|d| d.when() < self.now()),
                 _ => false,
             }),
         };
@@ -674,7 +725,9 @@ impl App {
     /// Attach live predictions to the current board. Cheap, so it runs on every
     /// tick — that way the board fills in the moment the fetch lands.
     pub fn apply_realtime(&mut self) {
-        let date = self.service_date;
+        // Copied out so the guard does not borrow `self`, which the contents
+        // below need mutably. One value rather than the two it used to take.
+        let clock = self.clock;
         // Clone the handle so the guard does not borrow `self`, which the
         // contents below need mutably.
         let slot = Arc::clone(&self.rt);
@@ -692,7 +745,7 @@ impl App {
                     d.canceled = rt.is_canceled(&d.trip_id);
                     d.live = rt
                         .arrival(&d.trip_id, &stop_id)
-                        .and_then(|e| epoch_to_service_secs(e, date));
+                        .and_then(|e| clock.service_secs(e));
                 }
                 // Ordered by when a bus actually arrives, not when it was meant
                 // to. Without this a late trip sorts ahead of one on time.
@@ -712,7 +765,7 @@ impl App {
                         d.canceled = rt.is_canceled(&d.trip_id);
                         d.live = rt
                             .arrival(&d.trip_id, &board.stop().stop_id)
-                            .and_then(|e| epoch_to_service_secs(e, date));
+                            .and_then(|e| clock.service_secs(e));
                     }
                     // Same reason as the board: without this the pin shows the
                     // scheduled-earliest bus, not the one that arrives first.
@@ -743,7 +796,7 @@ impl App {
                 Some(format!("live: {first}"))
             }
             RtState::Ready(r) => {
-                let age = r.age(rt::now_epoch());
+                let age = r.age(self.clock.epoch());
                 Some(if age > 120 {
                     format!("live {}m old", age / 60)
                 } else {
