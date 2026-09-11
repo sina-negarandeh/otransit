@@ -109,7 +109,7 @@ drop every modifier and still pass.
 
 ```
 conformance/
-  cache.db        the schedule, shared by every fixture — see extract.sh
+  cache.db        the schedule, shared by every fixture. See extract.sh.
   <fixture>/
     script        the clock, the timezone, the terminal size, and every key
     rt.json       the realtime predictions
@@ -135,9 +135,10 @@ at the same one.
 |---|---|
 | `drilldown` | the full walk: a pin opened and left, bus to a board and back out, a rail board, a stop search. A detour on both screens below a route, a bus four minutes late, one on time, one cancelled, and one 290 seconds late, where truncating says four minutes and rounding says five. |
 | `quiet-feeds` | no realtime, no detours, no weather. It opens the same stop `drilldown` shows as `4 late`, where every row must read `sched`. |
-| `platforms` | one stop code over five platforms, and `CANTERBURY / AD. 860`, where the number is an address. |
+| `platforms` | one stop code over five platforms, and `CANTERBURY / AD. 860`, where the number is an address. Also the only board in the suite whose next departure is the following morning, which is what draws the two-digit hour column `WAIT_W` is sized for. |
 | `filter` | `p` is a letter on a list and pins on a board. A route is also found by a word from its long name, and a stop by its pole number. |
 | `empty` | a Saturday, when nothing in this slice runs. |
+| `after-midnight` | the same Saturday, at 00:00, where the board is Friday's. A trip at 24:04 is one you catch at 00:04, and it belongs to the day that ended. Search cannot reach this board, because today has no service, so the way in is a pin. |
 | `narrow` | 44 cells. Truncation, and the order the columns give way in. |
 | `too-narrow` | 19 cells. The weather has no room and the rule goes back to being a line. |
 | `weather-unknown` | an icon code the app has never seen, and a temperature below zero. |
@@ -161,6 +162,17 @@ carries its route. Route 44 appears under two booking periods, `44` and `44-1`.
 O-Train Line 1 is there because rail has no realtime at all and every row must
 read `sched`. Stop code `3034` covers five platforms. The bus service runs
 Fridays and the rail service runs weekdays, so a Saturday is empty.
+
+The trips are picked twice over. Six per route and direction give a board its
+rows and a direction list more than one entry. Then the two latest that run past
+24:00, because a service day reaches 28:xx and a slice that stopped at 23:25
+could not reach the arithmetic that handles it. `extract.sh` says why the first
+six are ordered the way they are.
+
+Daylight saving is not in here and cannot be. A GTFS feed covers about five
+weeks and the changeovers are in March and November, so no export holds one.
+`service_day_start` is covered by the unit tests in `app/clock.rs`, which name
+the dates, and by nothing in this directory.
 
 ## Rules
 
@@ -216,6 +228,21 @@ Row 0 of the first screen is a pin when the fixture has one, and a mode when it
 does not. Two fixtures therefore do not share their steps. A script that
 hardcoded the row would walk somewhere else and still print frames that diff
 cleanly.
+
+A script names what it selects. Write `type hurdman` before the `enter` that
+picks a direction, not a bare `enter` that takes whichever one sorts first. The
+slice decides that order, so a new trip moves it. This is not hypothetical:
+widening the slice sent one fixture to a different board, every test stayed
+green, and a checked-in mutation stopped being detected. The same applies to any
+list a script walks through.
+
+Every step must change the frame. A keypress that redraws what is already on
+screen adds a frame a port has to match and nothing it can be wrong about, and
+it usually means the walk was miscounted rather than that the key was meant. If
+a step is there to show that a key does nothing, say so in a comment beside it.
+Seven such steps were found in four fixtures at once. Six were `enter` on a
+departures board, from walks counted one level too deep. The seventh was `/` on
+the search screen, which jumps to the screen it is already on.
 
 ## Regenerating
 

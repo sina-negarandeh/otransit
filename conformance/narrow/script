@@ -21,6 +21,9 @@ size 44 14
 enter
 type 44
 enter
+
+# The direction is named. A bare enter takes whatever the slice sorts first.
+type hurdman
 enter
 enter
 

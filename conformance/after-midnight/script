@@ -1,0 +1,28 @@
+# Yesterday's buses, on a day that has none of its own.
+#
+# GTFS counts `arrival_time` from the start of the service day and lets it run
+# past 24:00. A trip at 24:39 is one you catch at 00:39 the next morning, and it
+# belongs to the previous service day, not to the one the clock says.
+#
+# 2026-09-12 is a Saturday. The bus service in this slice runs Fridays and the
+# rail service runs weekdays, so Saturday has no service of its own. Everything
+# on this board therefore comes from Friday, shifted back across midnight.
+#
+# Three things have to be right at once for a row to appear here. The app has to
+# consult yesterday's services. It has to carry yesterday's window into the
+# query. And it has to mark the trip as belonging to a day that has ended, which
+# is what stops a 24:39 departure from reading as a quarter past one in the
+# afternoon.
+#
+# None of that was reachable before: the slice topped out at 23:25, so nothing
+# it held could cross midnight.
+cache ../cache.db
+date 2026-09-12
+time 00:00
+offset -04:00
+size 100 14
+
+# A pin is the way in. Searching cannot reach this board: `search_stops` asks
+# which stops have service *today*, and today has none, so it finds nothing
+# while a bus is four minutes away. The pin resolves by stop id instead.
+enter

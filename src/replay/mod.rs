@@ -97,38 +97,50 @@ pub struct Show {
 }
 
 /// Read the directory, replay the script, and print every frame.
+pub fn run(dir: &Path, show: &Show) -> Result<()> {
+    print!("{}", render(dir, show)?);
+    Ok(())
+}
+
+/// The artifact itself, as the bytes `run` prints.
 ///
 /// `dir` is either one fixture, or a directory of them: a folder with no
 /// `script` of its own is walked in name order and every fixture under it is
 /// replayed. One command, one artifact, however many worlds it covers.
-pub fn run(dir: &Path, show: &Show) -> Result<()> {
+///
+/// Returned rather than printed, for the reason `frames` is separate from
+/// `run`: an artifact that goes straight to stdout is one nothing in the
+/// program can look at, and the suite has to be able to hash its own output.
+pub(crate) fn render(dir: &Path, show: &Show) -> Result<String> {
+    use std::fmt::Write as _;
     let found = fixtures(dir)?;
     let many = found.len() > 1 || found.first().is_some_and(|f| f != dir);
+    let mut out = String::new();
     for fixture in &found {
         if many {
             let name = fixture.file_name().unwrap_or(fixture.as_os_str());
-            println!("\n======== {} ========", name.to_string_lossy());
+            let _ = writeln!(out, "\n======== {} ========", name.to_string_lossy());
         }
         for (n, f) in frames(fixture)?.iter().enumerate() {
-            println!("\n--- {n}. {} ---", f.label);
+            let _ = writeln!(out, "\n--- {n}. {} ---", f.label);
             for row in &f.rows {
-                println!("{row}");
+                let _ = writeln!(out, "{row}");
             }
             if show.styles && !f.styles.is_empty() {
-                println!("styles");
+                let _ = writeln!(out, "styles");
                 for line in &f.styles {
-                    println!("{line}");
+                    let _ = writeln!(out, "{line}");
                 }
             }
             if show.semantic && !f.semantic.is_null() {
                 // Pretty, because one value per line is what makes a diff point
                 // at the decision that changed rather than at the whole frame.
-                println!("semantic");
-                println!("{:#}", f.semantic);
+                let _ = writeln!(out, "semantic");
+                let _ = writeln!(out, "{:#}", f.semantic);
             }
         }
     }
-    Ok(())
+    Ok(out)
 }
 
 /// The fixtures under `dir`: itself if it holds a script, otherwise every

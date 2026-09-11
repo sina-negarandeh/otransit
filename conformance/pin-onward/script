@@ -27,6 +27,9 @@ down
 enter
 type 44
 enter
+
+# The direction is named. A bare enter takes whatever the slice sorts first.
+type hurdman
 enter
 
 # One level up. The stop list belongs to a direction, so this is the directions.

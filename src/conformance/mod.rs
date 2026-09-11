@@ -13,9 +13,13 @@
 //! The vocabulary for reading a fixture lives here too. It used to sit inside
 //! `replay`'s private test module, so `semantic` grew a second copy of the part
 //! it needed.
+//!
+//! `semantic` holds the other half of the contract: what the app decided,
+//! rather than what it drew. One module, two files, because the two are read
+//! for different reasons and the question "what does the suite prove?" is
+//! answered by the pair. They were one file until it passed nine hundred lines.
 
 use crate::replay::Frame;
-use serde_json::Value;
 
 pub(crate) fn suite() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("conformance")
@@ -327,6 +331,186 @@ fn a_move_away_from_a_pin_forgets_where_the_pin_came_from() {
 }
 
 #[test]
+fn yesterdays_late_buses_are_on_this_morning_s_board() {
+    // GTFS counts `arrival_time` from the start of the service day and lets it
+    // run past 24:00. A 24:39 trip is one you catch at 00:39, and it belongs to
+    // the day before, not the one the clock says.
+    //
+    // 2026-09-12 is a Saturday, and nothing in this slice runs on a Saturday.
+    // Every row on this board therefore comes from Friday, shifted back across
+    // midnight. Three things have to hold at once for a row to be here at all:
+    // yesterday's services are consulted, yesterday's window reaches the query,
+    // and the trip is marked as belonging to a day that has ended.
+    let frames = fixture("after-midnight");
+    let boards = on_screen(&frames, "Departures");
+    // Each board is counted on its own. Flattening the frames first counts
+    // frames times rows, so one board with two rows and two boards with one
+    // each both read as two, and a script that gains a step hides a row that
+    // went missing. The empty case is named for the same reason: a loop over
+    // no boards asserts nothing and passes.
+    assert!(!boards.is_empty(), "the fixture never reached a board");
+    for board in boards {
+        let rows: Vec<&String> = board
+            .rows
+            .iter()
+            .filter(|r| r.contains("after midnight"))
+            .collect();
+        assert_eq!(
+            rows.len(),
+            2,
+            "the board is not showing yesterday: {rows:?}"
+        );
+        assert!(
+            rows.iter().any(|r| r.contains("00:04")) && rows.iter().any(|r| r.contains("00:39")),
+            "the times did not come back across midnight: {rows:?}"
+        );
+    }
+
+    // The day's own count is zero, and the mode screen is where it is drawn.
+    // Both are true at once: the zero is Saturday's, the buses are Friday's.
+    // Named as a screen rather than taken as frame 0, because the screen is the
+    // fact and the position is incidental. Asserted there rather than over
+    // every row of every frame, which would accept the zero from anywhere and
+    // read as though the board said it.
+    let modes = on_screen(&frames, "What are you taking?");
+    assert!(
+        modes
+            .iter()
+            .flat_map(|f| f.rows.iter())
+            .any(|r| r.contains("0 routes running today")),
+        "a day with no service of its own claimed to have some"
+    );
+}
+
+#[test]
+fn a_pin_names_no_marker_for_a_bus_that_belongs_to_yesterday() {
+    // The board and the pin draw a departure through different arms of one
+    // function, and they part company here. The board appends "after midnight"
+    // and the pin does not.
+    //
+    // That is the decision, not an omission. The marker explains a clock time
+    // that reads as today's: a board showing 00:04 on the 12th is drawing
+    // Friday's 24:04. A pin draws no clock time, so it has nothing to explain,
+    // and "4 min" is the same answer either way.
+    let frames = fixture("after-midnight");
+    let modes = on_screen(&frames, "What are you taking?");
+    let pin = modes
+        .iter()
+        .flat_map(|f| f.rows.iter())
+        .find(|r| r.contains("TRANSITWAY / TERMINAL"))
+        .expect("the pin is not on the mode screen");
+    assert!(
+        pin.contains("4 min") && pin.contains("sched"),
+        "the pin is not showing the bus the board shows: {pin:?}"
+    );
+    assert!(
+        !pin.contains("after midnight"),
+        "the pin drew a marker that explains a time it does not draw: {pin:?}"
+    );
+}
+
+#[test]
+fn a_wait_past_an_hour_pads_its_minutes() {
+    // `platforms` reaches a stop whose next departure is the following
+    // morning, which is the only place in the suite that draws the two-digit
+    // hour column `WAIT_W` is sized for. It arrived with the slice that
+    // reaches past 24:00 rather than being asked for, so it is written down
+    // here instead of being left for the next re-baseline to remove unnoticed.
+    //
+    // The padding is what lines the column up. The board right-aligns it, so
+    // "16h 9 min" puts the minutes digit one cell left of "16h 09 min".
+    //
+    // Asked of the board rather than of every row of every frame. A column is
+    // a fact about the screen that draws it, and the loose form would accept
+    // the string from a status bar or a pin.
+    let frames = fixture("platforms");
+    let boards = on_screen(&frames, "Departures");
+    assert!(!boards.is_empty(), "the fixture never reached a board");
+    assert!(
+        boards
+            .iter()
+            .flat_map(|f| f.rows.iter())
+            .any(|r| r.contains("16h 09 min")),
+        "no board in the suite draws a wait past an hour"
+    );
+}
+
+/// The artifact `mutants/run.py` last measured the suite against.
+///
+/// Twelve characters of sha1 over `replay conformance styles semantic`, which
+/// is what the runner prints on its first line. Update both together: this
+/// constant and the Baseline section of `mutants/README.md`.
+const BASELINE_ARTIFACT: &str = "8efe719c39a0";
+
+#[test]
+fn the_artifact_is_the_one_the_score_was_measured_against() {
+    // A re-baseline is allowed. Doing it without noticing is not.
+    //
+    // Widening the slice moved `platforms`, whose script nobody touched, and
+    // the only reason anyone found out was that the two trees were replayed
+    // side by side by hand. `conformance/README.md` asks the reader to diff the
+    // output and look at what moved, and this branch is the evidence that
+    // asking does not work. So the request is a test.
+    //
+    // This fails on any change to any fixture, which is the point: the failure
+    // prints the new digest, and copying it here is the act of accepting it.
+    //
+    // `mutants/run.py` skips this one test by name, and has to. It is a
+    // tripwire for a person editing a fixture, not a claim about the app.
+    // Counted as an assertion it would fail for every mutation that moves the
+    // artifact, so every artifact kill would read as an assertion kill too, and
+    // the gap between those two columns is what the campaign measures.
+    use sha1::Digest as _;
+    let art = crate::replay::render(
+        &suite(),
+        &crate::replay::Show {
+            styles: true,
+            semantic: true,
+        },
+    )
+    .expect("the suite did not replay");
+    let digest = format!("{:x}", sha1::Sha1::digest(art.as_bytes()));
+    assert_eq!(
+        &digest[..12],
+        BASELINE_ARTIFACT,
+        "the artifact moved. If that was deliberate, put {} in BASELINE_ARTIFACT \
+         and in mutants/README.md, and re-run the campaign",
+        &digest[..12]
+    );
+}
+
+#[test]
+fn no_fixture_has_a_step_that_draws_nothing() {
+    // A keypress that redraws what is already on screen adds a frame a port has
+    // to match and nothing it can be wrong about. It almost always means the
+    // walk was counted one level too deep. Four fixtures carried seven such
+    // steps at once, six of them `enter` on a departures board and one a `/` on
+    // the screen it jumps to.
+    //
+    // Per fixture, not over `every_frame`, which flattens them: across a
+    // boundary this would compare the last frame of one world with the first of
+    // the next, and those are unrelated.
+    //
+    // On `rows` rather than the whole frame, because a step that moves only a
+    // colour or only a decision did do something.
+    let dir = suite();
+    for f in crate::replay::fixtures(&dir).expect("no fixtures") {
+        let frames = crate::replay::frames(&f).expect("a fixture did not replay");
+        for pair in frames.windows(2) {
+            assert_ne!(
+                pair[0].rows,
+                pair[1].rows,
+                "{}: step `{}` draws what `{}` already drew. Remove it, or say \
+                 in a comment beside it why a step that changes nothing belongs",
+                f.file_name().unwrap_or(f.as_os_str()).to_string_lossy(),
+                pair[1].label,
+                pair[0].label
+            );
+        }
+    }
+}
+
+#[test]
 fn a_day_with_no_service_says_so_rather_than_showing_stops() {
     // The stops are still in the cache on a Saturday; the service is not
     // running. An implementation that searched stops without asking what
@@ -514,244 +698,4 @@ fn a_board_left_open_long_enough_loses_the_bus_that_went() {
     );
 }
 
-// ---- the semantic layer, over every fixture ----
-
-/// Every frame of every fixture, snapshot and rows together.
-///
-/// Through `replay::fixtures`, which already knows what marks a directory
-/// as a fixture and already sorts them. Walking the directory again here
-/// meant a second copy of both, and the copy did not sort.
-pub(crate) fn every_frame() -> Vec<Frame> {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("conformance");
-    let all: Vec<Frame> = crate::replay::fixtures(&dir)
-        .expect("no fixtures")
-        .iter()
-        .flat_map(|f| crate::replay::frames(f).expect("a fixture did not replay"))
-        .collect();
-    assert!(all.len() > 50, "only {} frames", all.len());
-    all
-}
-
-/// Every key in a snapshot, at every depth: `departures[].late` as well as
-/// `departures`.
-///
-/// Depth is the point. The vocabulary is the set of concepts this layer
-/// permits, and a concept nested inside another is still one. Guarding only
-/// the top level let a departure grow `trip_id` and `route_color` -- the two
-/// fields the module doc names as deliberately absent, and explains why --
-/// without anything noticing.
-fn key_paths(v: &Value, prefix: &str, out: &mut Vec<String>) {
-    match v {
-        Value::Object(map) => {
-            for (k, val) in map {
-                let path = if prefix.is_empty() {
-                    k.clone()
-                } else {
-                    format!("{prefix}.{k}")
-                };
-                out.push(path.clone());
-                key_paths(val, &path, out);
-            }
-        }
-        Value::Array(items) => {
-            for item in items {
-                key_paths(item, &format!("{prefix}[]"), out);
-            }
-        }
-        _ => {}
-    }
-}
-
-#[test]
-fn the_vocabulary_stays_small() {
-    // Every name is a decision a person would notice. This test is the
-    // gate: rules one and two both push toward completeness, and a complete
-    // dump is this app's structs wearing JSON, which a second
-    // implementation would have to copy rather than agree with. Adding a
-    // name should cost an argument, so it costs a diff here.
-    let mut seen = Vec::new();
-    for f in every_frame() {
-        key_paths(&f.semantic, "", &mut seen);
-    }
-    seen.sort();
-    seen.dedup();
-    assert_eq!(
-        seen,
-        [
-            "departures",
-            "departures[].after_midnight",
-            "departures[].cancelled",
-            "departures[].headsign",
-            "departures[].late",
-            "departures[].live",
-            "departures[].route",
-            "departures[].scheduled",
-            "departures[].wait",
-            "detour",
-            "feed",
-            "feed.due_in",
-            "feed.failures",
-            "feed.note",
-            "feed.requests",
-            "filter",
-            "now",
-            "pinned",
-            "pins",
-            "pins[].headsign",
-            "pins[].route",
-            "pins[].stop",
-            "rows",
-            "rows[].primary",
-            "rows[].secondary",
-            "screen",
-            "selected",
-            "weather",
-        ],
-        "the conformance vocabulary changed"
-    );
-}
-
-#[test]
-fn the_snapshot_and_the_frame_describe_one_moment() {
-    // Rule one, made checkable. The snapshot reads the values the frame was
-    // drawn from, so what it reports has to be what the frame shows.
-    // Derived independently the two could disagree, and the suite would
-    // then confirm the contradiction on both sides at once.
-    let mut detours = 0;
-    let mut cancels = 0;
-    let mut lates = 0;
-    for f in every_frame() {
-        let text = f.rows.join("\n");
-        let Some(s) = f.semantic.as_object() else {
-            continue;
-        };
-
-        match s["detour"].as_str() {
-            Some(_) => {
-                detours += 1;
-                assert!(text.contains('⚠'), "a detour was decided and not drawn");
-            }
-            None => assert!(!text.contains('⚠'), "a detour was drawn and not decided"),
-        }
-
-        for d in s
-            .get("departures")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
-            if d["cancelled"] == Value::Bool(true) {
-                cancels += 1;
-                assert!(
-                    text.contains("cancelled") && text.contains('\u{2014}'),
-                    "a cancelled trip kept its countdown in the frame"
-                );
-                continue;
-            }
-            // The note beside a live row says the same thing this field
-            // does. One fixture is 290 seconds late on purpose, where
-            // truncating the seconds says four minutes and rounding says
-            // five, so a second way of deriving this shows up here.
-            let Some(late) = d["late"].as_i64() else {
-                continue;
-            };
-            lates += 1;
-            let note = match late {
-                -1..=1 => "on time".to_string(),
-                l if l > 0 => format!("{l} late"),
-                l => format!("{} early", -l),
-            };
-            assert!(
-                text.contains(&note),
-                "the board and the snapshot disagree about lateness: {note:?} is not drawn"
-            );
-        }
-    }
-    assert!(
-        detours > 0 && cancels > 0 && lates > 0,
-        "{detours} detours, {cancels} cancels, {lates} lateness notes"
-    );
-}
-
-#[test]
-fn a_reading_the_frame_has_no_room_for_is_still_a_decision() {
-    // The one place the two layers part company, and on purpose. The app
-    // decides the weather; the renderer decides it does not fit. Those are
-    // different questions, and only the second knows about widths. So the
-    // implication runs one way: a label on the rule must match what was
-    // decided, but a decision need not reach the rule.
-    let mut dropped = 0;
-    for f in every_frame() {
-        let Some(w) = f.semantic.get("weather").and_then(Value::as_str) else {
-            continue;
-        };
-        let rule = f.rows.first().map(String::as_str).unwrap_or_default();
-        if rule.contains('°') {
-            assert!(
-                rule.contains(w),
-                "the rule drew a reading nobody decided: {rule:?}"
-            );
-        } else {
-            dropped += 1;
-            assert_eq!(
-                rule.trim_end(),
-                "─".repeat(rule.chars().count()).trim_end(),
-                "a reading was cut rather than dropped"
-            );
-        }
-    }
-    assert!(dropped > 0, "no fixture is narrow enough to drop a reading");
-}
-
-#[test]
-fn a_prediction_carries_every_derivation_the_board_makes_from_it() {
-    // The input is the fixture's rt.json, which both implementations read.
-    // What is under test is what each does with it, so all three
-    // derivations are here and a port cannot agree by accident: `live`
-    // projects the epoch onto the service day, `wait` counts down to it,
-    // and `late` is the signed minutes against the timetable.
-    let live: Vec<Value> = every_frame()
-        .iter()
-        .filter_map(|f| {
-            f.semantic
-                .get("departures")
-                .and_then(Value::as_array)
-                .cloned()
-        })
-        .flatten()
-        .filter(|d| !d["live"].is_null())
-        .collect();
-    assert!(!live.is_empty(), "no fixture has a live prediction");
-    for d in &live {
-        let (sched, l) = (
-            d["scheduled"].as_i64().unwrap(),
-            d["live"].as_i64().unwrap(),
-        );
-        let late = d["late"].as_i64().expect("a live row with no lateness");
-        assert_eq!(
-            late,
-            ((l - sched) as f64 / 60.0).round() as i64,
-            "lateness disagrees with the two times it is derived from: {d}"
-        );
-    }
-}
-
-#[test]
-fn a_pin_is_a_stop_and_the_route_that_narrows_it() {
-    // 44 and 48 both end at Billings Bridge by roads that do not meet, so a
-    // pin is not a stop. The first screen draws only the stop's name, which
-    // is exactly why the identity belongs in here.
-    let pinned: Vec<Value> = every_frame()
-        .iter()
-        .filter_map(|f| f.semantic.get("pins").and_then(Value::as_array).cloned())
-        .flatten()
-        .collect();
-    assert!(!pinned.is_empty(), "no fixture pins anything");
-    for p in &pinned {
-        assert!(p["stop"].is_string(), "a pin with no stop: {p}");
-    }
-    assert!(
-        pinned.iter().any(|p| p["route"].is_string()),
-        "no pin carries the route it was made from: {pinned:?}"
-    );
-}
+mod semantic;
