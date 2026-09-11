@@ -192,7 +192,11 @@ fn pin_line(p: &crate::app::Pinned, c: &PinCols, now: i32) -> Line<'static> {
     };
     let mins = crate::app::mins_until(d.when(), now);
     let (bg, fg) = badge(&d.route_color);
-    // The clock time is the one cell a pin does not draw.
+    // Two cells a pin does not draw: the clock time, and the "after midnight"
+    // marker that belongs with it. The marker explains a time that reads as
+    // today's, because a board showing 00:04 on the 12th is drawing Friday's
+    // 24:04. A pin draws no time, so it has nothing to explain, and the
+    // countdown is the same number either way.
     let Cells {
         wait: (countdown, countdown_style),
         note: (note, note_style),

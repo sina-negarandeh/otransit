@@ -125,10 +125,11 @@ holds, in the order the app moves through them:
 | `replay/world.rs` | the fixture directory: the copied pins, and that two replays do not share one |
 | `replay/mod.rs` | the harness proving itself: that every fixture replays, that a replay repeats, and that a frame is drawn the way the event loop draws one |
 | `dev.rs` | that the headless walk finds the modes rather than a fixed row |
-| `replay/artifact.rs` | (no tests: the format is asserted through the fixtures in `conformance.rs`) |
-| `replay/wire.rs` | (no tests of its own: the cadence is asserted through the fixtures in `conformance.rs`) |
-| `semantic.rs` | (no tests: the vocabulary is asserted through the fixtures in `conformance.rs`) |
-| `conformance.rs` | what the thirteen fixed worlds prove about the app: every screen, the detour, a cancelled row on a board and on a pin, rail, a live pin on the first frame, silence drawn as silence, a shared pole number, a number that is not a platform, a letter that is not a shortcut, a list filter that reads more than the column it shows, a dead service day, a reading with no room, a night icon code, a feed that refuses before it answers, a move away from a pin, a realtime cadence that backs off and recovers, and the semantic vocabulary at every depth |
+| `replay/artifact.rs` | (no tests: the format is asserted through the fixtures in `conformance/`) |
+| `replay/wire.rs` | (no tests of its own: the cadence is asserted through the fixtures in `conformance/`) |
+| `semantic.rs` | (no tests: the vocabulary is asserted through the fixtures in `conformance/semantic.rs`) |
+| `conformance/mod.rs` | what the fourteen fixed worlds prove about what the app draws: every screen, the detour, a cancelled row on a board and on a pin, rail, a live pin on the first frame, silence drawn as silence, a shared pole number, a number that is not a platform, a letter that is not a shortcut, a list filter that reads more than the column it shows, a dead service day, yesterday's late buses on this morning's board, a wait past an hour, a reading with no room, a night icon code, a feed that refuses before it answers, a move away from a pin, a realtime cadence that backs off and recovers. Plus the two rules the suite keeps about itself: no step that draws nothing, and the artifact the score was measured against |
+| `conformance/semantic.rs` | what those worlds prove about what the app decided: the vocabulary at every depth, that the snapshot and the frame describe one moment, a reading the frame has no room for, every derivation a board makes from a prediction, and a pin's identity |
 | `main.rs` | which keys reach the filter and which act, and that one frame does every step the loop does |
 | `tests/terminal.rs` | inline viewport, clean exit, no tty |
 
@@ -383,28 +384,37 @@ Doing it by hand answers "is this test vacuous". It does not answer "can this
 suite tell a wrong program from a right one", which is the question that decides
 whether the conformance fixtures could certify a second implementation.
 
-The assertions themselves live in `src/conformance.rs`, apart from the harness
+The assertions themselves live in `src/conformance/`, apart from the harness
 that drives them. Their subject is the app, not the replay, and keeping them
-together is what makes "what does the suite prove?" one file to read.
+together is what makes "what does the suite prove?" one place to read. It is two
+files rather than one: `mod.rs` is what the app draws and `semantic.rs` is what
+it decided, which are read for different reasons, and one file of both had
+reached nine hundred lines.
 
 [mutants/](mutants/README.md) measures that. Each entry is one plausible wrong
 decision, scored two ways: does the artifact change, and do the assertions fail.
 The two come apart, and the gap is the finding. A mutation the unit tests kill
 but the artifact does not is a bug a port could carry and ship.
 
-The baseline: **27/33**. Twenty-seven killed by the artifact, twenty-eight by
-the assertions, six invisible to the comparison a port is judged by. It started at
-19/33, and eight fixtures closed the eight gaps a fixture could close. All six
-that remain are one gap. The slice holds no trip past 24:00 and spans a
-fortnight, so the service day, the midnight wrap and daylight saving are
-unreachable. That needs a new slice and a re-baseline of every frame.
+The baseline: **30/33**. Thirty killed by the artifact, thirty by the
+assertions, three invisible to the comparison a port is judged by. It started at
+19/33. Eight fixtures took it to 27/33, and a slice that reaches past 24:00 took
+it to 30/33.
+
+The three that remain are not gaps a fixture can close. One is daylight saving,
+which no GTFS export contains. The other two are guards against a feed that
+contradicts the timetable by hours, and the board's own query makes that state
+unreachable. `mutants/README.md` gives the arithmetic for all three.
 
 It is a discrimination benchmark, not a coverage percentage. The mutations are a
 sample of mistakes their author could imagine, written by whoever built the
 suite being scored, so the number bounds nothing. It is only comparable with
-its own history. Re-run it after adding fixtures and after any change to what
-the artifact carries, and read the movement rather than the absolute:
-27/33 to 27/37 means four mutants were added that nothing detects.
+its own history. Re-run it after adding fixtures, after any change to the slice,
+and after any change to what the artifact carries. Read the movement rather than
+the absolute: 30/33 to 30/37 means four mutants were added that nothing detects.
+A slice change once moved a fixture to a different board and silently stopped
+one mutation from being detected, with every test still green. The total went up
+while that happened, so compare the per-mutation outcomes as well as the score.
 
 ## Conventions
 

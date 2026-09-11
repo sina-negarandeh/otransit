@@ -38,6 +38,10 @@ portable-pty = "0.8"
 # the zone instead of inheriting the machine's, which made one of them pass in
 # Ottawa and fail on a UTC runner.
 chrono-tz = "0.10"
+# One test hashes the replay artifact, so a fixture cannot move without the
+# change being deliberate. `zip` already builds this, so it costs nothing new,
+# and `std::hash::DefaultHasher` is documented as unstable between releases.
+sha1 = "0.10"
 
 # Standards enforced by the compiler rather than by convention. See RUST.md.
 [lints.rust]

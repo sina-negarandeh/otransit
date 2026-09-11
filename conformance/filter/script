@@ -39,8 +39,6 @@ esc
 # how the two meanings stay distinguishable at the moment of pressing.
 type 44
 enter
-enter
-enter
 key p
 
 # A stop is found by its pole number as well as its name. The search screen
@@ -56,5 +54,8 @@ down
 enter
 type 44
 enter
+
+# The direction is named. A bare enter takes whatever the slice sorts first.
+type hurdman
 enter
 type 8384

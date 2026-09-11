@@ -53,7 +53,13 @@ def build():
 
 
 def digest(b):
-    return hashlib.sha256(b).hexdigest()[:12]
+    """The twelve characters the suite and this runner both quote.
+
+    sha1 rather than sha256 because `src/conformance.rs` asserts the artifact
+    digest and has to compute the same string. `zip` already builds the `sha1`
+    crate, so the Rust side needs no dependency that was not there already.
+    """
+    return hashlib.sha1(b).hexdigest()[:12]
 
 
 def binary():
@@ -72,8 +78,21 @@ def artifact():
     return digest(r.stdout.encode()) if r.returncode == 0 else None
 
 
+# The one test that must not count, and the reason is the whole measurement.
+#
+# `the_artifact_is_the_one_the_score_was_measured_against` hashes the artifact
+# and compares it with a checked-in digest. It is a tripwire for a person
+# editing a fixture, not a claim about the app. Left in, it fails for every
+# mutation that moves the artifact, so every artifact kill would also read as an
+# assertion kill and the gap between the two columns -- the thing this runner
+# exists to measure -- would close by construction.
+#
+# Do not remove this skip to "fix" a red run.
+NOT_AN_ASSERTION = "the_artifact_is_the_one_the_score_was_measured_against"
+
+
 def tests_pass():
-    return sh("cargo", "test", "--release").returncode == 0
+    return sh("cargo", "test", "--release", "--", "--skip", NOT_AN_ASSERTION).returncode == 0
 
 
 # A modified tree would become the baseline, and every score would be measured
