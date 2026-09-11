@@ -46,8 +46,12 @@ behaviour changes:
 
 ## Baseline
 
-**27/33**. It was 19/33 when the campaign was first run. Eight fixtures closed
-the eight gaps that a fixture could close.
+**27/33**, measured at `ff57126`. It was 19/33 when the campaign was first run,
+and eight fixtures closed the eight gaps that a fixture could close.
+
+Record the commit beside the number. Without one, a later reading has nothing to
+compare against: the figure only means something against its own history, and a
+history of bare numbers cannot say which suite produced which.
 
 Three stages stand between a mutation and a score:
 
