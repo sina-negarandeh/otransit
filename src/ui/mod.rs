@@ -12,7 +12,7 @@ pub use palette::RULE_RGB;
 
 use crate::app::{App, Board, Crumb, Row, Screen, WAIT_W, fmt_hm};
 use crate::pins::PinState;
-use layout::{Cols, badge_label, below_a_route, gutter, marker, truncate};
+use layout::{Cols, badge_label, gutter, marker, truncate};
 use palette::{ACCENT, AMBER, Cells, DIM, FG, RULE, badge, cells, hex};
 use ratatui::{
     Frame,
@@ -143,9 +143,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // screens the gutter marks, for the same reason: they sit under exactly
     // one route, so there is exactly one message to show -- and it stays up
     // while you pick a stop, which is when a detour decides where you walk.
-    let notice = below_a_route(&app.screen)
-        .then(|| app.route_alert())
-        .flatten();
+    let notice = app.route_alert();
     let want = if split.is_some() || notice.is_some() {
         area.height
     } else {

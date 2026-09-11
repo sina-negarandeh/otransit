@@ -1,0 +1,20 @@
+# The feed refuses before it has ever answered.
+#
+# `cadence` refuses twice, but only after a board is already on screen, so the
+# refusal is correctly ignored and the age keeps showing. The other case never
+# appeared anywhere: a first attempt that fails, with nothing to keep.
+#
+# Then the status bar must name the failure, because there is no board to
+# protect and silence would read as "no buses are running". A refusal that
+# reached no further than the log would leave the app looking like a quiet
+# Sunday on a morning the agency was down.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14
+
+feed fail http status: 503
+
+type 1869
+enter

@@ -406,7 +406,7 @@ fn a_first_screen_left_open_refills_instead_of_draining() {
     assert_eq!(front(&app).as_deref(), Some("first"));
 
     // Ten past ten: the first bus has gone.
-    app.now = 10 * 3600 + 10 * 60;
+    app.advance_to(10 * 3600 + 10 * 60);
     app.refresh().unwrap();
     assert_eq!(
         front(&app).as_deref(),
@@ -469,8 +469,10 @@ fn a_pin_goes_live_when_the_fetch_lands() {
     let date = NaiveDate::from_ymd_opt(2026, 8, 21).unwrap();
     let mut app = App::offline(g.into_conn(), date, 9 * 3600, Some(dir.join("pins"))).unwrap();
 
-    // Scheduled 10:00, predicted 10:07.
-    let late = clock::service_day_start(date).timestamp() + 10 * 3600 + 7 * 60;
+    // Scheduled 10:00, predicted 10:07. Stated through the app's own clock:
+    // built from `Local` instead, this asserted about the machine's zone and
+    // agreed with the app only where the suite happened to run.
+    let late = app.epoch_of(10 * 3600 + 7 * 60);
     let payload = crate::testing::TestRt::new(0)
         .arrival("t5", "s1", late)
         .build();
@@ -512,10 +514,9 @@ fn a_pin_shows_the_bus_that_arrives_first_not_the_one_scheduled_first() {
 
     // The 5 is scheduled first but running half an hour late, so the 7
     // scheduled ten minutes after it is what actually arrives first.
-    let origin = clock::service_day_start(date).timestamp();
     let payload = crate::testing::TestRt::new(0)
-        .arrival("early", "s1", origin + 10 * 3600 + 30 * 60)
-        .arrival("later", "s1", origin + 10 * 3600 + 10 * 60)
+        .arrival("early", "s1", app.epoch_of(10 * 3600 + 30 * 60))
+        .arrival("later", "s1", app.epoch_of(10 * 3600 + 10 * 60))
         .build();
     *app.rt.lock().unwrap() = RtState::Ready(crate::rt::parse(&payload).unwrap());
     app.apply_realtime();
@@ -817,10 +818,10 @@ fn a_board_left_open_refills_as_departures_go() {
     assert_eq!(deps(&app).len(), 1, "one departure on this route at s1");
     let gone = deps(&app)[0].secs;
 
-    app.now = gone + 60; // the bus has left
+    app.advance_to(gone + 60); // the bus has left
     app.refresh().unwrap();
     assert!(
-        deps(&app).iter().all(|d| d.secs > app.now),
+        deps(&app).iter().all(|d| d.secs > app.now()),
         "a departed bus is still on the board: {:?}",
         board(&app)
     );

@@ -284,6 +284,17 @@ impl Screen {
         }
     }
 
+    /// Whether this screen sits under exactly one route.
+    ///
+    /// Two things follow from it and must follow together: the gutter down the
+    /// left in the route's colour, and the detour published for that route. It
+    /// is one predicate because it is one fact about a screen. Asked in two
+    /// places, the two answers drifted: the snapshot of what the app decided
+    /// reported a detour on the departures board, which draws none.
+    pub fn below_a_route(&self) -> bool {
+        matches!(self, Screen::Stops { .. } | Screen::Directions { .. })
+    }
+
     /// The text typed at this screen, if it takes any.
     ///
     /// Three screens narrow a list in place, one *is* a query, and two take no

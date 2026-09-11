@@ -1,0 +1,15 @@
+# A pin on a stop, not on a route, showing a cancelled trip.
+#
+# `drilldown` pins the same stop scoped to route 44, so it never draws the 48
+# that is cancelled there. Press `p` on a search result instead and you pin
+# everything calling at the stop, because you never said where you were going.
+#
+# At 10:00 the next departure at pole 1869 is that cancelled 48. A pin draws one
+# departure, so it is the one on screen, and a cancelled row gives an em dash
+# where the countdown goes. The board has a test for that. The pin draws through
+# a different arm of the same function and had none.
+cache ../cache.db
+date 2026-09-11
+time 10:00
+offset -04:00
+size 100 14

@@ -1,0 +1,75 @@
+{
+ "id": "on-118",
+ "properties": {
+  "name": {
+   "en": "Ottawa (Kanata - Orléans)",
+   "fr": "Ottawa (Kanata - Orléans)"
+  },
+  "lastUpdated": "2026-09-10T00:03:58Z",
+  "currentConditions": {
+   "condition": {
+    "en": "Funnel Cloud",
+    "fr": "Nuage en entonnoir"
+   },
+   "iconCode": {
+    "format": "gif",
+    "value": 93,
+    "url": "https://weather.gc.ca/weathericons/93.gif"
+   },
+   "temperature": {
+    "unitType": {
+     "en": "metric",
+     "fr": "metric"
+    },
+    "units": {
+     "en": "C",
+     "fr": "C"
+    },
+    "qaValue": {
+     "en": 100,
+     "fr": 100
+    },
+    "value": {
+     "en": -12.4,
+     "fr": -12.4
+    }
+   },
+   "windChill": {
+    "unitType": {
+     "en": "metric",
+     "fr": "metric"
+    },
+    "value": {
+     "en": -2,
+     "fr": -2
+    },
+    "qaValue": {
+     "en": 100,
+     "fr": 100
+    }
+   },
+   "station": {
+    "code": {
+     "en": "yow",
+     "fr": "yow"
+    },
+    "lat": {
+     "en": "45.32N",
+     "fr": "45.32N"
+    },
+    "lon": {
+     "en": "75.67W",
+     "fr": "75.67O"
+    },
+    "value": {
+     "en": "Ottawa Macdonald-Cartier Int'l Airport",
+     "fr": "Aéroport int. Macdonald-Cartier d'Ottawa"
+    }
+   },
+   "timestamp": {
+    "en": "2026-09-10T00:00:00Z",
+    "fr": "2026-09-10T00:00:00Z"
+   }
+  }
+ }
+}

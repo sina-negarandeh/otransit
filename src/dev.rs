@@ -18,7 +18,7 @@ pub fn dump(app: &mut App, want: &str, stop_query: Option<&str>) -> Result<()> {
         "realtime: {}",
         app.rt_note().unwrap_or_else(|| "n/a".into())
     );
-    println!("service date {}", app.service_date);
+    println!("service date {}", app.service_date());
 
     let shot = Shot {
         route: Some(want),
@@ -119,19 +119,30 @@ pub struct Shot<'a> {
     pub search: Option<&'a str>,
 }
 
+/// Run one frame of the app and hand back what it drew.
+///
+/// The frame is the event loop's own, not a reconstruction: `crate::frame` is
+/// the function the browser runs between keypresses, and this calls it. That is
+/// the same rule replayed keys follow, for the same reason. A tool that decided
+/// for itself what a frame consists of is an oracle for a program nobody runs.
+///
+/// Writing the result out is where the two tools legitimately differ, so it is
+/// not shared: `screenshot` turns the styles back into escapes for a terminal
+/// to show, `replay` writes plain text and a canonical style map beside it.
+pub(crate) fn capture(term: &mut Terminal<TestBackend>, app: &mut App) -> Result<Buffer> {
+    crate::frame(term, app)?;
+    Ok(term.backend().buffer().clone())
+}
+
 /// Render each screen in turn and print the terminal buffer as text.
 pub fn screenshot(app: &mut App, shot: &Shot) -> Result<()> {
     app.block_on_feeds(30);
     let mut term = Terminal::new(TestBackend::new(shot.w, shot.h))?;
     let mut frame = |app: &mut App, label: &str| -> Result<()> {
-        // The event loop does this once a frame, so a screenshot that skipped
-        // it would show the timetable where the app shows live times.
-        app.apply_realtime();
-        term.draw(|f| crate::ui::draw(f, app))?;
+        let buf = capture(&mut term, app)?;
         println!("\n--- {label} ---");
-        let buf = term.backend().buffer().clone();
-        for y in 0..shot.h {
-            println!("{}", render_line(&buf, y, shot.w));
+        for y in 0..buf.area.height {
+            println!("{}", render_line(&buf, y, buf.area.width));
         }
         Ok(())
     };
@@ -227,6 +238,9 @@ fn serves(app: &mut App, want: &str) -> Result<Option<usize>> {
 }
 
 /// One row of the render buffer, with the styles turned back into escapes.
+///
+/// `screenshot` only. This is for looking at in a terminal, which is why it is
+/// allowed the run-length trick that `plain_line` and `style_runs` refuse.
 fn render_line(buf: &Buffer, y: u16, w: u16) -> String {
     let mut line = String::new();
     let (mut fg, mut bg) = (Color::Reset, Color::Reset);

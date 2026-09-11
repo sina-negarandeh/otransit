@@ -32,8 +32,8 @@ Two came from using the app, and no amount of review would have found either.
 Two commands read the same cache and reported opposite things about it. And
 `esc` from a route-scoped pin unwound a drill path the user never walked, so
 leaving a pin took four presses where opening it took one. Both were found by a
-person doing the thing, not by anyone reading the diff -- including the two
-reviews that had already passed over the second one.
+person doing the thing, not by anyone reading the diff. Two reviews had already
+passed over the second one.
 
 One came from a partial extraction. A board draws a cancelled trip with three
 rules. Only one of them moved into a function the pin could share, so the pin
@@ -75,6 +75,17 @@ source proves the fixture.
 | `dump` and `screenshot` walked into a pin and labelled it "directions" | `dev.rs` | no |
 | A cancelled pin kept its countdown, in amber, beside the word "cancelled" | `ui/layout.rs` | no |
 | `esc` from a route-scoped pin unwound a drill path nobody walked | `app/mod.rs` | no |
+| Every replay in one process shared one copy of the fixture's pins | `replay.rs` | no |
+| `offset 5` meant five minutes east, because ±HH:MM was tried first | `replay.rs` | no |
+| The replay artifact carried escapes, so a port emitting the same colours differently would diff as broken | `dev.rs` | no |
+| `render_line` read fg and bg only, so `BOLD` and `CROSSED_OUT` were in no artifact | `dev.rs` | no |
+| The headless tools rebuilt the event loop's frame step and left out `refresh` | `dev.rs` | no |
+| Two tests stated a realtime prediction in the machine's zone and read it back in the app's | `app/tests.rs` | yes, wrongly |
+| The semantic snapshot reported a detour on a board, which draws none | `app/mod.rs` | no |
+| A replay served one realtime answer per step, so a wait spanning several intervals recorded one | `replay.rs` | no |
+| Running out of answers dropped the cadence fields, changing the artifact's shape mid-run | `replay.rs` | no |
+| `wait` overflowed the service-day clock: backwards in release, a panic under overflow checks | `replay.rs` | no |
+| The snapshot reported an empty pin list from a board, where pins are not on screen | `semantic.rs` | no |
 
 Each of the first ten was in a file with no coverage. The four tests that
 existed were on string formatting, which is the part least likely to break. The
@@ -94,8 +105,8 @@ holds, in the order the app moves through them:
 | Module | Covers |
 |---|---|
 | `app/tests.rs` | navigation, typing, pins, board scope and refresh |
-| `app/clock.rs` | the service day, lateness, the wait column |
-| `app/poll.rs` | poll cadence and failure policy |
+| `app/clock.rs` | the service day, lateness, the wait column, a held clock that does not move |
+| `app/poll.rs` | poll cadence and failure policy, as a schedule the replay can drive |
 | `db/browse.rs` | routes, directions, boards, ordering, resolving a pin by name |
 | `db/search.rs` | search, ranking, platform stripping |
 | `db/calendar.rs` | service days and their exceptions |
@@ -110,8 +121,15 @@ holds, in the order the app moves through them:
 | `pins.rs` | the pin file: round trips, odd names, a typo, an older file, an ambiguous route, the fingerprint |
 | `weather.rs` | the conditions feed: rounding, the icon codes, the fields it refuses |
 | `alerts.rs` | the updates feed: which kinds count, where routes come from, references decoded |
+| `replay/script.rs` | the language: the parser, every directive it rejects, and what an answer resolves to |
+| `replay/world.rs` | the fixture directory: the copied pins, and that two replays do not share one |
+| `replay/mod.rs` | the harness proving itself: that every fixture replays, that a replay repeats, and that a frame is drawn the way the event loop draws one |
 | `dev.rs` | that the headless walk finds the modes rather than a fixed row |
-| `main.rs` | which keys reach the filter and which act |
+| `replay/artifact.rs` | (no tests: the format is asserted through the fixtures in `conformance.rs`) |
+| `replay/wire.rs` | (no tests of its own: the cadence is asserted through the fixtures in `conformance.rs`) |
+| `semantic.rs` | (no tests: the vocabulary is asserted through the fixtures in `conformance.rs`) |
+| `conformance.rs` | what the thirteen fixed worlds prove about the app: every screen, the detour, a cancelled row on a board and on a pin, rail, a live pin on the first frame, silence drawn as silence, a shared pole number, a number that is not a platform, a letter that is not a shortcut, a list filter that reads more than the column it shows, a dead service day, a reading with no room, a night icon code, a feed that refuses before it answers, a move away from a pin, a realtime cadence that backs off and recovers, and the semantic vocabulary at every depth |
+| `main.rs` | which keys reach the filter and which act, and that one frame does every step the loop does |
 | `tests/terminal.rs` | inline viewport, clean exit, no tty |
 
 Four fixes here carry no test, and say so instead of carrying a fake one:
@@ -135,7 +153,7 @@ screen a pin jumped from. A pin is only drawn on the first screen, so the
 recorded screen is always `Screen::Mode`, and the structural answer for every
 screen you can reach next is also `Screen::Mode`. A stale flag and a correct one
 point at the same place. The line is there so that stays true if a pin is ever
-drawn somewhere else, and a test for it would assert on a field rather than on
+drawn somewhere else. A test for it would assert on a field rather than on
 anything a person could see.
 
 ## Three rules
@@ -185,7 +203,7 @@ The test builds every input, or a checked-in fixture supplies it.
 | **Policy** | refresh cadence, backoff, staleness, schema-version check | extracted from their effectful shells | every branch |
 | **Render** | `ui::draw` | `ratatui::TestBackend` | smoke: does each screen render, do columns align |
 | **Terminal** | what we emit to a real tty | a pty, in `tests/terminal.rs` | no alt-screen, clean exit, clear non-tty error |
-| **Shell** | `main`, `fetch`, thread spawning | — | not tested |
+| **Shell** | `main`, `fetch`, thread spawning | none | not tested |
 
 "Maximal coverage" means this: **everything reachable without I/O has a test.**
 The shell has none on purpose. To test it, you must mock the world, and those
@@ -232,7 +250,7 @@ no active trips. Assert on counts, not only on the absence of an error.
 All three live in [src/testing.rs](src/testing.rs) and compile only under
 `#[cfg(test)]`.
 
-**`TestGtfs`** — an in-memory cache. It is built through `gtfs::create_schema`,
+**`TestGtfs`** is an in-memory cache. It is built through `gtfs::create_schema`,
 so it can never drift from the schema production uses.
 
 ```rust
@@ -244,7 +262,7 @@ let g = TestGtfs::new()
     .stop_time("t1", "S1", 1, "25:10:00"); // may exceed 24:00, as the feed does
 ```
 
-**`TestRt`** — a TripUpdates payload in OC Transpo's .NET shape. It has one
+**`TestRt`** is a TripUpdates payload in OC Transpo's .NET shape. It has one
 method per anomaly, so no test writes PascalCase JSON by hand:
 
 ```rust
@@ -256,7 +274,7 @@ let bytes = TestRt::new(feed_ts)
     .build();
 ```
 
-**`TestFeed`** — a temporary directory of real GTFS CSV files, for testing the
+**`TestFeed`** is a temporary directory of real GTFS CSV files. It tests the
 ingest itself. Every file starts as a minimal valid default. A test overwrites
 only the file it is about.
 
@@ -308,7 +326,7 @@ A test that nobody has seen fail is unproven. After you write one, break the
 code and confirm the test fails. It must fail for the right reason, and ideally
 it must fail alone.
 
-This has caught **four vacuous tests** that would otherwise have sat there and
+This has caught **eight vacuous tests** that would otherwise have sat there and
 looked like coverage:
 
 - `no_row_ever_overflows_the_terminal_width` could not fail. ratatui clips at
@@ -327,13 +345,66 @@ looked like coverage:
   kills it. The test was written and caught in the same minute, which is the
   whole argument for mutating at the moment of writing.
 
+Four more came from the conformance suite, and all four are the same shape: an
+assertion that was true for a reason other than the one it was named for.
+
+- A detour test counted *frames* containing the warning and wanted two or more.
+  The session passes through the directions screen twice, so it read "two" when
+  only one screen carried it. It now asks per screen, by the title in the status
+  bar.
+- `too-narrow` asserted that no degree sign reached the rule. Changing the code
+  to truncate rather than drop cut the label at exactly the degree sign, so the
+  test passed while `⛆ light rain · 21` sat there. It now asserts the rule is
+  entirely rule characters.
+- `quiet-feeds` drilled to a stop the fixture's realtime never mentions, so
+  "every row reads `sched`" was true whatever the code did. It now opens the one
+  stop the realtime covers, where the same minute reads `4 late` in another
+  fixture.
+- `a_refusal_keeps_the_board_it_could_not_replace` watched the departure rows.
+  Nothing clears a prediction once it is on a row, so the rows survive a wiped
+  board too. What proves the board was kept is the status bar still reporting an
+  age instead of the error.
+
+The last one is the sharpest: the test asserted an effect that had two possible
+causes and could not tell them apart. Ask what would have to be true for the
+assertion to hold *without* the code being right.
+
 One test also carried a wrong belief. Removing our BOM stripping changed
 nothing, because the `csv` crate already strips it. The test was testing the
 dependency. It now states the property instead, and the code says that the trim
 is a second line of defence.
 
-No mutation-testing tool is set up. Do this by hand, at the moment you write the
-test, when the cost is one edit.
+No mutation-testing tool is set up for the unit tests. Do those by hand, at the
+moment you write the test, when the cost is one edit.
+
+## Measuring the conformance suite
+
+Doing it by hand answers "is this test vacuous". It does not answer "can this
+suite tell a wrong program from a right one", which is the question that decides
+whether the conformance fixtures could certify a second implementation.
+
+The assertions themselves live in `src/conformance.rs`, apart from the harness
+that drives them. Their subject is the app, not the replay, and keeping them
+together is what makes "what does the suite prove?" one file to read.
+
+[mutants/](mutants/README.md) measures that. Each entry is one plausible wrong
+decision, scored two ways: does the artifact change, and do the assertions fail.
+The two come apart, and the gap is the finding. A mutation the unit tests kill
+but the artifact does not is a bug a port could carry and ship.
+
+The baseline: **27/33**. Twenty-seven killed by the artifact, twenty-eight by
+the assertions, six invisible to the comparison a port is judged by. It started at
+19/33, and eight fixtures closed the eight gaps a fixture could close. All six
+that remain are one gap. The slice holds no trip past 24:00 and spans a
+fortnight, so the service day, the midnight wrap and daylight saving are
+unreachable. That needs a new slice and a re-baseline of every frame.
+
+It is a discrimination benchmark, not a coverage percentage. The mutations are a
+sample of mistakes their author could imagine, written by whoever built the
+suite being scored, so the number bounds nothing. It is only comparable with
+its own history. Re-run it after adding fixtures and after any change to what
+the artifact carries, and read the movement rather than the absolute:
+27/33 to 27/37 means four mutants were added that nothing detects.
 
 ## Conventions
 
@@ -382,7 +453,7 @@ This list is written down so that nobody argues it again:
   correctly is not ours to assert. What we *emit* is ours, and
   `tests/terminal.rs` covers it through a real pty.
 - **The exact rendered layout.** A snapshot test of a full frame breaks on every
-  cosmetic change, and then someone updates all of them at once, which makes the
+  cosmetic change. Someone then updates all of them at once, which makes the
   snapshots worthless. Assert structural properties instead: the columns align,
   `MAX_ROWS` bounds the board, and nothing exceeds the width.
 - **Performance, as a unit test.** A timing assertion is flaky. Keep the

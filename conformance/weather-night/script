@@ -1,0 +1,14 @@
+# A night icon code.
+#
+# ECCC publishes codes 30 to 39 as the night forms of 0 to 9. A sweep of the
+# live feed confirmed the pairing: 0 with 30, 2 with 32, 3 with 33, 6 with 36.
+# Folding them is what makes 32 a cloud rather than a code nobody knows.
+#
+# `weather-unknown` proves that an unknown code draws no glyph. That is the same
+# outcome an unfolded night code produces, so it cannot tell the two apart. This
+# fixture can: 32 must draw the cloud, not nothing.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14

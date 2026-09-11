@@ -1,0 +1,22 @@
+# A weather code nobody has seen before.
+#
+# The glyph comes from `iconCode`, not from the condition text. ECCC publishes
+# 0 to 48 today, and the feed is one they label experimental, so a code outside
+# that set is a question of when rather than whether.
+#
+# What must happen: the label keeps the condition and the temperature and draws
+# no glyph. Not a fallback picture, and not a question mark. The rule reads
+# `condition · temp`, and a stand-in glyph would sit beside a `·` and read as a
+# character in its own right, so the honest answer is to draw nothing.
+#
+# The temperature is below zero here as well, which is the other half of this
+# label: a minus sign in a field the rule right-aligns against the terminal.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14
+
+# One screen is enough. The rule carries the weather on every screen, so a
+# second frame of it proves nothing the first did not.
+enter

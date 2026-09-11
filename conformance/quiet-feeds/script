@@ -1,0 +1,48 @@
+# What silence looks like.
+#
+# No rt.json, no updates.xml, no weather.json, no pins. Every live input this
+# app has is absent at once, which is the state it spends most of its life one
+# network failure away from.
+#
+# This is the fixture that matters most to a second implementation. A broken
+# realtime parse returns no arrivals, every row reads `sched`, and that looks
+# exactly like a quiet Sunday. A detour feed whose tag convention changed
+# reports no detours, which looks like a week with none. Both failures are
+# invisible unless something writes down what "nothing" is supposed to draw.
+#
+# So: no glyph and no temperature on the rule, no warning on any screen, and
+# `sched` on every departure of a bus route that does have realtime in the
+# `drilldown` fixture. Anything else here is an implementation inventing data.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14
+
+# Bus -> 44 -> a direction -> a stop -> its board.
+#
+# Bus is row 0 here. It is row 1 in `drilldown`, where a pin sits above the
+# modes. A script that hardcoded the row would walk into rail and still print
+# frames that diff cleanly, so the two fixtures do not share their steps.
+enter
+type 44
+enter
+enter
+enter
+enter
+
+# And back out, so the route and direction screens are drawn with no detour
+# on them rather than only walked through. Four levels down, four back up:
+# board, stops, directions, routes.
+esc
+esc
+esc
+esc
+
+# Then the same stop `drilldown` opens: pole 1869, TRANSITWAY / TERMINAL, which
+# is the one stop this suite's rt.json carries arrivals for. There it reads
+# `4 late`. Here it must read `sched` on every row, and that is the assertion
+# this fixture exists to make -- the same stop, the same minute, the same
+# timetable, and the only difference is a file that is not there.
+type 1869
+enter

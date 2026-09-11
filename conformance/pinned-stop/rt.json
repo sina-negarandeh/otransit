@@ -1,0 +1,67 @@
+{
+ "Header": {
+  "Timestamp": 1789128000
+ },
+ "Entity": [
+  {
+   "TripUpdate": {
+    "Trip": {
+     "TripId": "11000060-1",
+     "ScheduleRelationship": 0
+    },
+    "StopTimeUpdate": [
+     {
+      "StopId": "7581",
+      "Arrival": {
+       "HasTime": true,
+       "Time": 1789129581
+      }
+     }
+    ]
+   }
+  },
+  {
+   "TripUpdate": {
+    "Trip": {
+     "TripId": "11664060-1",
+     "ScheduleRelationship": 0
+    },
+    "StopTimeUpdate": [
+     {
+      "StopId": "7581",
+      "Arrival": {
+       "HasTime": true,
+       "Time": 1789132031
+      }
+     }
+    ]
+   }
+  },
+  {
+   "TripUpdate": {
+    "Trip": {
+     "TripId": "11052060-1",
+     "ScheduleRelationship": 3
+    },
+    "StopTimeUpdate": []
+   }
+  },
+  {
+   "TripUpdate": {
+    "Trip": {
+     "TripId": "11494060-1",
+     "ScheduleRelationship": 0
+    },
+    "StopTimeUpdate": [
+     {
+      "StopId": "9491",
+      "Arrival": {
+       "HasTime": true,
+       "Time": 1789131890
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,60 @@
+# Every letter goes to the filter.
+#
+# On a list screen there is no such thing as a shortcut key. `p` pins a board,
+# and pinning is the only thing `p` does -- but on a list it is a letter, and
+# it has to reach the filter like any other. Guarding it on "nothing typed yet"
+# is the version that looks right and is not: nothing is typed at the start of
+# every search, so the guard eats the first letter of the word you meant.
+#
+# That shipped once. No stop beginning with P could be searched for.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14
+
+# Into the bus routes, where typing narrows the list.
+enter
+
+# A digit narrows to 44 and 48, and backspace widens again.
+type 4
+backspace
+
+# `p` is a letter here. No route is named for it, so the list empties. That is
+# the point. It went to the filter rather than pinning anything.
+key p
+esc
+
+# A route is found by its name as well as its number. 44 is
+# `Billings Bridge <> Hurdman` and 48 is `Hurdman <> Carleton`, so both match a
+# word neither of their numbers contains. Matching the number alone would empty
+# the list here, and nothing else in the suite types a route name.
+type hurdman
+
+# esc clears what was typed before it walks back a level, so this takes two.
+esc
+esc
+
+# On a board, the same key pins. The status bar names what it pinned, which is
+# how the two meanings stay distinguishable at the moment of pressing.
+type 44
+enter
+enter
+enter
+key p
+
+# A stop is found by its pole number as well as its name. The search screen
+# takes a number too, but that is a database query. This is the in-place filter
+# on a stop list, which is a different path and had nothing walking it.
+#
+# 8384 is WALKLEY / BANFF, whose name holds no digits at all.
+#
+# The step above pinned a board, so the first screen now opens on that pin and
+# Bus has moved down a row. Row 0 is never a fixed thing here.
+esc
+down
+enter
+type 44
+enter
+enter
+type 8384

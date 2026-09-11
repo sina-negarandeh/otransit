@@ -1,0 +1,33 @@
+# Drilling onward from a pin, instead of leaving it.
+#
+# Entering a pin is the one jump in this app, so it records the screen it left
+# and `back` honours that first. Every other move clears the record, because
+# every other move is one step and its parent is where it came from.
+#
+# `drilldown` enters a pin and escs straight back out, which uses the record and
+# empties it. Nothing walked the other path: enter a pin, go somewhere else, and
+# then press esc. If a move forgot to clear the record, that esc jumps to the
+# first screen from four levels down instead of going up one.
+#
+# The last frame must be the directions, not the first screen.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 100 14
+
+# Into the pin's board. This is the jump that sets the record.
+enter
+
+# Away from it, without using the record. `/` is a move like any other.
+key /
+
+# Down past the pin to Bus, then all the way to a stop list.
+down
+enter
+type 44
+enter
+enter
+
+# One level up. The stop list belongs to a direction, so this is the directions.
+esc

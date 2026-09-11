@@ -7,8 +7,8 @@ Live OC Transpo departures in the terminal.
 ![A departures board at Rideau and Augusta: coloured route badges, destination, scheduled time, and the wait coloured by urgency. Two minutes is red, eight is green, later departures are dim, and lateness sits in amber beside them.](docs/images/departures-board.png)
 
 The colour is the interface. How long you have is red under two minutes, amber
-under six, green under fifteen, and dim past that, so the board answers "do I
-need to leave now" before you have read a single number.
+under six, green under fifteen, and dim past that. The board answers "do I need
+to leave now" before you read a single number.
 
 ```
      14    St-Laurent                13:31       6 min   on time
@@ -22,9 +22,9 @@ need to leave now" before you have read a single number.
  Departures   #2331 › RIDEAU / AUGUSTA             live 26s · esc · q
 ```
 
-The times are when each bus will actually arrive, not when it was timetabled:
-the 12 is due at 13:34 and running twelve minutes late, so it lands after a 7
-that was scheduled after it. Rows marked `sched` are beyond the range of the
+The times are when each bus will actually arrive, not when the timetable said.
+The 12 is due at 13:34 and runs twelve minutes late. It therefore lands after a
+7 that the timetable put after it. Rows marked `sched` are beyond the range of the
 live feed.
 
 ## Why
@@ -148,13 +148,14 @@ does not touch it.
 
 A pin remembers the board you pinned, not just the stop. Drill to a route and
 you pin that route in that direction. Press `p` on a search result and you pin
-everything calling there, because you never said where you were going. So one
-platform can hold two pins, which it needs to: at `TRANSITWAY / TERMINAL` a
-single pole is served by nine routes running to eight destinations, and 44 and
-48 both end at Billings Bridge by roads that do not meet in between.
+everything calling there, because you never said where you were going. One
+platform can therefore hold two pins, and it needs to. Nine routes serve the
+single pole at `TRANSITWAY / TERMINAL`, and they run to eight destinations.
+Routes 44 and 48 both end at Billings Bridge by roads that do not meet.
 
-A pin that a new export can no longer resolve — the stop is gone, or the route
-is not running — is hidden rather than shown as a row that cannot be opened.
+A new export can leave a pin that no longer resolves, because the stop is gone
+or the route does not run. The app hides that pin. It does not show a row that
+you cannot open.
 The line stays in the file, so a stop that comes back brings its pin with it.
 
 ## The feed
@@ -287,6 +288,7 @@ writes an escape sequence anywhere.
 | `otransit screenshot [w] [h]` | render screens as text (`search=rideau`, `route=75`) |
 | `otransit ingest <dir>` | build the cache from a feed you unpacked |
 | `otransit logo` | print the startup mark |
+| `otransit replay <dir>` | replay recorded sessions over fixed inputs, as plain text |
 | `otransit --version` | print the version and the data attribution |
 
 The browser needs a real terminal, because the inline viewport asks for the

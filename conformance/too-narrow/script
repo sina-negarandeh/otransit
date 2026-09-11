@@ -1,0 +1,20 @@
+# A terminal with no room for the weather.
+#
+# The label is `⛆ light rain · 21°`, eighteen cells, and it sits at the right
+# end of the rule the logo's pole stands on. Below twenty cells there is no
+# rule left to put it on, so the whole label goes and the rule draws plain.
+#
+# Cutting it instead would leave `⛆ light ra`, which does not read as a
+# truncation. It reads as a condition -- a shorter, wronger one -- and this app
+# would rather say nothing than say something it does not mean. The same rule
+# governs the glyph for an unknown icon code, in `weather-unknown`.
+#
+# Nineteen cells is not a terminal anyone uses. It is the width at which the
+# behaviour happens, which is the only thing a fixture is for.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 19 14
+
+enter

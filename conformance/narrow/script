@@ -1,0 +1,30 @@
+# A terminal too narrow for what the app wants to draw.
+#
+# Every column here is measured in cells, and every one of them has to give way
+# in a fixed order rather than spilling past the edge. A row that overflows
+# does not wrap -- it pushes the columns after it right, on that row alone, and
+# the board stops lining up.
+#
+# A name that does not fit ends in a single `…`, which costs a cell of its own.
+# The weather still fits at this width and stays on the rule: `too-narrow` is
+# the fixture where it does not.
+#
+# 44 cells is narrower than any real terminal. That is the point: the fixture
+# has to reach the case, and a width nobody uses is the cheapest way to.
+cache ../cache.db
+date 2026-09-11
+time 08:00
+offset -04:00
+size 44 14
+
+# Down to a board, where the most columns compete for the least room.
+enter
+type 44
+enter
+enter
+enter
+
+# And a stop search, where the name, the pole number, the destination and the
+# route list all want the same cells.
+esc
+type billings
