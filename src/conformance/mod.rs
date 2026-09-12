@@ -440,7 +440,7 @@ fn a_wait_past_an_hour_pads_its_minutes() {
 /// Twelve characters of sha1 over `replay conformance styles semantic`, which
 /// is what the runner prints on its first line. Update both together: this
 /// constant and the Baseline section of `mutants/README.md`.
-const BASELINE_ARTIFACT: &str = "8efe719c39a0";
+const BASELINE_ARTIFACT: &str = "494f2f8dd019";
 
 #[test]
 fn the_artifact_is_the_one_the_score_was_measured_against() {

@@ -392,6 +392,57 @@ fn pin_row(shown: &[String]) -> &String {
         .expect("no pin row: the fixture did not load")
 }
 
+/// Is the row's own text bold, past the cursor column?
+///
+/// Past it on purpose. The marker is always bold, so a check that included it
+/// would answer yes for every row and could never fail.
+fn bold_on(buf: &Buffer, y: u16) -> bool {
+    (MARKER_W..buf.area.width).any(|x| {
+        buf[(x, y)]
+            .style()
+            .add_modifier
+            .contains(ratatui::style::Modifier::BOLD)
+    })
+}
+
+/// The cursor column, which `marker` owns.
+const MARKER_W: u16 = 3;
+
+#[test]
+fn the_selected_row_is_bold_on_a_first_screen_that_has_a_pin() {
+    // The first screen draws two groups when it has pins, and one list when it
+    // does not. The one-list path renders with the list's state, so ratatui
+    // applies `highlight_style`. The two-group path rendered without state, so
+    // the same `highlight_style` was set and never used, and nothing on the
+    // screen was ever bold once a pin existed.
+    //
+    // The cursor was right throughout, because `items` draws the marker itself
+    // from the same selection. Only the emphasis was delegated, and only the
+    // delegated half went missing.
+    let (mut app, _dir) = app_with_a_cancelled_pin();
+
+    // The pin has to actually be on screen, or this asserts about the
+    // single-group path and the two-group path is never drawn at all.
+    let shown = frame(&mut app, 74, VIEWPORT_H);
+    assert!(
+        shown.iter().any(|r| r.contains("BANK")),
+        "no pin on the first screen, so the two-group path was not taken"
+    );
+
+    // Off the pin and onto a mode row, which is the group that lost its bold.
+    app.move_by(1);
+    let buf = render(&mut app, 74, VIEWPORT_H);
+    let y = text(&buf)
+        .iter()
+        .position(|r| r.contains('\u{276f}'))
+        .expect("no cursor on screen") as u16;
+    assert!(
+        bold_on(&buf, y),
+        "the row under the cursor is not bold:\n{:#?}",
+        text(&buf)
+    );
+}
+
 #[test]
 fn a_cancelled_pin_shows_no_countdown() {
     // The board replaces the countdown with an em dash, because a bus that is

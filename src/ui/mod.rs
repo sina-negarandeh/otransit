@@ -304,20 +304,20 @@ fn status_bar(f: &mut Frame, area: Rect, app: &App, rows: &[Row]) {
                 None => "",
             };
             if note.is_empty() {
-                format!("{pin}esc · q ")
+                format!("{pin}esc ")
             } else {
-                format!("{note} · {pin}esc · q ")
+                format!("{note} · {pin}esc ")
             }
         }
         // Nothing on screen advertises the stop search, so the hint must.
-        Screen::Mode => "type to find a stop · ↑↓ · ↵ · q ".to_string(),
+        Screen::Mode => "type to find a stop · ↑↓ · ↵ · esc ".to_string(),
         // At the cap the count is the limit, not the number of matches, so it
         // must not be reported as a total.
         Screen::Search { .. } if rows.len() >= SEARCH_LIMIT => {
             format!("{}+ found · ↑↓ · ↵ · esc ", rows.len())
         }
         Screen::Search { .. } => format!("{} found · ↑↓ · ↵ · esc ", rows.len()),
-        _ => "↑↓ · ↵ · esc · q ".to_string(),
+        _ => "↑↓ · ↵ · esc ".to_string(),
     };
 
     // Trail can outgrow the line; drop the oldest crumbs before truncating.
@@ -384,8 +384,9 @@ fn list(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row]) {
         0,
         app.now(),
     );
-    let l = List::new(items).highlight_style(Style::default().add_modifier(Modifier::BOLD));
-    f.render_stateful_widget(l, area, &mut app.state);
+    // No `highlight_style`: `items` has already emphasised the chosen row, so
+    // the two drawing paths cannot disagree about what selected looks like.
+    f.render_stateful_widget(List::new(items), area, &mut app.state);
 }
 
 /// Rows as drawable items, with the cursor on the one at `selected`.
@@ -406,11 +407,20 @@ fn items<'a>(
         .map(|(i, row)| {
             // Built in the order they appear: the cursor column, the route's
             // rule if there is one, then the row itself.
+            let chosen = Some(i + offset) == selected;
             let mut line = cols.line(row, now);
-            let mut spans = vec![marker(Some(i + offset) == selected)];
+            let mut spans = vec![marker(chosen)];
             spans.extend(rule.cloned());
             spans.append(&mut line.spans);
             line.spans = spans;
+            // The emphasis is applied here, beside the marker, rather than
+            // left to the list's `highlight_style`. That only lands when the
+            // widget is rendered with its state, and the first screen draws
+            // two groups without one, so a screen with a pin on it had a
+            // cursor and no bold anywhere.
+            if chosen {
+                line = line.patch_style(Modifier::BOLD);
+            }
             ListItem::new(line)
         })
         .collect()
@@ -503,8 +513,7 @@ fn menu(f: &mut Frame, area: Rect, app: &mut App, rows: &[Row], pins: usize) {
 
     for (area, group, offset) in [(top, &rows[..pins], 0), (bottom, &rows[pins..], pins)] {
         f.render_widget(
-            List::new(items(group, &cols, None, selected, offset, app.now()))
-                .highlight_style(Style::default().add_modifier(Modifier::BOLD)),
+            List::new(items(group, &cols, None, selected, offset, app.now())),
             area,
         );
     }

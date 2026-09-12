@@ -58,7 +58,18 @@ only the number at the end, and re-run on any change to the slice.
 
 ## Baseline
 
-**30/33**, artifact `8efe719c39a0`. It was 19/33 when the campaign was first
+**30/33**, artifact `494f2f8dd019`. That is twelve characters of **sha1**:
+
+```bash
+otransit replay conformance styles semantic | shasum | cut -c1-12
+```
+
+Name the algorithm beside the number. A bare digest was published here once, a
+second implementation measured the same bytes with `shasum -a 256`, and the
+mismatch read exactly like a moving reference. It cost an afternoon of chasing a
+binary that had never moved.
+
+It was 19/33 when the campaign was first
 run. Eight fixtures took it to 27/33, and a slice reaching past 24:00 took it to
 30/33. The 27/33 reading was measured at commit `ff57126`.
 

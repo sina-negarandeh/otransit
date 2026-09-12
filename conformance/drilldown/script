@@ -38,10 +38,15 @@ esc
 esc
 
 # The O-Train: rail has no realtime at all, so every row must read `sched`.
+#
+# The direction is named here for the same reason it is named on the bus walk
+# above. Rail was left on a bare enter, and a tiebreak added to the direction
+# order moved it to the other end of the line.
 down
 down
 enter
 enter
+type tunney
 enter
 enter
 esc
