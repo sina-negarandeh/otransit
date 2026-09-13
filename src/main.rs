@@ -59,6 +59,9 @@ fn open_app(db: &PathBuf) -> Result<App> {
     App::new(Connection::open(db)?, cache_dir)
 }
 
+/// The observation words `replay` accepts after the fixture directory.
+const OBSERVATIONS: [&str; 2] = ["styles", "semantic"];
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let arg = |i: usize| args.get(i).map(String::as_str);
@@ -112,6 +115,19 @@ fn main() -> Result<()> {
             let Some(dir) = arg(2) else {
                 anyhow::bail!("replay wants a fixture directory");
             };
+            // An unknown word is an error, not a shrug. Ignoring one meant
+            // `replay conformance stylez` printed the text artifact and exited
+            // zero, so a typo in a comparison script reported "identical"
+            // about an observation nobody had made.
+            if let Some(bad) = args
+                .iter()
+                .skip(3)
+                .find(|a| !OBSERVATIONS.contains(&a.as_str()))
+            {
+                anyhow::bail!(
+                    "replay does not know the observation {bad:?}, only {OBSERVATIONS:?}"
+                );
+            }
             let asked = |name: &str| args.iter().any(|a| a == name);
             replay::run(
                 std::path::Path::new(dir),
@@ -401,12 +417,20 @@ fn handle_key(app: &mut App, k: KeyEvent) -> Result<()> {
     let typing = !app.screen.typed().is_empty();
     match k.code {
         KeyCode::Char('c') if k.modifiers.contains(KeyModifiers::CONTROL) => app.quit = true,
-        KeyCode::Char('q') if !typing => app.quit = true,
+        // No `q`. It quit the app, and it was guarded on "nothing typed yet",
+        // which is true at the start of every search: 58 stops begin with Q, so
+        // searching for Queensway ended the session on the first keystroke.
+        // Confining it to a board would have worked, and this goes further,
+        // because one rule with no exceptions is worth more than the keystroke
+        // it saves. `esc` walks back and quits at the floor.
         KeyCode::Enter => app.enter()?,
         KeyCode::Up => app.move_by(-1),
         KeyCode::Down => app.move_by(1),
-        KeyCode::Char('k') if !typing => app.move_by(-1),
-        KeyCode::Char('j') if !typing => app.move_by(1),
+        // No `j` and `k`. They carried the same guard and cost more: 139 stops
+        // begin with J and 221 with K, so the habit made Kilborn unsearchable.
+        // Confining them to the board the way `q` is confined would leave them
+        // doing nothing, because a board draws no cursor to move. The arrows
+        // they duplicated are in every status bar.
         // esc clears the filter first, then walks back up a level
         KeyCode::Esc => {
             if typing {
@@ -440,6 +464,50 @@ mod tests {
     /// A key press, as the event loop delivers it.
     fn press(app: &mut App, c: char) {
         handle_key(app, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)).unwrap();
+    }
+
+    #[test]
+    fn a_letter_with_another_meaning_only_carries_it_where_typing_does_nothing() {
+        // `q` used to be guarded on "nothing typed yet", which is true at the
+        // start of every search, so it quit the app on the first keystroke of
+        // Queensway. 58 stops begin with Q. `j` and `k` carried the same guard
+        // and cost 139 and 221 stops, and they are gone: confining them to a
+        // board would leave them with no cursor to move.
+        //
+        // This is the rule CLAUDE.md already states for `p`, applied to every
+        // letter that wants a second meaning.
+        let g = crate::testing::TestGtfs::new()
+            .route("5", "5", 3, "0057B8")
+            .always("A")
+            .trip("t5", "5", "A", "Elmvale")
+            .stop("s1", "0001", "QUEENSWAY CARLETON")
+            .stop_time("t5", "s1", 1, "10:00:00");
+        let mut app = App::offline(
+            g.into_conn(),
+            chrono::NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+            9 * 3600,
+            None,
+        )
+        .unwrap();
+
+        for c in ['q', 'j', 'k'] {
+            press(&mut app, c);
+            assert!(!app.quit, "{c} quit instead of being typed");
+        }
+        assert_eq!(app.screen.typed(), "qjk", "a letter was eaten");
+
+        // And on a board, where typing does nothing, `q` is still not an exit.
+        // It was confined here first. One rule with no exceptions is worth more
+        // than the keystroke, because "which screen am I on" is not a question
+        // a person should have to answer before pressing a key.
+        app.clear_filter().unwrap();
+        app.enter().unwrap(); // modes -> routes
+        app.enter().unwrap(); // routes -> directions
+        app.enter().unwrap(); // directions -> stops
+        app.enter().unwrap(); // stops -> a board
+        assert!(app.screen.board().is_some(), "expected a board");
+        press(&mut app, 'q');
+        assert!(!app.quit, "q quit from a board");
     }
 
     #[test]

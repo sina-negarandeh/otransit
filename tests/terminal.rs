@@ -157,6 +157,18 @@ impl Session {
         self.pump(settle_ms);
     }
 
+    /// Whether the child has already gone, without waiting for it.
+    ///
+    /// `wait` consumes the session because it is the end of one. This asks the
+    /// same question mid-session, for a test whose claim is that the browser is
+    /// still running.
+    fn exited(&mut self) -> Option<u32> {
+        match self.child.try_wait() {
+            Ok(Some(status)) => Some(status.exit_code()),
+            _ => None,
+        }
+    }
+
     /// Wait for the child to exit, failing rather than hanging.
     fn wait(mut self, timeout_ms: u64) -> u32 {
         let deadline = Instant::now() + Duration::from_millis(timeout_ms);
@@ -194,7 +206,13 @@ fn never_takes_over_the_terminal() {
 
     let alt = s.saw(SMCUP);
     let bytes = s.output.len();
-    s.send("q", 400);
+
+    // Five escapes out: the board, the stops, the directions, the routes, and
+    // the first screen, which is the floor `back` falls to. `q` is a letter
+    // everywhere now, so it cannot end this.
+    for _ in 0..5 {
+        s.send("\x1b", 300);
+    }
     let code = s.wait(5000);
 
     assert_eq!(alt, 0, "emitted {alt} alternate-screen sequences");
@@ -207,9 +225,38 @@ fn never_takes_over_the_terminal() {
 
 #[test]
 fn quits_cleanly_from_the_first_screen() {
+    // `esc` is the exit, because the first screen is the floor `back` falls to.
+    // `q` used to do it and no longer does at all: it was guarded on "nothing
+    // typed yet", which is true at the start of every search, so it quit on the
+    // first keystroke of a search for Queensway. 58 stops begin with Q.
+    let mut s = Session::start();
+    s.pump(1500);
+    s.send("\x1b", 400);
+    assert_eq!(s.wait(5000), 0);
+}
+
+#[test]
+fn a_letter_does_not_quit_from_the_first_screen() {
+    // The pty is the only place this can be proved end to end: `q` reaching the
+    // filter instead of the exit is a claim about the real binary's key
+    // handling, and no fixture presses `q` at all.
     let mut s = Session::start();
     s.pump(1500);
     s.send("q", 400);
+    s.send("j", 200);
+    s.send("k", 200);
+    assert_eq!(s.exited(), None, "a letter quit the browser");
+
+    // Two escapes, and the first one proves the letters landed: `esc` clears a
+    // filter before it leaves a screen, so a session that had eaten the keys
+    // would exit on the first press.
+    s.send("\x1b", 400);
+    assert_eq!(
+        s.exited(),
+        None,
+        "the filter was empty, so the letters were eaten"
+    );
+    s.send("\x1b", 400);
     assert_eq!(s.wait(5000), 0);
 }
 

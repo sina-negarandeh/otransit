@@ -52,6 +52,19 @@ impl Pinned {
     }
 }
 
+/// The "s" a count needs, which is every count except one.
+///
+/// Zero takes the plural, which is what English does: "0 routes running today".
+/// Takes the comparison rather than the number, because the three counts here
+/// are not all one integer type and a cast to make them agree would be a
+/// decision about range that this has no reason to make.
+///
+/// The plural used to be unconditional, so a day with one rail line read
+/// "1 lines" and a conformance artifact recorded it.
+fn plural(is_one: bool) -> &'static str {
+    if is_one { "" } else { "s" }
+}
+
 impl Row {
     /// The bold left-hand label.
     pub fn primary(&self) -> String {
@@ -68,10 +81,12 @@ impl Row {
     /// The dim right-hand detail.
     pub fn secondary(&self) -> String {
         match self {
-            Row::Mode(Mode::Bus, n) => format!("{n} routes running today"),
-            Row::Mode(Mode::Train, n) => format!("{n} lines · scheduled times only"),
+            Row::Mode(Mode::Bus, n) => format!("{n} route{} running today", plural(*n == 1)),
+            Row::Mode(Mode::Train, n) => {
+                format!("{n} line{} \u{b7} scheduled times only", plural(*n == 1))
+            }
             Row::Route(r) => r.long_name.clone(),
-            Row::Direction(d) => format!("{} trips today", d.trips),
+            Row::Direction(d) => format!("{} trip{} today", d.trips, plural(d.trips == 1)),
             Row::Stop(s) => format!("#{}", s.code),
             Row::Pin(p) => format!("#{}", p.stop().code),
             Row::Hit(h) => h.routes.join(", "),

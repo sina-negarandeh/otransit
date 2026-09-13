@@ -99,7 +99,12 @@ pub fn routes_by_short_name(
         .collect::<std::result::Result<_, _>>()?)
 }
 
-/// Level 2: the distinct headsigns for a route, most-used first.
+/// Level 2: the distinct headsigns for a route, most-used first, then by name.
+///
+/// The tiebreak is not decoration. `COUNT(*) DESC` alone left a route running
+/// the same number of trips each way in whatever order SQLite produced, which
+/// is not a property of the data, and the conformance artifact recorded it. The
+/// O-Train ties at eight trips each way.
 pub fn directions_for_route(
     conn: &Connection,
     route_ids: &[String],
@@ -113,7 +118,7 @@ pub fn directions_for_route(
            FROM trips t
           WHERE t.route_id IN ({}) AND t.service_id IN ({})
           GROUP BY t.headsign
-          ORDER BY c DESC",
+          ORDER BY c DESC, t.headsign",
         placeholders(route_ids.len()),
         placeholders(services.len())
     );
@@ -132,6 +137,16 @@ pub fn directions_for_route(
 
 /// Level 3: stops along a route+headsign, in travel order.
 ///
+/// One trip's path, not the union of every variant's. Route 48 toward Hurdman
+/// has trips starting at Carleton and trips starting at Billings Bridge, and
+/// ordering the union by each stop's earliest sequence interleaves the two into
+/// a path no bus takes.
+///
+/// The trip is the one with the most stops, and the tiebreak is not decoration.
+/// Three trips tie at fifty stops there, and eight tie at forty-one on route 44,
+/// so `COUNT(*) DESC` alone left SQLite to choose and the artifact recorded the
+/// choice.
+///
 /// Uses the longest trip as the canonical pattern, so short-turns don't hide stops.
 pub fn stops_for_direction(
     conn: &Connection,
@@ -146,7 +161,7 @@ pub fn stops_for_direction(
         "SELECT t.trip_id, COUNT(st.stop_id) c
            FROM trips t JOIN stop_times st ON st.trip_id = t.trip_id
           WHERE t.route_id IN ({}) AND t.service_id IN ({}) AND t.headsign = ?
-          GROUP BY t.trip_id ORDER BY c DESC LIMIT 1",
+          GROUP BY t.trip_id ORDER BY c DESC, t.trip_id LIMIT 1",
         placeholders(route_ids.len()),
         placeholders(services.len())
     );
@@ -653,6 +668,26 @@ mod tests {
         )
         .expect("an empty route list is a query with no answer, not an error");
         assert!(deps.is_empty());
+    }
+
+    #[test]
+    fn two_directions_with_the_same_trip_count_are_ordered_by_headsign() {
+        // The order was `COUNT(*) DESC` and nothing else, so a route running
+        // the same number of trips each way came back in whatever order SQLite
+        // produced. That is not a property of the data, and the conformance
+        // artifact recorded it: the O-Train ties at eight trips each way.
+        //
+        // A second implementation reproducing this suite has no way to derive
+        // the order, and a different engine or a different query plan would
+        // choose the other one.
+        let g = TestGtfs::new()
+            .route("1", "1", 2, "d62d20")
+            .always("A")
+            .trip("t1", "1", "A", "Tunney's Pasture")
+            .trip("t2", "1", "A", "Blair");
+        let dirs = directions_for_route(g.conn(), &["1".to_string()], &svc(&["A"])).unwrap();
+        let heads: Vec<&str> = dirs.iter().map(|d| d.headsign.as_str()).collect();
+        assert_eq!(heads, vec!["Blair", "Tunney's Pasture"]);
     }
 
     #[test]

@@ -718,8 +718,35 @@ fn the_first_screen_offers_bus_and_train_with_their_counts() {
     assert_eq!(app.rows()[0].secondary(), "2 routes running today");
     assert_eq!(
         app.rows()[1].secondary(),
-        "1 lines · scheduled times only",
+        "1 line · scheduled times only",
         "rail is counted separately"
+    );
+}
+
+#[test]
+fn a_count_of_one_reads_as_one_thing() {
+    // These lines are read by a person, and "1 lines" is wrong English on a
+    // screen. The plural was unconditional, so a day with one rail line said
+    // so in the wrong number, and a conformance artifact recorded it.
+    //
+    // Zero takes the plural, which is correct: "0 routes running today".
+    use crate::app::model::{Mode, Row};
+    assert_eq!(Row::Mode(Mode::Bus, 1).secondary(), "1 route running today");
+    assert_eq!(
+        Row::Mode(Mode::Bus, 0).secondary(),
+        "0 routes running today"
+    );
+    assert_eq!(
+        Row::Mode(Mode::Bus, 2).secondary(),
+        "2 routes running today"
+    );
+    assert_eq!(
+        Row::Mode(Mode::Train, 1).secondary(),
+        "1 line · scheduled times only"
+    );
+    assert_eq!(
+        Row::Mode(Mode::Train, 0).secondary(),
+        "0 lines · scheduled times only"
     );
 }
 
