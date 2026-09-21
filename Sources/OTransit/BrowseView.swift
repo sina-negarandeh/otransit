@@ -277,7 +277,7 @@ private struct RouteList: View {
     let pick: (Route) -> Void
 
     /// Absent in a preview, which draws this screen without a running app.
-    @Environment(Schedule.self) private var schedule: Schedule?
+    @Environment(Notices.self) private var notices: Notices?
 
     @State private var sections = Sections()
 
@@ -348,8 +348,11 @@ private struct RouteList: View {
     }
 
     /// What the city has published about this route, or nil for nothing.
+    ///
+    /// The model is optional because a preview draws this without a running
+    /// app. What it holds is not: no news and no fetch look the same here.
     private func published(about route: Route) -> Notice.Kind? {
-        schedule?.published(about: route.shortName)
+        notices?.published.kind(of: route.shortName)
     }
 }
 
