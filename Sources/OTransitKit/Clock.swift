@@ -88,6 +88,19 @@ public struct Clock: Sendable, Equatable {
     /// the same axis a schedule does.
     public func second(of epoch: Int) -> Int { epoch - Int(start.timeIntervalSince1970) }
 
+    /// The same service day, at a stated time of day, written HH:MM.
+    ///
+    /// Built from noon, which is on the service date by construction, so this
+    /// cannot land on the day before on a day that lost an hour.
+    public func at(_ hhmm: String) -> Clock? {
+        let parts = hhmm.split(separator: ":").map { Int($0) }
+        guard parts.count == 2, let hour = parts[0], let minute = parts[1],
+            let moment = calendar.date(
+                bySettingHour: hour, minute: minute, second: 0, of: day)
+        else { return nil }
+        return Clock(at: moment, zone: calendar.timeZone)
+    }
+
     /// The clock `seconds` real seconds later. The service day does not move:
     /// a board is drawn for the day it was opened on.
     public func advanced(by seconds: Int) -> Clock {
