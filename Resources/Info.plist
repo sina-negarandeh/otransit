@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>otransit</string>
+	<key>CFBundleDisplayName</key>
+	<string>otransit</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.sinanegarandeh.otransit</string>
+	<key>CFBundleExecutable</key>
+	<string>otransit</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<!-- Must match the floor in Package.swift. Lower here and Launch Services
+	     accepts the bundle on a system dyld then refuses to run it on. -->
+	<key>LSMinimumSystemVersion</key>
+	<string>27.0</string>
+	<!-- The whole point: an agent app has no Dock icon and no menu bar of its
+	     own. It is the icon in the status bar and nothing else. -->
+	<key>LSUIElement</key>
+	<true/>
+	<!-- The City of Ottawa's licence requires attribution. -->
+	<key>NSHumanReadableCopyright</key>
+	<string>Contains information licensed under the Open Government Licence - City of Ottawa. https://open.ottawa.ca/pages/open-data-licence  Not affiliated with, endorsed by, or sponsored by OC Transpo or the City of Ottawa.</string>
+</dict>
+</plist>
