@@ -38,7 +38,7 @@ struct BoardView: View {
         // nothing left today still has one. Inside, it disappeared exactly when
         // the board was emptiest, which is when someone is working out tomorrow.
         VStack(spacing: 0) {
-            DetourRow(notices: notices)
+            DetourRow(notices: notices, clock: clock)
 
             Outcome(
                 rows: rows, failure: failure,

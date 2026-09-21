@@ -53,6 +53,26 @@ public enum Format {
         "\(n) \(thing)\(n == 1 ? "" : "s")"
     }
 
+    /// How long ago something happened, in the one unit worth reading.
+    ///
+    /// Coarser than `wait`, and deliberately. A wait is acted on, so "4 hr 02
+    /// min" earns its second number; an age is judged, and nobody decides
+    /// anything differently on an alert posted 4 hr 02 min ago than on one
+    /// posted 4 hr 20. One unit, rounded down, so it never claims more than it
+    /// knows.
+    ///
+    /// Ahead of the clock reads as just now. The feed stamps in local time and
+    /// a machine a few seconds fast would otherwise be told the news arrives
+    /// before it is published.
+    public static func ago(seconds: Int) -> String {
+        switch seconds {
+        case ..<60: "just now"
+        case ..<3600: "\(seconds / 60) min ago"
+        case ..<86_400: "\(seconds / 3600) hr ago"
+        default: count(seconds / 86_400, "day") + " ago"
+        }
+    }
+
     /// A time on the service day, written as a clock reads it.
     ///
     /// The day wraps: a schedule reaches 28:xx, and 25:10 is written 01:10

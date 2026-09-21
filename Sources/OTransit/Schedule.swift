@@ -369,12 +369,12 @@ final class Schedule {
         resolution = Pins.drawable(found)
     }
 
-    /// Whether the city has published anything about this route.
+    /// What the city has published about this route, or nil for nothing.
     ///
     /// Asked here and not through two optionals at each call site. A view has
     /// no business knowing that "no schedule" and "nothing fetched yet" are
-    /// different shapes of nothing: both mean no detour.
-    func detoured(_ route: String) -> Bool { detours?.names(route) ?? false }
+    /// different shapes of nothing: both mean no news.
+    func published(about route: String) -> Notice.Kind? { detours?.kind(of: route) }
 
     /// What it published about this route, which is nothing where it published
     /// nothing.

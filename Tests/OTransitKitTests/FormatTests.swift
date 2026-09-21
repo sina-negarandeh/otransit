@@ -111,3 +111,37 @@ struct CountTests {
         #expect(Format.count(1, "line") == "1 line")
     }
 }
+
+@Suite("Age")
+struct AgoTests {
+    @Test("one unit, the one worth reading")
+    func units() {
+        #expect(Format.ago(seconds: 0) == "just now")
+        #expect(Format.ago(seconds: 59) == "just now")
+        #expect(Format.ago(seconds: 60) == "1 min ago")
+        #expect(Format.ago(seconds: 28 * 60) == "28 min ago")
+        #expect(Format.ago(seconds: 3599) == "59 min ago")
+        #expect(Format.ago(seconds: 3600) == "1 hr ago")
+        #expect(Format.ago(seconds: 4 * 3600 + 20 * 60) == "4 hr ago")
+        #expect(Format.ago(seconds: 86_399) == "23 hr ago")
+        #expect(Format.ago(seconds: 86_400) == "1 day ago")
+        #expect(Format.ago(seconds: 511 * 86_400) == "511 days ago")
+    }
+
+    @Test("rounded down, so it never claims more than it knows")
+    func roundsDown() {
+        // 119 seconds is a minute and fifty-nine, and saying two minutes would
+        // be telling a reader something that has not happened yet.
+        #expect(Format.ago(seconds: 119) == "1 min ago")
+        #expect(Format.ago(seconds: 7199) == "1 hr ago")
+    }
+
+    @Test("a clock that runs fast does not publish the news early")
+    func ahead() {
+        // The feed stamps in local time and a machine a few seconds fast reads
+        // a notice as posted in the future. There is no honest way to say that
+        // and nothing useful in trying.
+        #expect(Format.ago(seconds: -1) == "just now")
+        #expect(Format.ago(seconds: -3600) == "just now")
+    }
+}
