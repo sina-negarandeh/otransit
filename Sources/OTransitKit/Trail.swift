@@ -7,21 +7,32 @@
 
 /// One step of the path.
 public struct Crumb: Sendable, Equatable, Identifiable {
+    /// What this crumb is a crumb of, and whatever drawing that kind needs.
+    ///
+    /// Carried rather than inferred. `crumbs` switches over exactly these four
+    /// cases to build them, and it used to throw the answer away: every place
+    /// that drew a crumb worked the case back out of a combination of
+    /// optionals. A colour and a service meant a route, a colour alone meant a
+    /// direction, and "past the second crumb, with no symbol" meant a stop.
+    /// Three rules in three files, none of them naming what it tested, each of
+    /// them wrong the day the order here changes.
+    public enum Kind: Sendable, Equatable {
+        /// Bus or train, drawn as the mark the first screen gave it.
+        case mode
+        /// Drawn as a badge, in the shape its service wears everywhere else.
+        case route(colour: String, service: Service)
+        /// The route's colour travels with it, so the arrow here is the colour
+        /// of the badge before it.
+        case direction(colour: String)
+        case stop(platform: String?)
+    }
+
     /// Its place in the trail, which is stable while the trail is on screen and
     /// is what a list needs to tell two crumbs apart. Two stops on one route can
     /// share a name; their positions cannot.
     public let id: Int
+    public let kind: Kind
     public let label: String
-    /// The route's own colour, set only on the crumb that is a route. A crumb
-    /// with one is drawn as a badge; the rest are text.
-    public let colour: String?
-    /// The kind of service, so the badge here is the same shape as the one in
-    /// the list it was chosen from.
-    public let service: Service?
-    /// The platform, set only on the crumb that is a stop. It travels with the
-    /// name because it is the thing you are standing there looking for: the
-    /// board says when, and this is the only place left that says where.
-    public let platform: String?
     /// A mark this crumb is drawn as, where one says it shorter than the word.
     ///
     /// The bar cannot be made to fit — one headsign alone is 180 of its 225
@@ -34,16 +45,53 @@ public struct Crumb: Sendable, Equatable, Identifiable {
     public let spoken: String
 
     init(
-        id: Int, label: String, colour: String? = nil, service: Service? = nil,
-        platform: String? = nil, symbol: String? = nil, spoken: String? = nil
+        id: Int, kind: Kind, label: String, symbol: String? = nil, spoken: String? = nil
     ) {
         self.id = id
+        self.kind = kind
         self.label = label
-        self.colour = colour
-        self.service = service
-        self.platform = platform
         self.symbol = symbol
         self.spoken = spoken ?? label
+    }
+
+    /// The colour this crumb's mark is drawn in, where its mark has one.
+    ///
+    /// Only a direction has both. A route carries a colour too, but it wears it
+    /// as a badge rather than as a mark, and a mode's mark is the same grey
+    /// whatever route is picked next.
+    public var tint: String? {
+        if case .direction(let colour) = kind { return colour }
+        return nil
+    }
+
+    /// Whether this is the crumb for a stop, which is the last one and the only
+    /// one that can carry a plate.
+    public var isStop: Bool {
+        if case .stop = kind { return true }
+        return false
+    }
+
+    /// Whether this is the crumb for a direction, which is the one that says
+    /// where the route is going rather than where you are standing.
+    public var isDirection: Bool {
+        if case .direction = kind { return true }
+        return false
+    }
+
+    /// The plate on the pole, where this crumb is a stop that has one.
+    ///
+    /// It travels with the name because it is the thing you are standing there
+    /// looking for: the board says when, and this is the only place left that
+    /// says where.
+    public var platform: String? {
+        if case .stop(let platform) = kind { return platform }
+        return nil
+    }
+
+    /// The badge this crumb is drawn as, where it is drawn as one.
+    public var plate: (colour: String, service: Service)? {
+        if case .route(let colour, let service) = kind { return (colour, service) }
+        return nil
     }
 }
 
@@ -73,12 +121,14 @@ public enum Trail {
                 // is 44.
                 out.append(
                     Crumb(
-                        id: out.count, label: "", symbol: mode.symbol, spoken: mode.title))
+                        id: out.count, kind: .mode, label: "",
+                        symbol: mode.symbol, spoken: mode.title))
             case .direction(let mode, let route):
                 out.append(
                     Crumb(
-                        id: out.count, label: route.shortName, colour: route.colour,
-                        service: route.service(in: mode)))
+                        id: out.count,
+                        kind: .route(colour: route.colour, service: route.service(in: mode)),
+                        label: route.shortName))
             case .stops(_, let route, let headsign):
                 // The arrow says "toward", and says it in 10 points where the
                 // word takes 38. It is the arrow the direction screen already
@@ -86,13 +136,14 @@ public enum Trail {
                 let toward = headsign.english
                 out.append(
                     Crumb(
-                        id: out.count, label: toward, colour: route.colour,
+                        id: out.count, kind: .direction(colour: route.colour), label: toward,
                         symbol: "arrowshape.right.fill", spoken: "Toward \(toward)"))
             case .board(_, _, _, let stop):
                 out.append(
                     Crumb(
-                        id: out.count, label: stop.name,
-                        platform: stop.platform.isEmpty ? nil : stop.platform))
+                        id: out.count,
+                        kind: .stop(platform: stop.platform.isEmpty ? nil : stop.platform),
+                        label: stop.name))
             }
         }
         return out

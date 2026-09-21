@@ -275,21 +275,25 @@ private struct TrailRow: View {
 
         var body: some View {
             Group {
-                if let colour = crumb.colour, let service = crumb.service {
+                if let plate = crumb.plate {
                     // A route keeps its own colour here, so the trail and the
                     // badges in the list beneath it are recognisably the same
                     // route. The pill's edge is this crumb's edge, which is why
                     // its padding may stay inside.
-                    let (fill, text) = Color.badge(colour)
+                    //
+                    // Drawn here rather than through `Badge`: that one is sized
+                    // for a route number at full height and this bar is 15
+                    // points tall, the same as every other small badge.
+                    let (fill, text) = Color.badge(plate.colour)
                     Text(crumb.label)
                         .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                         .foregroundStyle(text)
-                        .padding(.horizontal, service == .frequent ? 7 : 4)
-                        .frame(minWidth: service == .line ? 15 : 0, minHeight: 15)
-                        .background(fill, in: service.badge)
+                        .padding(.horizontal, plate.service == .frequent ? 7 : 4)
+                        .frame(minWidth: plate.service == .line ? 15 : 0, minHeight: 15)
+                        .background(fill, in: plate.service.badge)
                 } else {
                     HStack(spacing: 5) {
-                        CrumbLabel(crumb: crumb, current: current)
+                        CrumbLabel(crumb: crumb, metrics: .chrome, dimmed: !current)
                             // Pad, draw the hover highlight, then take the
                             // padding back out of the layout: the highlight
                             // bleeds past the words without making this crumb
@@ -372,34 +376,5 @@ private struct TrailWidth: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
-    }
-}
-
-/// A crumb that is not a route badge: its mark, if it has one, and its words.
-///
-/// Its own View and not a computed property on `Segment`. Segment redraws on
-/// every hover, and none of this reads the pointer: the mark, its colour and
-/// the words are the same whether or not the pointer is over them.
-private struct CrumbLabel: View {
-    let crumb: Crumb
-    let current: Bool
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if let symbol = crumb.symbol {
-                Image(systemName: symbol)
-                    .font(.system(size: 10, weight: .medium))
-                    // The same arrow the direction screen leads its rows with,
-                    // in the same colour. One mark meaning one thing should not
-                    // be two colours.
-                    .foregroundStyle(
-                        crumb.colour.map { AnyShapeStyle(Color.badge($0).fill) }
-                            ?? AnyShapeStyle(.secondary))
-            }
-            if !crumb.label.isEmpty { Text(crumb.label) }
-        }
-        .font(.system(size: 10.5))
-        // The one you are on is the only one at full strength.
-        .foregroundStyle(current ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
     }
 }
