@@ -16,13 +16,14 @@ enum Headless {
 
     static var verb: String? {
         let words = CommandLine.arguments.dropFirst()
-        return ["update", "realtime", "shot"].first { words.contains($0) }
+        return ["update", "realtime", "detours", "shot"].first { words.contains($0) }
     }
 
     static func run() async -> Int32 {
         switch verb {
         case "update": await update()
         case "realtime": await realtime()
+        case "detours": await detours()
         case "shot": await shot()
         default: 0
         }
@@ -44,6 +45,33 @@ enum Headless {
             let now = Int(Date().timeIntervalSince1970)
             say("\(feed.note(now: now)) · \(feed.count) predictions")
             return feed.count > 0 ? 0 : 1
+        } catch {
+            say("failed: \(error)")
+            return 1
+        }
+    }
+
+    /// `otransit detours` — one fetch of the updates feed, counted.
+    ///
+    /// The feed is a content system that emits RSS, where an item tagged
+    /// `Detours` carrying `affectedRoutes-` is that system's convention and not
+    /// a contract. If either spelling changes, every item still parses, nothing
+    /// matches, and every screen shows no detour, which looks exactly like a
+    /// quiet week. This is what tells those apart: it counts what the feed held
+    /// against what this program understood, and refuses when the second is
+    /// zero and the first is not.
+    static func detours() async -> Int32 {
+        do {
+            let found = try await Feed.detours()
+            say(
+                "\(found.items) items, \(found.notices.count) detours, \(found.affected.count) routes"
+            )
+            if found.unreadable {
+                say("the feed held items and this program understood none of them")
+                say("check the Detours and affectedRoutes- tags in \(Feed.updates)")
+                return 1
+            }
+            return 0
         } catch {
             say("failed: \(error)")
             return 1

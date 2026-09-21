@@ -49,6 +49,27 @@ public enum Feed {
         }
     }
 
+    /// Where OC Transpo publishes its notices. No key.
+    ///
+    /// Not GTFS-Realtime. That specification has a ServiceAlerts feed and this
+    /// API does not serve one: only TripUpdates exists. The detours are RSS
+    /// from a content system instead.
+    public static let updates = URL(string: "https://www.octranspo.com/en/feeds/updates-en/")!
+
+    /// What the updates feed says today.
+    ///
+    /// Given a short timeout and nothing waits on it. A board without its
+    /// detour is still a board; a board that took ten seconds to appear is not.
+    public static func detours() async throws -> Detours {
+        var request = URLRequest(url: updates, timeoutInterval: 10)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw Failure.refused(http.statusCode)
+        }
+        return try Detours.read(data)
+    }
+
     /// How long the freshness question is given. It is one round trip with no
     /// body, and nothing waits on the answer: a slow one is worth abandoning.
     private static let checkTimeout: TimeInterval = 10
