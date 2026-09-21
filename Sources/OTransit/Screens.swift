@@ -24,7 +24,7 @@ enum Screens {
     static let all = [
         "first", "outdated", "checking", "downloading", "unpacking", "reading",
         "indexing", "failed", "app", "stale", "offline", "settings", "settings-off",
-        "settings-shown", "long", "detour", "browse",
+        "settings-shown", "long", "detour", "kept", "browse",
     ]
 
     /// Not a key. It is the right shape and belongs to nobody, which is what a
@@ -88,6 +88,9 @@ enum Screens {
                         RootView(schedule: Schedule(showing: .ready(cache), freshness: freshness)))
                 )
             ]
+
+        case "kept":
+            return try await keeping(named: name)
 
         case "detour":
             // The board, at eight in the morning rather than at whatever hour
@@ -168,6 +171,55 @@ enum Screens {
     /// direction most of its trips take, and the first stop on that direction
     /// something is still due at. An empty board is a true picture of a stop
     /// after the last bus and a useless picture of the screen.
+    /// The first screen with boards kept on it, which is what the app looks
+    /// like once somebody has used it for a week.
+    ///
+    /// The pins are made here rather than read, so the picture does not depend
+    /// on what this machine happens to keep. Drawn at eight in the morning for
+    /// the reason every screen here is: past the last bus a kept row says
+    /// "none today", which is a poor picture of a kept row.
+    private static func keeping(named name: String) async throws -> [(String, AnyView)] {
+        let cache = try Cache(path: Paths.cache)
+        let clock = Clock(at: .now).at("08:00") ?? Clock(at: .now)
+        let detours = await notices()
+        let boards = try await Example.boards(
+            in: cache, detours: detours, at: clock, count: Pins.room)
+
+        // Dated, because this screen shows the Schedule row and an undated one
+        // reads as a cache nobody has checked.
+        let schedule = Schedule(
+            showing: .ready(cache), freshness: .current(built: .now),
+            key: Key.read(), detours: detours, pins: boards.compactMap(Pin.init))
+        await schedule.resolve()
+
+        return [(name, popover(.transit, in: cache, at: clock, model: schedule))]
+    }
+
+    /// One browse screen inside the popover's own bars.
+    ///
+    /// One spelling of the shell. It was two, and they had drifted: one handed
+    /// the view a `Navigation` and the other did not, with nothing saying
+    /// which was meant. The footer that reads it draws on the first screen
+    /// only, so handing it over always is free on every other screen and
+    /// right on that one.
+    ///
+    /// The browse shell and not `RootView`. RootView starts the clock the
+    /// moment it appears, and a screen asked for by name must keep the hour it
+    /// was asked for.
+    private static func popover(
+        _ place: Place, in cache: Cache, at clock: Clock,
+        live: Realtime? = nil, hearing: Hearing = .none, model: Schedule
+    ) -> AnyView {
+        AnyView(
+            chrome {
+                BrowseView(
+                    cache: cache, clock: clock, live: live, hearing: hearing,
+                    start: Browser(place))
+            }
+            .environment(model)
+            .environment(Navigation()))
+    }
+
     private static func browsing(at clock: Clock) async throws -> [(String, AnyView)] {
         let cache = try Cache(path: Paths.cache)
 
@@ -185,9 +237,16 @@ enum Screens {
         if let key = Key.read() { live = try? await Feed.trips(key: key) }
         let hearing: Hearing = live == nil ? .none : .live
 
-        // The model the screens read for the key and the notices. Its cadences
-        // are silent, so nothing here asks the network a second time.
-        let schedule = Schedule(showing: .ready(cache), key: Key.read(), detours: detours)
+        // The model the screens read for the key, the notices and what is
+        // kept. Its cadences are silent, so nothing here asks the network a
+        // second time.
+        //
+        // The board being drawn is kept, so the pin in the bar is photographed
+        // filled. Waiting cannot reach that state: a shot would have to click
+        // the pin first, and nothing here clicks anything.
+        let schedule = Schedule(
+            showing: .ready(cache), key: Key.read(), detours: detours,
+            pins: [Pin(board)].compactMap { $0 })
 
         // The way down to that board is the same place with its last answers
         // taken off, and `keeping` already does exactly that. Nothing here
@@ -201,13 +260,9 @@ enum Screens {
         ].map { name, place in
             (
                 name,
-                AnyView(
-                    chrome {
-                        BrowseView(
-                            cache: cache, clock: clock, live: live, hearing: hearing,
-                            start: Browser(place))
-                    }
-                    .environment(schedule))
+                popover(
+                    place, in: cache, at: clock, live: live, hearing: hearing,
+                    model: schedule)
             )
         }
     }
