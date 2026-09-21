@@ -83,19 +83,6 @@ final class Schedule {
     /// answer during the second the popover takes to resolve.
     private var resolution: [Kept]?
 
-    /// What the updates feed says today, or nil when nothing has answered.
-    ///
-    /// Route-level only. The feed names stops as well, but it names them in
-    /// prose together with the alternates it tells you to use, and there is no
-    /// safe way to separate "your stop is closed" from "your stop is on the
-    /// detour". So a board says the route has one and shows what was published.
-    private(set) var detours: Detours?
-
-    /// When to ask the updates feed again. A detour is published hours before
-    /// it starts and stands for days, so this is slow.
-    private var listening = Cadence.silent()
-    private static let listenEvery = 30 * 60
-
     /// When to ask that question again. The same model the realtime poller
     /// uses, on the same clock — this was four fields and two constants here,
     /// in Dates while the poller counted seconds since 1970.
@@ -125,7 +112,6 @@ final class Schedule {
         key = Key.read()
         pins = Pins.read()
         asking = .every(Self.askEvery, backingOffFrom: Self.retryEvery, from: clock.epoch)
-        listening = .every(Self.listenEvery, backingOffFrom: Self.retryEvery, from: clock.epoch)
     }
 
     /// A schedule stopped in one state, for looking at.
@@ -140,12 +126,11 @@ final class Schedule {
     /// be, which is the one thing a state asked for by name must not do.
     init(
         showing state: State, freshness: Freshness = .unknown, key: String? = nil,
-        detours: Detours? = nil, pins: [Pin] = []
+        pins: [Pin] = []
     ) {
         self.state = state
         self.freshness = freshness
         self.key = key
-        self.detours = detours
         // Given rather than read, so a screen asked for by name does not draw
         // whatever this machine happens to keep.
         self.pins = pins
@@ -210,7 +195,9 @@ final class Schedule {
                 // rather than to the moment this finished.
                 await check(force: true)
                 // Against the timetable that is there now. The kept rows held a
-                // board's calls from the cache this replaced.
+                // route, a stop and a day of departures read from the one that
+                // was just replaced, which is the staleness the row above them
+                // exists to report.
                 await resolve()
             } catch {
                 state = .failed(String(describing: error))
@@ -367,30 +354,6 @@ final class Schedule {
         // Capped where the list is made rather than where it is drawn, so the
         // count `room` reads and the rows a screen shows cannot disagree.
         resolution = Pins.drawable(found)
-    }
-
-    /// What the city has published about this route, or nil for nothing.
-    ///
-    /// Asked here and not through two optionals at each call site. A view has
-    /// no business knowing that "no schedule" and "nothing fetched yet" are
-    /// different shapes of nothing: both mean no news.
-    func published(about route: String) -> Notice.Kind? { detours?.kind(of: route) }
-
-    /// What it published about this route, which is nothing where it published
-    /// nothing.
-    func notices(for route: String) -> [Notice] { detours?.naming(route) ?? [] }
-
-    /// Asks the updates feed what it has published.
-    ///
-    /// Failure is silence. A board without its detour is still a board, and a
-    /// row saying the notices could not be fetched would spend the space this
-    /// screen has on the program talking about itself.
-    func updates() async {
-        guard listening.owed(at: clock.epoch) else { return }
-
-        let found = try? await Feed.detours()
-        if let found { detours = found }
-        listening.settled(answered: found != nil, at: Int(Date.now.timeIntervalSince1970))
     }
 
     /// Asks whether the cache is still the published export.

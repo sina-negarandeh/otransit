@@ -13,6 +13,7 @@ struct RootView: View {
     /// Which screen the popover is showing, where that is not a place. See
     /// Navigation for why this is a model and not an action in the environment.
     @State private var navigation = Navigation()
+    @State private var notices = Notices()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,15 +32,17 @@ struct RootView: View {
         // The first screen offers the way in, without four initialisers in
         // between learning about settings.
         .environment(navigation)
+        .environment(notices)
         .onAppear { schedule.tick() }
         .environment(schedule)
         .task { await schedule.check() }
         // What each kept board has today. One query a pin, when the popover
         // opens and not while it is looked at.
         .task { await schedule.resolve() }
-        // What the city has published about a route. Its own task, because it
-        // is a different question on a different clock.
-        .task { await schedule.updates() }
+        // What the city has published about a route. Its own task and its own
+        // model, because it is a different question on a different clock and
+        // shares nothing with the timetable but the hour.
+        .task { await notices.listen(at: schedule.clock.epoch) }
         // Moves the clock. Runs whether or not anything is being polled.
         .task { await schedule.keepTime() }
         // Restarted when the key changes, because the key is what it is for.

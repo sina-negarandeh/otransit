@@ -25,21 +25,21 @@ enum Example {
     /// So candidates are ordered by preference and tried in turn, and the first
     /// that still has something due wins.
     static func board(
-        in cache: Cache, detours: Detours?, at clock: Clock, mode: Mode = .bus
+        in cache: Cache, updates: Detours, at clock: Clock, mode: Mode = .bus
     ) async throws -> Place? {
-        try await boards(in: cache, detours: detours, at: clock, mode: mode, count: 1).first
+        try await boards(in: cache, updates: updates, at: clock, mode: mode, count: 1).first
     }
 
     /// Up to `count` boards worth drawing, each on a different route.
     static func boards(
-        in cache: Cache, detours: Detours?, at clock: Clock, mode: Mode = .bus, count: Int
+        in cache: Cache, updates: Detours, at clock: Clock, mode: Mode = .bus, count: Int
     ) async throws -> [Place] {
         let routes = try await cache.routes(mode, on: clock.date)
 
         // Detoured first, and the cache's own order within each group. A sort
         // would have to name the comparison the cache already applied.
-        let detoured = { (route: Route) in detours?.names(route.shortName) ?? false }
-        let preferred = routes.filter(detoured) + routes.filter { !detoured($0) }
+        let noticed = { (route: Route) in updates.names(route.shortName) }
+        let preferred = routes.filter(noticed) + routes.filter { !noticed($0) }
 
         var wanted: [Place] = []
         var fallback: Place?

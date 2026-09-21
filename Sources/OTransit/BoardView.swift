@@ -20,12 +20,13 @@ struct BoardView: View {
 
     /// Absent in a preview, which draws this screen without a running app.
     @Environment(Schedule.self) private var schedule: Schedule?
+    @Environment(Notices.self) private var published: Notices?
 
     @State private var departures: [Departure] = []
     @State private var failure: String?
 
     /// What the city has published about this route, if anything.
-    private var notices: [Notice] { schedule?.notices(for: route.shortName) ?? [] }
+    private var notices: [Notice] { published?.published.naming(route.shortName) ?? [] }
 
     var body: some View {
         // The one screen that keeps its own loading state. Its emptiness is

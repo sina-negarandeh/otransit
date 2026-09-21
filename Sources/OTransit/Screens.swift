@@ -36,12 +36,12 @@ enum Screens {
     /// `make shots` draws twenty screens in a few seconds and two of them want
     /// this. Without the hold it fetched the same 78 KB twice.
     private static var asked = false
-    private static var published: Detours?
+    private static var published = Detours.quiet
 
-    private static func notices() async -> Detours? {
+    private static func notices() async -> Detours {
         if asked { return published }
         asked = true
-        published = try? await Feed.detours()
+        published = (try? await Feed.detours()) ?? .quiet
         return published
     }
 
@@ -181,18 +181,20 @@ enum Screens {
     private static func keeping(named name: String) async throws -> [(String, AnyView)] {
         let cache = try Cache(path: Paths.cache)
         let clock = Clock(at: .now).at("08:00") ?? Clock(at: .now)
-        let detours = await notices()
+        let published = await notices()
         let boards = try await Example.boards(
-            in: cache, detours: detours, at: clock, count: Pins.room)
+            in: cache, updates: published, at: clock, count: Pins.room)
 
         // Dated, because this screen shows the Schedule row and an undated one
         // reads as a cache nobody has checked.
         let schedule = Schedule(
             showing: .ready(cache), freshness: .current(built: .now),
-            key: Key.read(), detours: detours, pins: boards.compactMap(Pin.init))
+            key: Key.read(), pins: boards.compactMap(Pin.init))
         await schedule.resolve()
 
-        return [(name, popover(.transit, in: cache, at: clock, model: schedule))]
+        return [
+            (name, popover(.transit, in: cache, at: clock, model: schedule, published: published))
+        ]
     }
 
     /// One browse screen inside the popover's own bars.
@@ -208,7 +210,8 @@ enum Screens {
     /// was asked for.
     private static func popover(
         _ place: Place, in cache: Cache, at clock: Clock,
-        live: Realtime? = nil, hearing: Hearing = .none, model: Schedule
+        live: Realtime? = nil, hearing: Hearing = .none,
+        model: Schedule, published: Detours
     ) -> AnyView {
         AnyView(
             chrome {
@@ -217,6 +220,7 @@ enum Screens {
                     start: Browser(place))
             }
             .environment(model)
+            .environment(Notices(showing: published))
             .environment(Navigation()))
     }
 
@@ -225,9 +229,9 @@ enum Screens {
 
         // What the city has published, so the board and the route list can
         // show it. Nil where the feed did not answer, which draws as no detour.
-        let detours = await notices()
+        let updates = await notices()
 
-        guard let board = try await Example.board(in: cache, detours: detours, at: clock) else {
+        guard let board = try await Example.board(in: cache, updates: updates, at: clock) else {
             throw Missing("a bus route running today")
         }
 
@@ -245,8 +249,7 @@ enum Screens {
         // filled. Waiting cannot reach that state: a shot would have to click
         // the pin first, and nothing here clicks anything.
         let schedule = Schedule(
-            showing: .ready(cache), key: Key.read(), detours: detours,
-            pins: [Pin(board)].compactMap { $0 })
+            showing: .ready(cache), key: Key.read(), pins: [Pin(board)].compactMap { $0 })
 
         // The way down to that board is the same place with its last answers
         // taken off, and `keeping` already does exactly that. Nothing here
@@ -262,7 +265,7 @@ enum Screens {
                 name,
                 popover(
                     place, in: cache, at: clock, live: live, hearing: hearing,
-                    model: schedule)
+                    model: schedule, published: updates)
             )
         }
     }
