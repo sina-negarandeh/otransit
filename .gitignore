@@ -1,0 +1,14 @@
+.build/
+.swiftpm/
+*.xcodeproj
+.DS_Store
+.env
+# Regenerable: `make shots` draws them from the cache on disk.
+shots/
+
+# Not part of the app: skill and agent files live here for local use only.
+skills/
+.claude/
+design/
+
+.DS_Store
