@@ -80,6 +80,17 @@ extension Status {
     }
 }
 
+extension Color {
+    /// The colour a crumb's mark is drawn in.
+    ///
+    /// One mark meaning one thing should not be two colours, and this sentence
+    /// was being written twice: the bottom bar and a kept row each spelled out
+    /// the same `map`, the same fallback and the same reason for it.
+    static func crumb(_ tint: String?) -> AnyShapeStyle {
+        tint.map { AnyShapeStyle(badge($0).fill) } ?? AnyShapeStyle(.secondary)
+    }
+}
+
 /// The band under the pointer, and the rule between two things.
 ///
 /// Both were written out wherever they were needed, and drifted: the same

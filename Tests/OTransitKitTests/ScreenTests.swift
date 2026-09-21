@@ -82,18 +82,22 @@ struct TrailTests {
         // The arrow on a direction crumb is the same arrow the direction screen
         // leads its rows with, and that one is tinted. One mark meaning one
         // thing must not be two colours.
-        #expect(
-            Trail.crumbs(of: .stops(.bus, seven, "Carleton")).map(\.colour)
-                == [nil, "0075c9", "0075c9"])
+        let crumbs = Trail.crumbs(of: .stops(.bus, seven, "Carleton"))
+        #expect(crumbs.map(\.tint) == [nil, nil, "0075c9"])
+        // The same colour the badge before it is filled with.
+        #expect(crumbs[1].plate?.colour == "0075c9")
     }
 
-    @Test("a colour alone does not make a badge")
+    @Test("only the route crumb is a badge")
     func onlyTheRouteIsABadge() {
         // Two crumbs carry the route's colour and only one is drawn as a badge.
-        // What separates them is the service, which is the shape — so a crumb
-        // with a colour and no shape is a tint, not a pill.
+        // Which one is a thing the crumb says rather than a thing the screen
+        // drawing it works out: a colour with a shape used to mean a pill and a
+        // colour without one a tint, which is a rule every drawing site had to
+        // know and none of them stated.
         let crumbs = Trail.crumbs(of: .stops(.bus, seven, "Carleton"))
-        #expect(crumbs.map { $0.service != nil } == [false, true, false])
+        #expect(crumbs.map { $0.plate != nil } == [false, true, false])
+        #expect(crumbs.map(\.isStop) == [false, false, false])
     }
 
     @Test("a question not yet answered adds no crumb")
