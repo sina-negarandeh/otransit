@@ -59,6 +59,30 @@ final class Schedule {
     /// and nothing says why. See Freshness.
     private(set) var freshness: Freshness = .unknown
 
+    /// The boards somebody kept, as the file holds them.
+    ///
+    /// Every one, resolvable or not. A stop that leaves one export and returns
+    /// in the next brings its pin back, so a pin is never dropped for being
+    /// undrawable today.
+    private(set) var pins: [Pin] = []
+
+    /// The kept boards a screen can draw, with the calls each one has today.
+    ///
+    /// Resolved here and not by the screen. The screen would have to hand the
+    /// count back for the cap to mean anything, and a view writing to its own
+    /// model on appear is a seam that only has to be got wrong once.
+    var kept: [Kept] { resolution ?? [] }
+
+    /// What resolving came to, or nil before it has run.
+    ///
+    /// Nil and not empty, because the two mean opposite things to `room`:
+    /// nothing resolved means every pin is undrawable and there is room for
+    /// another, and nothing looked at yet means the file is all that is known.
+    /// Held as one value rather than as an array beside a flag saying whether
+    /// to believe it, which is the shape that let an empty `kept` be read as an
+    /// answer during the second the popover takes to resolve.
+    private var resolution: [Kept]?
+
     /// What the updates feed says today, or nil when nothing has answered.
     ///
     /// Route-level only. The feed names stops as well, but it names them in
@@ -99,6 +123,7 @@ final class Schedule {
     init() {
         state = Self.opened()
         key = Key.read()
+        pins = Pins.read()
         asking = .every(Self.askEvery, backingOffFrom: Self.retryEvery, from: clock.epoch)
         listening = .every(Self.listenEvery, backingOffFrom: Self.retryEvery, from: clock.epoch)
     }
@@ -115,12 +140,15 @@ final class Schedule {
     /// be, which is the one thing a state asked for by name must not do.
     init(
         showing state: State, freshness: Freshness = .unknown, key: String? = nil,
-        detours: Detours? = nil
+        detours: Detours? = nil, pins: [Pin] = []
     ) {
         self.state = state
         self.freshness = freshness
         self.key = key
         self.detours = detours
+        // Given rather than read, so a screen asked for by name does not draw
+        // whatever this machine happens to keep.
+        self.pins = pins
     }
 
     /// Opens the cache if there is one, and says what that left the app as.
@@ -181,6 +209,9 @@ final class Schedule {
                 // and changed nothing, and `built` belongs to the cache on disk
                 // rather than to the moment this finished.
                 await check(force: true)
+                // Against the timetable that is there now. The kept rows held a
+                // board's calls from the cache this replaced.
+                await resolve()
             } catch {
                 state = .failed(String(describing: error))
             }
@@ -248,6 +279,94 @@ final class Schedule {
     /// time it was last looked at.
     func tick() {
         clock = Clock(at: .now)
+    }
+
+    /// Whether this board is one of the kept ones.
+    ///
+    /// Asked of what the file holds and not of what resolved, so a board whose
+    /// stop is missing from today's timetable still reads as pinned and can be
+    /// unpinned.
+    func pinned(_ pin: Pin) -> Bool { pins.contains { $0.id == pin.id } }
+
+    /// Whether another board can be kept.
+    ///
+    /// Counted against what can be drawn rather than against the lines in the
+    /// file. Three pins nothing can resolve would otherwise block a fourth
+    /// that would draw, and the three are invisible, so there would be no way
+    /// to see why.
+    var room: Bool { Pins.fits(drawable: resolution?.count ?? pins.count) }
+
+    /// The resolution in flight, so a second one replaces it rather than
+    /// racing it. Two toggles in a row each started a resolution and each
+    /// assigned the whole of `kept` when it finished, in completion order.
+    private var resolving: Task<Void, Never>?
+
+    /// Keeps this board, or lets it go.
+    func toggle(_ pin: Pin) {
+        let before = pins
+        if pinned(pin) {
+            pins.removeAll { $0.id == pin.id }
+        } else {
+            guard room else { return }
+            pins.append(pin)
+        }
+        // Put back if it did not stick. There is nowhere on this screen to
+        // report a failed write, and a pin drawn as kept that is gone on the
+        // next launch is worse than a pin that plainly did not take.
+        do {
+            try Pins.write(pins)
+        } catch {
+            pins = before
+            return
+        }
+
+        resolving?.cancel()
+        resolving = Task { await resolve() }
+    }
+
+    /// Asks the cache what each kept board has today.
+    ///
+    /// One query a pin, on the screen that is open for five seconds, so it is
+    /// done once when the popover appears and never while it is looked at. The
+    /// wait on a row counts down from the clock and the live feed, the same way
+    /// a board's does.
+    func resolve() async {
+        guard case .ready(let cache) = state else { return }
+
+        // Every route running today, by name. Two queries rather than two a
+        // pin, and it answers half of what resolving a pin means: a route that
+        // does not run today cannot be drawn whatever its stop says.
+        var running: [String: (Route, Mode)] = [:]
+        for mode in Mode.allCases {
+            for route in (try? await cache.routes(mode, on: clock.date)) ?? [] {
+                running[route.shortName] = (route, mode)
+            }
+        }
+
+        let today = clock.date
+        var found: [Kept] = []
+        for pin in pins {
+            guard let (route, mode) = running[pin.route],
+                let stop = try? await cache.stop(pin.stop),
+                let calls = try? await cache.departures(
+                    at: pin.stop, on: today, after: clock.yesterday)
+            else { continue }
+
+            // This route in this direction, and not every call at the stop. A
+            // busy stop answers with about a thousand for the day, across every
+            // route and both ways; a row draws one route one way. Stored whole,
+            // three pins held three thousand of them to show three lines.
+            let mine = Board.calls(calls, on: pin.route, toward: pin.headsign)
+            guard !mine.isEmpty else { continue }
+
+            found.append(
+                Kept(pin: pin, route: route, mode: mode, stop: stop, date: today, calls: mine))
+        }
+
+        guard !Task.isCancelled else { return }
+        // Capped where the list is made rather than where it is drawn, so the
+        // count `room` reads and the rows a screen shows cannot disagree.
+        resolution = Pins.drawable(found)
     }
 
     /// Whether the city has published anything about this route.

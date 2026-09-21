@@ -34,8 +34,6 @@ struct Row<Leading: View, Mark: View>: View {
     /// like a second column instead.
     @ViewBuilder let mark: Mark
 
-    @State private var hovering = false
-
     private var isDoor: Bool { action != nil }
 
     var body: some View {
@@ -74,13 +72,41 @@ struct Row<Leading: View, Mark: View>: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, detail == nil ? 8 : 7)
-        .band(hovering)
-        .opacity(isDoor ? 1 : 0.45)
-        .contentShape(Rectangle())
-        .allowsHitTesting(isDoor)
-        .onHover { hovering = $0 }
-        .onTapGesture { action?() }
+        .door(action)
     }
+}
+
+/// What makes a row something you can open, or plainly something you cannot.
+///
+/// Nil is the whole of "shown, but not a door": no hover, no tap, and dimmed.
+/// It was spelled at each call site once as an opacity, an `allowsHitTesting`
+/// and an if/else, and it was spelled twice again the moment a second kind of
+/// row wanted the same thing. A kept board is a row this type cannot carry —
+/// its label is a stack and `Row`'s is a `Text` on purpose — but it is the same
+/// door.
+///
+/// Layout stays outside. A row with a detail line is padded differently from
+/// one without, and that is the caller's business.
+private struct Door: ViewModifier {
+    let action: (() -> Void)?
+
+    @State private var hovering = false
+
+    private var isDoor: Bool { action != nil }
+
+    func body(content: Content) -> some View {
+        content
+            .band(hovering)
+            .opacity(isDoor ? 1 : 0.45)
+            .contentShape(Rectangle())
+            .allowsHitTesting(isDoor)
+            .onHover { hovering = $0 }
+            .onTapGesture { action?() }
+    }
+}
+
+extension View {
+    func door(_ action: (() -> Void)?) -> some View { modifier(Door(action: action)) }
 }
 
 extension Row where Mark == EmptyView {

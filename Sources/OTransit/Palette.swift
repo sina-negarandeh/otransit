@@ -81,6 +81,13 @@ extension Status {
 }
 
 extension Color {
+    /// What something kept is marked with.
+    ///
+    /// Not `.yellow`, which is bright enough on a dark popover and too pale on
+    /// a light one. This is the yellow AppKit uses for a flagged thing, which
+    /// is drawn for both appearances.
+    static let kept = Color(nsColor: .systemYellow)
+
     /// The colour a crumb's mark is drawn in.
     ///
     /// One mark meaning one thing should not be two colours, and this sentence

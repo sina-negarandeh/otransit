@@ -39,6 +39,16 @@ final class Browser {
     // network has been.
     func choose(_ mode: Mode) { place = .routes(mode) }
 
+    /// Opens a kept board, from the one screen that offers them.
+    ///
+    /// The only jump in this type that skips the questions between. It is
+    /// allowed because the pin is the answers: somebody gave them once and
+    /// asked for them to be remembered.
+    func open(_ kept: Kept) {
+        guard case .transit = place else { return }
+        place = kept.place
+    }
+
     func choose(_ route: Route) {
         guard case .routes(let mode) = place else { return }
         place = .direction(mode, route)
@@ -62,6 +72,9 @@ final class Browser {
 }
 
 struct BrowseView: View {
+    /// Absent in a preview, which draws a screen without a running app.
+    @Environment(Schedule.self) private var schedule: Schedule?
+
     let cache: Cache
     let clock: Clock
     /// The last thing the realtime feed said, or nil when nothing has asked.
@@ -84,7 +97,7 @@ struct BrowseView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopBar(screen: browser.place.screen, back: back, hearing: listening)
+            TopBar(screen: browser.place.screen, back: back, hearing: listening, keep: keeping)
             Rule()
             Lists(cache: cache, clock: clock, live: live, browser: browser)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -103,6 +116,16 @@ struct BrowseView: View {
     private var listening: Hearing {
         guard case .board(let mode, _, _, _) = browser.place, mode == .bus else { return .none }
         return hearing
+    }
+
+    /// Keeping the board being drawn, where a board is being drawn and there
+    /// is a model to keep it in. Nil everywhere else, which is what takes the
+    /// pin off every screen that is not a board.
+    private var keeping: Keep? {
+        guard let pin = Pin(browser.place), let schedule else { return nil }
+        return Keep(
+            pinned: schedule.pinned(pin), allowed: schedule.room,
+            toggle: { schedule.toggle(pin) })
     }
 
     /// Nil on the first screen, which has nothing behind it. Written out rather
@@ -131,7 +154,9 @@ private struct Lists: View {
     var body: some View {
         switch browser.place {
         case .transit:
-            TransitList(cache: cache, date: clock.date, pick: browser.choose)
+            TransitList(
+                cache: cache, live: live, clock: clock,
+                pick: browser.choose, open: browser.open)
         case .routes(let mode):
             RouteList(cache: cache, date: clock.date, mode: mode, pick: browser.choose)
         case .direction(_, let route):
@@ -150,9 +175,14 @@ private struct Lists: View {
 }
 
 private struct TransitList: View {
+    /// Absent in a preview, which draws this screen without a running app.
+    @Environment(Schedule.self) private var schedule: Schedule?
+
     let cache: Cache
-    let date: String
+    let live: Realtime?
+    let clock: Clock
     let pick: (Mode) -> Void
+    let open: (Kept) -> Void
 
     @State private var counts: [Mode: Int] = [:]
 
@@ -172,11 +202,13 @@ private struct TransitList: View {
                 }
             }
 
+            KeptList(kept: schedule?.kept ?? [], live: live, clock: clock, open: open)
+
             TransitFooter()
         }
         .task {
             for mode in Mode.allCases {
-                counts[mode] = (try? await cache.routes(mode, on: date).count) ?? 0
+                counts[mode] = (try? await cache.routes(mode, on: clock.date).count) ?? 0
             }
         }
     }
