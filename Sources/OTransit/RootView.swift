@@ -34,6 +34,9 @@ struct RootView: View {
         .onAppear { schedule.tick() }
         .environment(schedule)
         .task { await schedule.check() }
+        // What each kept board has today. One query a pin, when the popover
+        // opens and not while it is looked at.
+        .task { await schedule.resolve() }
         // What the city has published about a route. Its own task, because it
         // is a different question on a different clock.
         .task { await schedule.updates() }

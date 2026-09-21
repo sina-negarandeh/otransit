@@ -28,6 +28,9 @@ struct TopBar: View {
     /// `.none` on every screen that is not a board, and on rail, which has no
     /// realtime to hear.
     var hearing: Hearing = .none
+    /// Keeping this board, where the screen is one that can be kept. Nil on
+    /// every screen that is not a board.
+    var keep: Keep?
 
     @State private var hovering = false
 
@@ -50,6 +53,10 @@ struct TopBar: View {
                     Color.clear.frame(width: 22, height: 20)
                 }
             }
+            // Matching whatever the trailing side came to, so the name still
+            // sits on the popover's centre line now that side can hold two
+            // things rather than one.
+            .frame(width: trailing, alignment: .leading)
 
             // The question, where reading starts.
             //
@@ -63,14 +70,69 @@ struct TopBar: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
 
-            // The same width as the back button either way, so the name sits
-            // on the popover's centre line rather than the centre of what is
-            // left over — whether or not there is anything to say here.
-            LiveMark(hearing: hearing)
-                .frame(width: 22, height: 20)
+            HStack(spacing: 4) {
+                LiveMark(hearing: hearing)
+                    .frame(width: 22, height: 20)
+                if let keep { PinButton(keep: keep) }
+            }
+            .frame(width: trailing, alignment: .trailing)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
+    }
+}
+
+/// How wide each end of the bar is, so the middle stays centred.
+extension TopBar {
+    fileprivate var trailing: CGFloat { keep == nil ? 22 : 48 }
+}
+
+/// Keeping the board on screen, or letting it go.
+struct Keep {
+    let pinned: Bool
+    /// False when three are already kept and this is not one of them.
+    let allowed: Bool
+    let toggle: () -> Void
+}
+
+/// The pin, which says what pressing it will do.
+///
+/// Filled when the board is kept and outline when it is not, the same way the
+/// eye in settings says what it will do rather than what is true now. Disabled
+/// at three with a reason, because a control that silently does nothing reads
+/// as a broken control.
+private struct PinButton: View {
+    let keep: Keep
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: keep.toggle) {
+            Image(systemName: keep.pinned ? "pin.fill" : "pin")
+                .font(.system(size: 11, weight: .semibold))
+                // Yellow, and not the accent. Blue already carries a frequent
+                // route's badge, the live mark and every link, so a blue pin
+                // reads as one more piece of system state. Yellow is what a
+                // thing somebody kept looks like.
+                .foregroundStyle(
+                    keep.pinned ? AnyShapeStyle(Color.kept) : AnyShapeStyle(.secondary)
+                )
+                .frame(width: 22, height: 20)
+                .band(hovering, corner: 5)
+                .contentShape(Rectangle())
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .disabled(!keep.pinned && !keep.allowed)
+        .opacity(!keep.pinned && !keep.allowed ? 0.35 : 1)
+        .help(
+            keep.pinned
+                ? "Stop keeping this board"
+                : keep.allowed
+                    ? "Keep this board on the first screen"
+                    : "Three kept boards is all the first screen has room for"
+        )
+        .accessibilityLabel(keep.pinned ? "Kept" : "Keep this board")
     }
 }
 
@@ -90,7 +152,10 @@ struct LiveMark: View {
             Color.clear
         case .live:
             symbol
-                .foregroundStyle(Color.accentColor)
+                // The same green settings uses to say live times are on. It
+                // was the accent here and green there: one icon, one meaning,
+                // two colours.
+                .foregroundStyle(Color.green)
                 .help("Live — arrival times are being updated")
         case .stale(let seconds):
             symbol
