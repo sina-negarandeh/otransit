@@ -6,6 +6,7 @@
 // longest, least reversible thing this program does — so there has to be a way
 // to run them where the output is readable and the exit code means something.
 
+import AppKit
 import Foundation
 import OTransitKit
 import os
@@ -105,8 +106,8 @@ enum Headless {
         }
     }
 
-    /// `otransit shot [screen...] [--into <directory>]` — a PNG of each screen
-    /// named, or of every screen there is. See Shot.swift for why this exists.
+    /// `otransit shot [screen...] [--into <dir>] [--light|--dark]` — a PNG of
+    /// each screen named, or of every screen there is. See Shot.swift.
     ///
     /// The directory is named by a flag and not by position. Taking the first
     /// word as a path made `otransit shot browse` — the obvious way to ask for
@@ -116,6 +117,23 @@ enum Headless {
         let words = Array(CommandLine.arguments.dropFirst())
         guard let start = words.firstIndex(of: "shot") else { return 1 }
         var rest = Array(words[words.index(after: start)...])
+
+        let light = rest.firstIndex(of: "--light")
+        let dark = rest.firstIndex(of: "--dark")
+        // Both is not an appearance. Applied in order, the second silently won
+        // and half the pictures asked for were never drawn.
+        if light != nil, dark != nil {
+            say("--light and --dark name two appearances. Draw one, then the other.")
+            return 1
+        }
+        if let light {
+            await MainActor.run { Shot.appearance = NSAppearance(named: .aqua) }
+            rest.remove(at: light)
+        }
+        if let dark {
+            await MainActor.run { Shot.appearance = NSAppearance(named: .darkAqua) }
+            rest.remove(at: dark)
+        }
 
         var directory = URL(fileURLWithPath: "shots", isDirectory: true)
         if let flag = rest.firstIndex(of: "--into") {

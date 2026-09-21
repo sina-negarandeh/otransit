@@ -39,6 +39,13 @@ enum Shot {
     /// that a full set is a few seconds.
     private static let settle = Duration.milliseconds(1_400)
 
+    /// Which appearance to draw in, or nil for whatever the machine is set to.
+    ///
+    /// A popover is drawn in the viewer's theme and this program defines its
+    /// colours for both, so a colour checked in one of them is a colour half
+    /// checked.
+    static var appearance: NSAppearance?
+
     static func run(_ names: [String], into directory: URL) async -> Int32 {
         do {
             try FileManager.default.createDirectory(
@@ -88,6 +95,8 @@ enum Shot {
         // backdrop to one.
         window.isOpaque = true
         window.backgroundColor = .windowBackgroundColor
+        // Set before the content, so the first draw is already in this theme.
+        window.appearance = Self.appearance
 
         // Held to the popover's size, because the scene holds it to that size
         // too. Left to grow, a screen photographs at whatever height its content

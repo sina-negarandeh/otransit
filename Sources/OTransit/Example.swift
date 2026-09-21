@@ -27,6 +27,13 @@ enum Example {
     static func board(
         in cache: Cache, detours: Detours?, at clock: Clock, mode: Mode = .bus
     ) async throws -> Place? {
+        try await boards(in: cache, detours: detours, at: clock, mode: mode, count: 1).first
+    }
+
+    /// Up to `count` boards worth drawing, each on a different route.
+    static func boards(
+        in cache: Cache, detours: Detours?, at clock: Clock, mode: Mode = .bus, count: Int
+    ) async throws -> [Place] {
         let routes = try await cache.routes(mode, on: clock.date)
 
         // Detoured first, and the cache's own order within each group. A sort
@@ -34,21 +41,27 @@ enum Example {
         let detoured = { (route: Route) in detours?.names(route.shortName) ?? false }
         let preferred = routes.filter(detoured) + routes.filter { !detoured($0) }
 
+        var wanted: [Place] = []
         var fallback: Place?
-        for route in preferred.prefix(tries) {
+        // `tries` is the budget for routes that turn out to have finished for
+        // the day. Asking for several boards does not spend it faster, so the
+        // ones that are wanted are added to it rather than taken out of it.
+        for route in preferred.prefix(tries + count) where wanted.count < count {
             let directions = try await cache.directions(of: route.shortName, on: clock.date)
             guard let toward = directions.first?.headsign else { continue }
             let stops = try await cache.stops(of: route.shortName, toward: toward, on: clock.date)
             guard let first = stops.first else { continue }
 
             if let due = try await awaited(in: stops, on: route, toward: toward, cache, clock) {
-                return .board(mode, route, toward, due)
+                wanted.append(.board(mode, route, toward, due))
+            } else {
+                // Nothing due on this one. Kept in case nothing is due
+                // anywhere, which after the last bus of the day is the true
+                // answer, and one board saying so beats none.
+                fallback = fallback ?? .board(mode, route, toward, first)
             }
-            // Nothing due on this one. Kept in case nothing is due anywhere,
-            // which after the last bus of the day is the true answer.
-            fallback = fallback ?? .board(mode, route, toward, first)
         }
-        return fallback
+        return wanted.isEmpty ? (fallback.map { [$0] } ?? []) : wanted
     }
 
     /// How many routes are tried before settling for an empty board.
@@ -85,10 +98,10 @@ enum Example {
         for stop in sampled {
             let due = try await cache.departures(
                 at: stop.id, on: clock.date, after: clock.yesterday)
-            let mine = due.filter {
-                $0.route == route.shortName && $0.headsign == toward && $0.scheduled >= clock.now
-            }
-            if !mine.isEmpty { return stop }
+            let mine = Board.rows(
+                from: due, on: route.shortName, toward: toward,
+                live: nil, stop: stop.id, clock: clock)
+            if mine.contains(where: { $0.at >= clock.now }) { return stop }
         }
         return nil
     }
