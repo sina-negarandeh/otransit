@@ -24,12 +24,26 @@ enum Screens {
     static let all = [
         "first", "outdated", "checking", "downloading", "unpacking", "reading",
         "indexing", "failed", "app", "stale", "offline", "settings", "settings-off",
-        "settings-shown", "long", "browse",
+        "settings-shown", "long", "detour", "browse",
     ]
 
     /// Not a key. It is the right shape and belongs to nobody, which is what a
     /// screenshot needs: a real one must never end up in a picture.
     private static let sampleKey = "0123456789abcdef0123456789abcdef"
+
+    /// The updates feed, asked for once.
+    ///
+    /// `make shots` draws twenty screens in a few seconds and two of them want
+    /// this. Without the hold it fetched the same 78 KB twice.
+    private static var asked = false
+    private static var published: Detours?
+
+    private static func notices() async -> Detours? {
+        if asked { return published }
+        asked = true
+        published = try? await Feed.detours()
+        return published
+    }
 
     /// The screens one name asks for.
     ///
@@ -38,7 +52,7 @@ enum Screens {
     static func named(_ name: String) async throws -> [(String, AnyView)] {
         switch name {
         case "browse":
-            return try await browsing()
+            return try await browsing(at: Clock(at: .now))
 
         case "app":
             return [(name, AnyView(RootView(schedule: Schedule())))]
@@ -74,6 +88,22 @@ enum Screens {
                         RootView(schedule: Schedule(showing: .ready(cache), freshness: freshness)))
                 )
             ]
+
+        case "detour":
+            // The board, at eight in the morning rather than at whatever hour
+            // the shot was taken: past the last bus every board is empty, and
+            // an empty board is a poor picture of a board.
+            //
+            // The same builder as `browse`, not a second copy of it. It was a
+            // copy, and the copy kept a route-picking rule that could still
+            // choose a route with nothing due — the bug the other one had
+            // already been fixed for.
+            guard let morning = Clock(at: .now).at("08:00") else {
+                throw Missing("a clock for this morning")
+            }
+            return try await browsing(at: morning)
+                .filter { $0.0 == "browse-board" }
+                .map { (name, $0.1) }
 
         case "long":
             // The worst case the trail has: four crumbs ending in the longest
@@ -138,22 +168,15 @@ enum Screens {
     /// direction most of its trips take, and the first stop on that direction
     /// something is still due at. An empty board is a true picture of a stop
     /// after the last bus and a useless picture of the screen.
-    private static func browsing() async throws -> [(String, AnyView)] {
+    private static func browsing(at clock: Clock) async throws -> [(String, AnyView)] {
         let cache = try Cache(path: Paths.cache)
-        let clock = Clock(at: .now)
-        let today = clock.date
 
-        let routes = try await cache.routes(.bus, on: today)
-        guard let route = routes.first(where: { $0.shortName == "7" }) ?? routes.first else {
+        // What the city has published, so the board and the route list can
+        // show it. Nil where the feed did not answer, which draws as no detour.
+        let detours = await notices()
+
+        guard let board = try await Example.board(in: cache, detours: detours, at: clock) else {
             throw Missing("a bus route running today")
-        }
-        let directions = try await cache.directions(of: route.shortName, on: today)
-        guard let toward = directions.first?.headsign else {
-            throw Missing("a direction for route \(route.shortName)")
-        }
-        let stops = try await cache.stops(of: route.shortName, toward: toward, on: today)
-        guard let stop = try await awaited(in: stops, cache, clock) ?? stops.first else {
-            throw Missing("a stop on route \(route.shortName)")
         }
 
         // The board is the screen this whole program is for, and one drawn with
@@ -162,11 +185,19 @@ enum Screens {
         if let key = Key.read() { live = try? await Feed.trips(key: key) }
         let hearing: Hearing = live == nil ? .none : .live
 
+        // The model the screens read for the key and the notices. Its cadences
+        // are silent, so nothing here asks the network a second time.
+        let schedule = Schedule(showing: .ready(cache), key: Key.read(), detours: detours)
+
+        // The way down to that board is the same place with its last answers
+        // taken off, and `keeping` already does exactly that. Nothing here
+        // reassembles a route, a headsign and a stop into the enum they came
+        // out of.
         return [
-            ("browse-routes", Place.routes(.bus)),
-            ("browse-direction", .direction(.bus, route)),
-            ("browse-stops", .stops(.bus, route, toward)),
-            ("browse-board", .board(.bus, route, toward, stop)),
+            ("browse-routes", board.keeping(1)),
+            ("browse-direction", board.keeping(2)),
+            ("browse-stops", board.keeping(3)),
+            ("browse-board", board),
         ].map { name, place in
             (
                 name,
@@ -175,29 +206,10 @@ enum Screens {
                         BrowseView(
                             cache: cache, clock: clock, live: live, hearing: hearing,
                             start: Browser(place))
-                    })
+                    }
+                    .environment(schedule))
             )
         }
-    }
-
-    /// The first of these stops something is still due at. Nil once the day is
-    /// over everywhere on the route, which is a real answer and not a failure.
-    ///
-    /// Bounded, because each of these is a two-service-day scan of three and a
-    /// half million rows. The stop wanted is almost always the first or second;
-    /// walking all fifty to prove that none of them qualifies costs far more
-    /// than falling back to the first stop and drawing an empty board.
-    private static let looksAt = 8
-
-    private static func awaited(in stops: [Stop], _ cache: Cache, _ clock: Clock) async throws
-        -> Stop?
-    {
-        for stop in stops.prefix(looksAt) {
-            let due = try await cache.departures(
-                at: stop.id, on: clock.date, after: clock.yesterday)
-            if due.contains(where: { $0.scheduled >= clock.now }) { return stop }
-        }
-        return nil
     }
 
     /// The bars the real popover puts around a screen that is not the whole of
