@@ -314,20 +314,22 @@ private struct RouteList: View {
                                     route.shortName, colour: route.colour,
                                     service: route.service(in: mode))
                             } mark: {
-                                // Beside the name, so a detour is visible from
+                                // Beside the name, so a notice is visible from
                                 // the route list rather than four screens in.
-                                if detoured(route) {
-                                    Image(
-                                        systemName:
-                                            "arrow.triangle.turn.up.right.diamond.fill"
-                                    )
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.orange)
-                                    .help("OC Transpo has published a detour for this route")
-                                    // A tooltip is not a label. Without this a
-                                    // screen reader hears the route and its
-                                    // ends, and nothing about the detour.
-                                    .accessibilityLabel("Has a detour")
+                                //
+                                // One mark for a route that has both, and it is
+                                // the alert: a limitation is happening now and
+                                // the roadwork has been running since spring.
+                                if let kind = published(about: route) {
+                                    Image(systemName: kind.symbol)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(kind.tint)
+                                        .help(kind.reason)
+                                        // A tooltip is not a label. Without
+                                        // this a screen reader hears the route
+                                        // and its ends, and nothing about the
+                                        // notice.
+                                        .accessibilityLabel(kind.spoken)
                                 }
                             }
                             // 29 of the 158 routes with two ends are wider than
@@ -345,9 +347,9 @@ private struct RouteList: View {
         }
     }
 
-    /// Whether the city has published anything about this route.
-    private func detoured(_ route: Route) -> Bool {
-        schedule?.detoured(route.shortName) ?? false
+    /// What the city has published about this route, or nil for nothing.
+    private func published(about route: Route) -> Notice.Kind? {
+        schedule?.published(about: route.shortName)
     }
 }
 
