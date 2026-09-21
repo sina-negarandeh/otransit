@@ -94,7 +94,7 @@ public struct Notice: Sendable, Equatable, Identifiable {
 }
 
 /// One fetch of the updates feed, holding everything that names a route.
-public struct Detours: Sendable, Equatable {
+public struct Updates: Sendable, Equatable {
     public let notices: [Notice]
     /// How many items the feed held, about a route or not.
     ///
@@ -116,7 +116,7 @@ public struct Detours: Sendable, Equatable {
     /// asked identically — no kind for any route, no notices naming one, and
     /// `unreadable` false because nothing was held — so a caller holding this
     /// optional was holding a distinction that does not exist.
-    public static let quiet = Detours(notices: [], items: 0)
+    public static let quiet = Updates(notices: [], items: 0)
 
     public init(notices: [Notice], items: Int) {
         self.notices = notices
@@ -164,7 +164,7 @@ public struct Detours: Sendable, Equatable {
     }
 }
 
-extension Detours {
+extension Updates {
     /// The tag an item needs, spelled as the feed spells it. Matched exactly:
     /// lowering it finds nothing, every week, quietly.
     static let prefix = "affectedRoutes-"
@@ -177,14 +177,14 @@ extension Detours {
     /// refused: the feed carries station notices and cancelled trips too, and
     /// one item this program does not understand must not take the others with
     /// it.
-    public static func read(_ data: Data) throws -> Detours {
+    public static func read(_ data: Data) throws -> Updates {
         let reader = Reader()
         let parser = XMLParser(data: data)
         parser.delegate = reader
         guard parser.parse() else {
             throw Failure.unreadable(parser.parserError?.localizedDescription ?? "not XML")
         }
-        return Detours(notices: reader.notices, items: reader.items)
+        return Updates(notices: reader.notices, items: reader.items)
     }
 
     public enum Failure: Error, CustomStringConvertible {
@@ -303,7 +303,7 @@ private final class Reader: NSObject, XMLParserDelegate {
         if name == "item" {
             inItem = false
             items += 1
-            let routes = Detours.routes(categories)
+            let routes = Updates.routes(categories)
             guard !routes.isEmpty else { return }
             let title = (fields["title"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let guid = (fields["guid"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -318,11 +318,11 @@ private final class Reader: NSObject, XMLParserDelegate {
                     // sharing an id is undefined behaviour for a ForEach. The
                     // position settles it.
                     id: guid.isEmpty ? "\(items):\(title)" : guid,
-                    kind: Detours.kind(categories),
+                    kind: Updates.kind(categories),
                     title: title,
                     routes: routes,
                     link: URL(string: link),
-                    published: Detours.published(fields["pubDate"] ?? "")))
+                    published: Updates.published(fields["pubDate"] ?? "")))
             return
         }
 

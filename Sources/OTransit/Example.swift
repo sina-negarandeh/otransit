@@ -25,14 +25,14 @@ enum Example {
     /// So candidates are ordered by preference and tried in turn, and the first
     /// that still has something due wins.
     static func board(
-        in cache: Cache, updates: Detours, at clock: Clock, mode: Mode = .bus
+        in cache: Cache, updates: Updates, at clock: Clock, mode: Mode = .bus
     ) async throws -> Place? {
         try await boards(in: cache, updates: updates, at: clock, mode: mode, count: 1).first
     }
 
     /// Up to `count` boards worth drawing, each on a different route.
     static func boards(
-        in cache: Cache, updates: Detours, at clock: Clock, mode: Mode = .bus, count: Int
+        in cache: Cache, updates: Updates, at clock: Clock, mode: Mode = .bus, count: Int
     ) async throws -> [Place] {
         let routes = try await cache.routes(mode, on: clock.date)
 

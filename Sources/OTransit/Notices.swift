@@ -19,7 +19,7 @@ final class Notices {
     /// happened answer every question alike — no kind for a route, no notices
     /// naming one, and not `unreadable`, because nothing was held. Spelling
     /// that difference out bought two unwrapping methods and no information.
-    private(set) var published = Detours.quiet
+    private(set) var published = Updates.quiet
 
     /// When to ask the updates feed again.
     ///
@@ -50,7 +50,7 @@ final class Notices {
     ///
     /// What a screen asked for by name uses: the picture must not depend on
     /// what the network does while it is being taken.
-    init(showing published: Detours) {
+    init(showing published: Updates) {
         self.published = published
         self.listening = .silent()
     }
@@ -74,9 +74,9 @@ final class Notices {
 
         let settled = Int(Date.now.timeIntervalSince1970)
         do {
-            published = try await Feed.detours()
+            published = try await Feed.notices()
             listening.answered(at: settled)
-        } catch is Detours.Failure {
+        } catch is Updates.Failure {
             // The feed answered. What it sent was not a feed.
             listening.answered(at: settled)
         } catch {

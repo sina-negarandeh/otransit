@@ -22,7 +22,7 @@
 import OTransitKit
 import SwiftUI
 
-struct DetourRow: View {
+struct NoticeRow: View {
     let notices: [Notice]
     /// Now, for working out how old an alert is.
     let clock: Clock
