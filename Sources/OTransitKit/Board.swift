@@ -88,6 +88,30 @@ public enum Board {
             .map(\.element)
     }
 
+    /// Of the calls at a stop, the ones on this route going this way.
+    ///
+    /// Here because four places want it and each wrote it out: a board, the
+    /// search that finds a board worth photographing, the rows below, and a
+    /// pinned row, which narrows before it stores rather than before it draws.
+    /// Both halves matter. The route alone leaves the opposite direction on the
+    /// board, which at a stop a route serves twice is most of the interesting
+    /// ones.
+    public static func calls(
+        _ departures: [Departure], on route: String, toward headsign: String
+    ) -> [Departure] {
+        departures.filter { $0.route == route && $0.headsign == headsign }
+    }
+
+    /// Those calls, as rows.
+    public static func rows(
+        from departures: [Departure], on route: String, toward headsign: String,
+        live: Realtime?, stop: String, clock: Clock
+    ) -> [Arrival] {
+        rows(
+            from: calls(departures, on: route, toward: headsign),
+            live: live, stop: stop, clock: clock)
+    }
+
     private static func row(
         _ departure: Departure, live: Realtime?, stop: String, clock: Clock
     ) -> Arrival {

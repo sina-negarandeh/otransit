@@ -96,11 +96,8 @@ struct BoardView: View {
     /// the route alone leaves the opposite direction on the board.
     private var today: [Arrival] {
         Board.rows(
-            from: departures.filter {
-                $0.route == route.shortName && $0.headsign == headsign
-            },
-            live: live, stop: stop.id, clock: clock
-        )
+            from: departures, on: route.shortName, toward: headsign,
+            live: live, stop: stop.id, clock: clock)
     }
 
     /// What has not gone yet.
