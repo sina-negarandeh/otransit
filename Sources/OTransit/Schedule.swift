@@ -59,6 +59,19 @@ final class Schedule {
     /// and nothing says why. See Freshness.
     private(set) var freshness: Freshness = .unknown
 
+    /// What the updates feed says today, or nil when nothing has answered.
+    ///
+    /// Route-level only. The feed names stops as well, but it names them in
+    /// prose together with the alternates it tells you to use, and there is no
+    /// safe way to separate "your stop is closed" from "your stop is on the
+    /// detour". So a board says the route has one and shows what was published.
+    private(set) var detours: Detours?
+
+    /// When to ask the updates feed again. A detour is published hours before
+    /// it starts and stands for days, so this is slow.
+    private var listening = Cadence.silent()
+    private static let listenEvery = 30 * 60
+
     /// When to ask that question again. The same model the realtime poller
     /// uses, on the same clock — this was four fields and two constants here,
     /// in Dates while the poller counted seconds since 1970.
@@ -87,6 +100,7 @@ final class Schedule {
         state = Self.opened()
         key = Key.read()
         asking = .every(Self.askEvery, backingOffFrom: Self.retryEvery, from: clock.epoch)
+        listening = .every(Self.listenEvery, backingOffFrom: Self.retryEvery, from: clock.epoch)
     }
 
     /// A schedule stopped in one state, for looking at.
@@ -99,10 +113,14 @@ final class Schedule {
     /// asked to show a stale schedule would otherwise check the real server a
     /// moment after it appeared and redraw itself as whatever today happens to
     /// be, which is the one thing a state asked for by name must not do.
-    init(showing state: State, freshness: Freshness = .unknown, key: String? = nil) {
+    init(
+        showing state: State, freshness: Freshness = .unknown, key: String? = nil,
+        detours: Detours? = nil
+    ) {
         self.state = state
         self.freshness = freshness
         self.key = key
+        self.detours = detours
     }
 
     /// Opens the cache if there is one, and says what that left the app as.
@@ -232,6 +250,30 @@ final class Schedule {
         clock = Clock(at: .now)
     }
 
+    /// Whether the city has published anything about this route.
+    ///
+    /// Asked here and not through two optionals at each call site. A view has
+    /// no business knowing that "no schedule" and "nothing fetched yet" are
+    /// different shapes of nothing: both mean no detour.
+    func detoured(_ route: String) -> Bool { detours?.names(route) ?? false }
+
+    /// What it published about this route, which is nothing where it published
+    /// nothing.
+    func notices(for route: String) -> [Notice] { detours?.naming(route) ?? [] }
+
+    /// Asks the updates feed what it has published.
+    ///
+    /// Failure is silence. A board without its detour is still a board, and a
+    /// row saying the notices could not be fetched would spend the space this
+    /// screen has on the program talking about itself.
+    func updates() async {
+        guard listening.owed(at: clock.epoch) else { return }
+
+        let found = try? await Feed.detours()
+        if let found { detours = found }
+        listening.settled(answered: found != nil, at: Int(Date.now.timeIntervalSince1970))
+    }
+
     /// Asks whether the cache is still the published export.
     ///
     /// One HEAD, and only when there is a cache to be stale: a first run is
@@ -252,8 +294,7 @@ final class Schedule {
         let published = try? await Feed.published()
         // Timed from the answer and not from the asking, so a check that failed
         // does not buy the same quarter of an hour of silence a good one does.
-        let settled = Int(Date.now.timeIntervalSince1970)
-        if published == nil { asking.refused(at: settled) } else { asking.answered(at: settled) }
+        asking.settled(answered: published != nil, at: Int(Date.now.timeIntervalSince1970))
         freshness = .compare(cached: held, against: published, built: built)
     }
 }
