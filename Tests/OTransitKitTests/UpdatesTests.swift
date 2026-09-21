@@ -11,7 +11,7 @@ import Testing
 
 @testable import OTransitKit
 
-@Suite("Detours")
+@Suite("Updates")
 struct UpdatesTests {
     /// Five items, all of which are in the feed today.
     private let feed = """
@@ -57,8 +57,8 @@ struct UpdatesTests {
         </channel></rss>
         """
 
-    private func read() throws -> Detours {
-        try Detours.read(Data(feed.utf8))
+    private func read() throws -> Updates {
+        try Updates.read(Data(feed.utf8))
     }
 
     @Test("an item is kept when it names a route, and for no other reason")
@@ -109,12 +109,12 @@ struct UpdatesTests {
                 <category>General Message</category><category>affectedRoutes-5</category></item>
             </channel></rss>
             """
-        let found = try Detours.read(Data(both.utf8))
+        let found = try Updates.read(Data(both.utf8))
         // A limitation is happening now and the roadwork has been running
         // since spring, so the alert is the one mark a route list can show.
         #expect(found.kind(of: "5") == .alert)
         // Order does not decide it.
-        let swapped = try Detours.read(
+        let swapped = try Updates.read(
             Data(both.replacingOccurrences(of: "Detour: Somewhere", with: "Z").utf8))
         #expect(swapped.kind(of: "5") == .alert)
         // And the board shows both, the alert first.
@@ -139,7 +139,7 @@ struct UpdatesTests {
                 <category>General Message</category><category>affectedRoutes-5</category></item>
             </channel></rss>
             """
-        let found = try Detours.read(Data(two.utf8))
+        let found = try Updates.read(Data(two.utf8))
         #expect(
             found.naming("5").map(\.title) == ["Route 5 Alert", "Detour: First", "Detour: Second"])
     }
@@ -243,7 +243,7 @@ struct UpdatesTests {
         let renamed =
             feed
             .replacingOccurrences(of: "affectedRoutes-", with: "routesAffected-")
-        let found = try Detours.read(Data(renamed.utf8))
+        let found = try Updates.read(Data(renamed.utf8))
 
         #expect(found.notices.isEmpty)
         #expect(found.items == 5)
@@ -252,7 +252,7 @@ struct UpdatesTests {
         #expect(found.unreadable)
 
         // And a feed that really is quiet is not reported as broken.
-        let quiet = try Detours.read(
+        let quiet = try Updates.read(
             Data(
                 "<?xml version=\"1.0\"?><rss><channel></channel></rss>".utf8))
         #expect(quiet.items == 0)
@@ -269,7 +269,7 @@ struct UpdatesTests {
             feed
             .replacingOccurrences(
                 of: "<category>Detours</category>", with: "<category>Detour</category>")
-        let found = try Detours.read(Data(renamed.utf8))
+        let found = try Updates.read(Data(renamed.utf8))
 
         #expect(found.notices.count == 3)
         #expect(!found.unreadable)
@@ -300,7 +300,7 @@ struct UpdatesTests {
         let wrapped = feed.replacingOccurrences(
             of: "<title>DETOUR: Route N39 Rideau near Belfast</title>",
             with: "<title><![CDATA[DETOUR: Route N39 Rideau near Belfast]]></title>")
-        let found = try Detours.read(Data(wrapped.utf8))
+        let found = try Updates.read(Data(wrapped.utf8))
         #expect(found.naming("39").first?.title == "DETOUR: Route N39 Rideau near Belfast")
     }
 
@@ -316,15 +316,15 @@ struct UpdatesTests {
                 <category>Detours</category><category>affectedRoutes-5</category></item>
             </channel></rss>
             """
-        let found = try Detours.read(Data(twins.utf8))
+        let found = try Updates.read(Data(twins.utf8))
         #expect(found.notices.count == 2)
         #expect(found.notices[0].id != found.notices[1].id)
     }
 
     @Test("a feed that is not a feed is refused rather than read as empty")
     func refuses() {
-        #expect(throws: Detours.Failure.self) {
-            try Detours.read(Data("not xml at all <<<".utf8))
+        #expect(throws: Updates.Failure.self) {
+            try Updates.read(Data("not xml at all <<<".utf8))
         }
     }
 }

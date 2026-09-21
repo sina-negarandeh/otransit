@@ -36,12 +36,12 @@ enum Screens {
     /// `make shots` draws twenty screens in a few seconds and two of them want
     /// this. Without the hold it fetched the same 78 KB twice.
     private static var asked = false
-    private static var published = Detours.quiet
+    private static var published = Updates.quiet
 
-    private static func notices() async -> Detours {
+    private static func notices() async -> Updates {
         if asked { return published }
         asked = true
-        published = (try? await Feed.detours()) ?? .quiet
+        published = (try? await Feed.notices()) ?? .quiet
         return published
     }
 
@@ -211,7 +211,7 @@ enum Screens {
     private static func popover(
         _ place: Place, in cache: Cache, at clock: Clock,
         live: Realtime? = nil, hearing: Hearing = .none,
-        model: Schedule, published: Detours
+        model: Schedule, published: Updates
     ) -> AnyView {
         AnyView(
             chrome {

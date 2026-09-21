@@ -17,14 +17,14 @@ enum Headless {
 
     static var verb: String? {
         let words = CommandLine.arguments.dropFirst()
-        return ["update", "realtime", "detours", "shot"].first { words.contains($0) }
+        return ["update", "realtime", "updates", "shot"].first { words.contains($0) }
     }
 
     static func run() async -> Int32 {
         switch verb {
         case "update": await update()
         case "realtime": await realtime()
-        case "detours": await detours()
+        case "updates": await updates()
         case "shot": await shot()
         default: 0
         }
@@ -52,24 +52,31 @@ enum Headless {
         }
     }
 
-    /// `otransit detours` — one fetch of the updates feed, counted.
+    /// `otransit updates` — one fetch of the updates feed, counted.
     ///
-    /// The feed is a content system that emits RSS, where an item tagged
-    /// `Detours` carrying `affectedRoutes-` is that system's convention and not
-    /// a contract. If either spelling changes, every item still parses, nothing
-    /// matches, and every screen shows no detour, which looks exactly like a
-    /// quiet week. This is what tells those apart: it counts what the feed held
-    /// against what this program understood, and refuses when the second is
-    /// zero and the first is not.
-    static func detours() async -> Int32 {
+    /// The feed is a content system that emits RSS, where a category beginning
+    /// `affectedRoutes-` is that system's convention and not a contract. If
+    /// that spelling changes, every item still parses, nothing matches, and
+    /// every screen shows nothing, which looks exactly like a quiet week. This
+    /// is what tells those apart: it counts what the feed held against what
+    /// this program understood, and refuses when the second is zero and the
+    /// first is not.
+    ///
+    /// The two kinds are counted apart, because that is the number that says
+    /// whether the heading the feed files an item under still means anything.
+    static func updates() async -> Int32 {
         do {
-            let found = try await Feed.detours()
+            let found = try await Feed.notices()
+            let alerts = found.notices.filter { $0.kind == .alert }.count
             say(
-                "\(found.items) items, \(found.notices.count) detours, \(found.affected.count) routes"
+                "\(Format.count(found.items, "item")), "
+                    + "\(Format.count(found.notices.count - alerts, "detour")), "
+                    + "\(Format.count(alerts, "alert")), "
+                    + "\(Format.count(found.affected.count, "route"))"
             )
             if found.unreadable {
                 say("the feed held items and this program understood none of them")
-                say("check the Detours and affectedRoutes- tags in \(Feed.updates)")
+                say("check the affectedRoutes- tag in \(Feed.updates)")
                 return 1
             }
             return 0
