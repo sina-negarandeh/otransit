@@ -1,11 +1,26 @@
 // What OC Transpo has published about a route, and which routes it names.
 //
 // This is the weakest of the three sources this program reads. The other two
-// are specified formats. This one is a content system that emits RSS, where an
-// item tagged `Detours` carrying a category that begins `affectedRoutes-` is
-// that system's convention and not a contract. If either spelling changes,
-// every screen shows no detour, which looks exactly like a week without one.
-// `items` is how a caller tells those apart: it counts what the feed held.
+// are specified formats. This one is a content system that emits RSS, where a
+// category beginning `affectedRoutes-` is that system's convention and not a
+// contract. If that spelling changes, every screen shows nothing, which looks
+// exactly like a week without news. `items` is how a caller tells those apart:
+// it counts what the feed held.
+//
+// An item is kept when it names a route, and for no other reason. The feed
+// also files each item under `Detours` or `General Message`, and that heading
+// used to be half the test. It was doing nothing: every item filed under
+// `Detours` names routes, and of those filed under `General Message` the only
+// ones that name a route are the ones worth reading. What the heading cost was
+// the live rail alerts, which the operator files as general messages — "Line 1:
+// service is operating on the eastbound platforms only at Tremblay station" is
+// not a reroute, and was being dropped for not being one.
+//
+// The heading is kept for what it is good for, which is saying which of the
+// two an item is: a bus sent around a closure, or a route running under a
+// limitation. It picks the mark drawn beside the words. It is not always right
+// — a stop relocation is filed under `Detours` often as not — and being wrong
+// about a mark costs a glance, where being wrong about a gate cost the alert.
 //
 // Two things the feed gets wrong, which shape what is drawn:
 //
@@ -22,7 +37,22 @@ import Foundation
 
 /// One published notice, and the routes it names.
 public struct Notice: Sendable, Equatable, Identifiable {
+    /// Which of the two sorts of news this is.
+    ///
+    /// Read off the heading the feed files an item under, which is the only
+    /// structured field that says anything about it. A detour sends a route
+    /// somewhere else; an alert says a route is running under a limitation
+    /// where it is. They are drawn as different marks and not as different
+    /// colours: orange already means "the operator has published something
+    /// about this route", and one mark meaning one thing should not be two
+    /// colours.
+    public enum Kind: Sendable, Equatable {
+        case detour
+        case alert
+    }
+
     public let id: String
+    public let kind: Kind
     /// As published, including the prefix the feed happens to use that day:
     /// `DETOUR:`, `Detour:`, `Detour extended:`, `[Updated`. Not tidied. The
     /// prefix is eight characters and the wording is sometimes the only thing
@@ -52,9 +82,10 @@ public struct Notice: Sendable, Equatable, Identifiable {
     }
 
     public init(
-        id: String, title: String, routes: [String], link: URL?, published: Date?
+        id: String, kind: Kind, title: String, routes: [String], link: URL?, published: Date?
     ) {
         self.id = id
+        self.kind = kind
         self.title = title
         self.routes = routes
         self.link = link
@@ -62,61 +93,90 @@ public struct Notice: Sendable, Equatable, Identifiable {
     }
 }
 
-/// One fetch of the updates feed, holding only the detours.
+/// One fetch of the updates feed, holding everything that names a route.
 public struct Detours: Sendable, Equatable {
     public let notices: [Notice]
-    /// How many items the feed held, detour or not.
+    /// How many items the feed held, about a route or not.
     ///
     /// A feed that parsed and held nothing this program understands is a
-    /// different thing from a week with no detours, and only this tells them
-    /// apart.
+    /// different thing from a quiet week, and only this tells them apart.
     public let items: Int
 
-    /// Every route any notice names.
+    /// What each route named has, and the worse of the two where it has both.
     ///
     /// Built once here rather than filtered per row. The route list asks this
     /// of 176 routes on every pass, and `naming` allocates an array to answer
     /// each one.
-    public let affected: Set<String>
+    public let affected: [String: Notice.Kind]
+
+    /// A fetch with nothing to say.
+    ///
+    /// Which is also what "nothing has been asked yet" looks like, and that is
+    /// the point of it. The two states answer every question this type is
+    /// asked identically — no kind for any route, no notices naming one, and
+    /// `unreadable` false because nothing was held — so a caller holding this
+    /// optional was holding a distinction that does not exist.
+    public static let quiet = Detours(notices: [], items: 0)
 
     public init(notices: [Notice], items: Int) {
         self.notices = notices
         self.items = items
-        self.affected = Set(notices.flatMap(\.routes))
+        var worst: [String: Notice.Kind] = [:]
+        for notice in notices {
+            for route in notice.routes where worst[route] != .alert {
+                worst[route] = notice.kind
+            }
+        }
+        self.affected = worst
     }
 
+    /// What this route has, or nil where nothing names it.
+    ///
+    /// An alert where it has one, whatever else it has. A route can carry both,
+    /// and where one mark has to stand for the pair it is the alert: a
+    /// limitation is happening now and roadwork has been running since spring.
+    public func kind(of route: String) -> Notice.Kind? { affected[route] }
+
     /// Whether anything names this route.
-    public func names(_ route: String) -> Bool { affected.contains(route) }
+    public func names(_ route: String) -> Bool { affected[route] != nil }
 
     /// Whether the feed held items and this program understood none of them.
     ///
-    /// The shape this guards against: the content system renames `Detours` or
-    /// `affectedRoutes-`, every item still parses, and every screen shows no
-    /// detour. That looks exactly like a quiet week. `otransit detours` reports
-    /// this, so a change of shape appears as a number rather than as silence.
+    /// The shape this guards against: the content system renames
+    /// `affectedRoutes-`, every item still parses, and every screen shows
+    /// nothing. That looks exactly like a quiet week. `otransit updates`
+    /// reports this, so a change of shape appears as a number rather than as
+    /// silence.
     public var unreadable: Bool { items > 0 && notices.isEmpty }
 
-    /// Every notice naming this route.
+    /// Every notice naming this route, the alerts first.
     ///
     /// All of them, not the first. Eleven routes carry two today and one
     /// carries three, and a screen that showed only the first would say a route
-    /// has one detour on a day it has three.
+    /// has one notice on a day it has three. Sorted so the live limitation is
+    /// read before the roadwork, and stably, so two of a kind keep the order
+    /// the feed published them in.
     ///
     /// Matched exactly. A list holding `4` says nothing about `44`.
     public func naming(_ route: String) -> [Notice] {
-        notices.filter { $0.routes.contains(route) }
+        let mine = notices.filter { $0.routes.contains(route) }
+        return mine.filter { $0.kind == .alert } + mine.filter { $0.kind != .alert }
     }
 }
 
 extension Detours {
-    /// The two tags an item needs, spelled as the feed spells them. Both are
-    /// matched exactly: lowering either one finds nothing, every week, quietly.
-    static let kind = "Detours"
+    /// The tag an item needs, spelled as the feed spells it. Matched exactly:
+    /// lowering it finds nothing, every week, quietly.
     static let prefix = "affectedRoutes-"
 
-    /// Reads the feed. An item that is not a detour is skipped rather than
-    /// refused: the feed carries general messages and stop notices too, and one
-    /// item this program does not understand must not take the others with it.
+    /// The heading that means a route was sent somewhere else. Anything else,
+    /// including no heading at all, is a route running under a limitation.
+    static let detour = "Detours"
+
+    /// Reads the feed. An item that names no route is skipped rather than
+    /// refused: the feed carries station notices and cancelled trips too, and
+    /// one item this program does not understand must not take the others with
+    /// it.
     public static func read(_ data: Data) throws -> Detours {
         let reader = Reader()
         let parser = XMLParser(data: data)
@@ -137,24 +197,40 @@ extension Detours {
         }
     }
 
-    /// The routes an item is about, and whether it is a detour at all.
-    static func affected(_ categories: [String]) -> [String]? {
+    /// The routes an item is about, as the feed spells them.
+    ///
+    /// Empty where it is about no route, which is what keeps station notices
+    /// and cancelled trips out: a washroom closure carries the category with
+    /// nothing after it, and a cancelled trip carries no categories at all.
+    ///
+    /// Not `affected`, which is the property above holding every route this
+    /// whole fetch touches. One name for the routes of one item and the routes
+    /// of all of them is one name too few.
+    static func routes(_ categories: [String]) -> [String] {
         var routes: [String] = []
-        var tagged = false
-        for category in categories {
-            if category == kind {
-                tagged = true
-                continue
-            }
-            guard category.hasPrefix(prefix) else { continue }
+        for category in categories where category.hasPrefix(prefix) {
             // Trimmed, because the feed writes the list for a person to read:
             // `affectedRoutes-19, 42, 44, 48`.
+            //
+            // And cut at the first space. Rail is written `1 O-Train` where a
+            // bus is written `1`, and no route in the timetable has a space in
+            // its name, so the first word is the name and the rest is the feed
+            // being helpful.
             routes += category.dropFirst(prefix.count)
                 .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
+                .compactMap { $0.split(whereSeparator: \.isWhitespace).first.map(String.init) }
         }
-        return tagged && !routes.isEmpty ? routes : nil
+        return routes
+    }
+
+    /// Which of the two sorts of news an item is.
+    ///
+    /// A heading this does not know reads as an alert rather than as a detour.
+    /// The mark for an alert says "there is something to read here", which is
+    /// true of anything the feed publishes; the mark for a detour says the
+    /// route goes somewhere else, which is a claim.
+    static func kind(_ categories: [String]) -> Notice.Kind {
+        categories.contains(detour) ? .detour : .alert
     }
 
     /// The date an item carries, which RSS writes one fixed way.
@@ -227,7 +303,8 @@ private final class Reader: NSObject, XMLParserDelegate {
         if name == "item" {
             inItem = false
             items += 1
-            guard let routes = Detours.affected(categories) else { return }
+            let routes = Detours.routes(categories)
+            guard !routes.isEmpty else { return }
             let title = (fields["title"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let guid = (fields["guid"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let link = (fields["link"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -241,6 +318,7 @@ private final class Reader: NSObject, XMLParserDelegate {
                     // sharing an id is undefined behaviour for a ForEach. The
                     // position settles it.
                     id: guid.isEmpty ? "\(items):\(title)" : guid,
+                    kind: Detours.kind(categories),
                     title: title,
                     routes: routes,
                     link: URL(string: link),
