@@ -18,35 +18,52 @@ struct BoardView: View {
     let headsign: String
     let live: Realtime?
 
+    /// Absent in a preview, which draws this screen without a running app.
+    @Environment(Schedule.self) private var schedule: Schedule?
+
     @State private var departures: [Departure] = []
     @State private var failure: String?
+
+    /// What the city has published about this route, if anything.
+    private var notices: [Notice] { schedule?.notices(for: route.shortName) ?? [] }
 
     var body: some View {
         // The one screen that keeps its own loading state. Its emptiness is
         // not the query's — the day's calls are all there and every one of
         // them has gone — so it is derived per render rather than asked for,
         // which is the one thing Query cannot do for it.
-        Outcome(
-            rows: rows, failure: failure,
-            vacancy: Vacancy(title: "Nothing more today", note: gone)
-        ) {
-            VStack(spacing: 0) {
-                Heading()
-                ScrollView {
-                    // Every remaining trip of the day, not the next dozen. The
-                    // board mostly answers "do I need to leave now", which the
-                    // first two rows do — but the last trip is a question too,
-                    // and a list that stops at twelve cannot answer it. Lazy
-                    // because a frequent route at a Transitway stop runs nearly
-                    // nine hundred times between five in the morning and one at
-                    // night, and none of those rows is worth building until it
-                    // is looked at.
-                    LazyVStack(spacing: 0) {
-                        ForEach(rows) { arrival in
-                            Line(arrival: arrival, minutes: Format.minutes(arrival.at - clock.now))
+        // Outside the outcome, not inside it.
+        //
+        // The notice is about the route and not about the rows, so a board with
+        // nothing left today still has one. Inside, it disappeared exactly when
+        // the board was emptiest, which is when someone is working out tomorrow.
+        VStack(spacing: 0) {
+            DetourRow(notices: notices)
+
+            Outcome(
+                rows: rows, failure: failure,
+                vacancy: Vacancy(title: "Nothing more today", note: gone)
+            ) {
+                VStack(spacing: 0) {
+                    Heading()
+                    ScrollView {
+                        // Every remaining trip of the day, not the next dozen. The
+                        // board mostly answers "do I need to leave now", which the
+                        // first two rows do — but the last trip is a question too,
+                        // and a list that stops at twelve cannot answer it. Lazy
+                        // because a frequent route at a Transitway stop runs nearly
+                        // nine hundred times between five in the morning and one at
+                        // night, and none of those rows is worth building until it
+                        // is looked at.
+                        LazyVStack(spacing: 0) {
+                            ForEach(rows) { arrival in
+                                Line(
+                                    arrival: arrival,
+                                    minutes: Format.minutes(arrival.at - clock.now))
+                            }
                         }
+                        .padding(.bottom, 5)
                     }
-                    .padding(.bottom, 5)
                 }
             }
         }

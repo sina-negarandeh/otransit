@@ -57,6 +57,15 @@ public struct Cadence: Sendable {
         due = now + every
     }
 
+    /// Records what an attempt came back with, at the moment it settled.
+    ///
+    /// Both callers timed this from the answer rather than from the asking and
+    /// both wrote the same four lines to do it. A check that failed must not
+    /// buy the silence a good one does.
+    public mutating func settled(answered: Bool, at now: Int) {
+        if answered { self.answered(at: now) } else { refused(at: now) }
+    }
+
     /// Records a refusal. The next attempt backs off, and each refusal after
     /// the first doubles the wait.
     public mutating func refused(at now: Int) {

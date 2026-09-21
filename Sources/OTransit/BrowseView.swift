@@ -244,6 +244,9 @@ private struct RouteList: View {
     let mode: Mode
     let pick: (Route) -> Void
 
+    /// Absent in a preview, which draws this screen without a running app.
+    @Environment(Schedule.self) private var schedule: Schedule?
+
     @State private var sections = Sections()
 
     var body: some View {
@@ -278,6 +281,22 @@ private struct RouteList: View {
                                 Badge(
                                     route.shortName, colour: route.colour,
                                     service: route.service(in: mode))
+                            } mark: {
+                                // Beside the name, so a detour is visible from
+                                // the route list rather than four screens in.
+                                if detoured(route) {
+                                    Image(
+                                        systemName:
+                                            "arrow.triangle.turn.up.right.diamond.fill"
+                                    )
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.orange)
+                                    .help("OC Transpo has published a detour for this route")
+                                    // A tooltip is not a label. Without this a
+                                    // screen reader hears the route and its
+                                    // ends, and nothing about the detour.
+                                    .accessibilityLabel("Has a detour")
+                                }
                             }
                             // 29 of the 158 routes with two ends are wider than
                             // the 226 points a row gives their name, and the
@@ -292,6 +311,11 @@ private struct RouteList: View {
                 }
             }
         }
+    }
+
+    /// Whether the city has published anything about this route.
+    private func detoured(_ route: Route) -> Bool {
+        schedule?.detoured(route.shortName) ?? false
     }
 }
 

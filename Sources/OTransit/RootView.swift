@@ -34,6 +34,9 @@ struct RootView: View {
         .onAppear { schedule.tick() }
         .environment(schedule)
         .task { await schedule.check() }
+        // What the city has published about a route. Its own task, because it
+        // is a different question on a different clock.
+        .task { await schedule.updates() }
         // Moves the clock. Runs whether or not anything is being polled.
         .task { await schedule.keepTime() }
         // Restarted when the key changes, because the key is what it is for.
